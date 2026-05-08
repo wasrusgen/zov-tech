@@ -1,3 +1,4 @@
+# Deploys miniapp/ to GitHub Pages on push to master.
 name: Deploy MiniApp to GitHub Pages
 
 on:
