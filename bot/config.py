@@ -38,11 +38,12 @@ def load_config() -> Config:
     return Config(
         bot_token=_required("BOT_TOKEN"),
         admin_tg_id=int(_required("ADMIN_TG_ID")),
-        anthropic_api_key=_required("ANTHROPIC_API_KEY"),
+        # Опциональны на MVP-этапе. Сервисы, которые их используют, проверят сами при инициализации.
+        anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", ""),
         anthropic_model=os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"),
-        sheet_id=_required("SHEET_ID"),
+        sheet_id=os.getenv("SHEET_ID", ""),
         google_credentials_path=os.getenv("GOOGLE_CREDENTIALS_PATH", "./credentials.json"),
-        miniapp_url=_required("MINIAPP_URL"),
+        miniapp_url=os.getenv("MINIAPP_URL", "https://example.github.io/zov-tech/"),
         webhook_url=os.getenv("WEBHOOK_URL", ""),
         webhook_host=os.getenv("WEBHOOK_HOST", "0.0.0.0"),
         webhook_port=int(os.getenv("WEBHOOK_PORT", "8080")),
