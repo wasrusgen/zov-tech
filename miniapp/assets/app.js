@@ -1,24 +1,51 @@
-// ЗОВ MiniApp — главный скрипт
+// ЗОВ MiniApp — главный скрипт.
 // На входе: подписанный initData от Telegram.
 // Ходим на backend → получаем профиль (роль, статус) → рендерим меню.
 
 const tg = window.Telegram?.WebApp;
-const BACKEND_URL = ""; // TODO: заполнить URL Apps Script Web App
+const BACKEND_URL = ""; // TODO: заполнить URL Apps Script Web App после Шага 4
 
 const app = document.getElementById("app");
 
+/* ----------------- Telegram WebApp setup ----------------- */
+function setupTelegram() {
+  if (!tg) return;
+  try {
+    tg.ready();
+    tg.expand();
+    if (tg.setHeaderColor) tg.setHeaderColor("#003E7E");
+    if (tg.setBackgroundColor) tg.setBackgroundColor("#F4F4F5");
+    if (tg.enableClosingConfirmation) tg.enableClosingConfirmation();
+  } catch (e) { console.warn(e); }
+}
+
+function haptic(type = "selection") {
+  try {
+    if (!tg?.HapticFeedback) return;
+    if (type === "impact") tg.HapticFeedback.impactOccurred("light");
+    else if (type === "success") tg.HapticFeedback.notificationOccurred("success");
+    else tg.HapticFeedback.selectionChanged();
+  } catch (e) {}
+}
+
+/* ----------------- Data ----------------- */
 async function fetchMe() {
   if (!BACKEND_URL) {
-    // dev-режим без backend — для локального просмотра вёрстки
+    // dev-режим без backend — мок для просмотра вёрстки
     return {
       role: "manager",
-      user: { full_name: "Тест Менеджер", salon: "ЗОВ Москва" },
+      user: {
+        full_name: "Руслан Васильев",
+        salon: "ЗОВ Москва",
+        avatar_initial: "Р",
+      },
       status: "active",
-      status_until: "2026-08-12",
+      status_until: "12.08.2026",
     };
   }
   const res = await fetch(`${BACKEND_URL}/api/me`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       initData: tg?.initData || "",
       startParam: tg?.initDataUnsafe?.start_param || null,
@@ -27,92 +54,172 @@ async function fetchMe() {
   return res.json();
 }
 
-function renderManager(me) {
-  const status = me.status || "active";
-  app.innerHTML = `
-    <div class="header">
-      <h1>Кабинет менеджера</h1>
-      <div class="subtitle">
-        ${me.user.full_name} · ${me.user.salon || ""}
-        <span class="status-badge ${status}">${statusLabel(status)}</span>
-      </div>
-    </div>
-    <nav class="menu">
-      <a class="menu-item" href="#/m/podbor">
-        <span class="icon">🔧</span>
-        <span class="label">Подбор техники для клиента</span>
-        <span class="arrow">›</span>
-      </a>
-      <a class="menu-item" href="#/m/measurements">
-        <span class="icon">📐</span>
-        <span class="label">Замеры</span>
-        <span class="arrow">›</span>
-      </a>
-      <div class="menu-item disabled">
-        <span class="icon">📋</span>
-        <span class="label">Заявки клиентов <small>(скоро)</small></span>
-      </div>
-      <div class="menu-item disabled">
-        <span class="icon">💼</span>
-        <span class="label">Сделки <small>(скоро)</small></span>
-      </div>
-      <a class="menu-item" href="#/m/status">
-        <span class="icon">💰</span>
-        <span class="label">Мой статус и доступ</span>
-        <span class="arrow">›</span>
-      </a>
-    </nav>
-  `;
-}
-
-function renderClient(me) {
-  app.innerHTML = `
-    <div class="header">
-      <h1>Кабинет клиента</h1>
-      <div class="subtitle">
-        ${me.user.full_name || "Здравствуйте!"}
-        ${me.manager ? `<br>Менеджер: ${me.manager.full_name}, ${me.manager.salon || ""}` : ""}
-      </div>
-    </div>
-    <nav class="menu">
-      <a class="menu-item" href="#/c/measure">
-        <span class="icon">📐</span>
-        <span class="label">Замер кухни</span>
-        <span class="arrow">›</span>
-      </a>
-      <div class="menu-item disabled">
-        <span class="icon">🔧</span>
-        <span class="label">Подобрать технику <small>(скоро)</small></span>
-      </div>
-      <div class="menu-item disabled">
-        <span class="icon">💡</span>
-        <span class="label">Идеи и кейсы <small>(скоро)</small></span>
-      </div>
-      <a class="menu-item" href="#/c/contact">
-        <span class="icon">📞</span>
-        <span class="label">Связаться с менеджером</span>
-        <span class="arrow">›</span>
-      </a>
-    </nav>
-  `;
+/* ----------------- Helpers ----------------- */
+function el(html) {
+  const t = document.createElement("template");
+  t.innerHTML = html.trim();
+  return t.content.firstChild;
 }
 
 function statusLabel(s) {
-  return { active: "🟢 active", lapsed: "🔴 lapsed", grace: "🟡 grace" }[s] || s;
+  return ({
+    active: "Доступ открыт",
+    lapsed: "Доступ ограничен",
+    grace:  "Грейс-период",
+  })[s] || s;
 }
 
+function getInitial(name) {
+  return (name || "").trim().slice(0, 1).toUpperCase() || "?";
+}
+
+/* ----------------- Renders ----------------- */
+function renderManager(me) {
+  const status = me.status || "active";
+  const statusUntil = me.status_until ? `до ${me.status_until}` : "";
+  const initial = me.user?.avatar_initial || getInitial(me.user?.full_name);
+
+  app.innerHTML = "";
+
+  app.appendChild(el(`
+    <header class="profile-card">
+      <div class="avatar">${initial}</div>
+      <div class="info">
+        <div class="role-tag">Менеджер</div>
+        <div class="name">${me.user?.full_name || ""}</div>
+        <div class="meta">${me.user?.salon || ""}</div>
+        <span class="status-row">
+          <span class="status-dot ${status}"></span>
+          <span>${statusLabel(status)}${statusUntil ? " · " + statusUntil : ""}</span>
+        </span>
+      </div>
+    </header>
+  `));
+
+  const sections = [
+    {
+      label: "Работа с клиентами",
+      items: [
+        { icon: "wrench",    color: "green", label: "Подбор техники для клиента", href: "#/m/podbor" },
+        { icon: "ruler",     color: "blue",  label: "Замеры",                     href: "#/m/measurements" },
+        { icon: "clipboard", color: "gold",  label: "Заявки клиентов", soon: true },
+        { icon: "briefcase", color: "gray",  label: "Сделки",          soon: true },
+      ],
+    },
+    {
+      label: "Аккаунт",
+      items: [
+        { icon: "wallet", color: "gold", label: "Мой статус и доступ", href: "#/m/status" },
+        { icon: "help",   color: "blue", label: "Связь с куратором",   href: "#/m/help"   },
+      ],
+    },
+  ];
+
+  sections.forEach(section => {
+    app.appendChild(el(`<div class="section-label">${section.label}</div>`));
+    app.appendChild(buildMenu(section.items));
+  });
+
+  app.appendChild(el(`
+    <div class="footer-hint">
+      Куратор партнёрской сети — Руслан Васильев<br>
+      <a href="https://t.me/wasrusgen">@wasrusgen</a>
+    </div>
+  `));
+}
+
+function renderClient(me) {
+  const initial = me.user?.avatar_initial || getInitial(me.user?.full_name) || "?";
+  const greetName = me.user?.full_name || "Здравствуйте";
+
+  app.innerHTML = "";
+
+  app.appendChild(el(`
+    <header class="profile-card">
+      <div class="avatar">${initial}</div>
+      <div class="info">
+        <div class="role-tag">Клиент</div>
+        <div class="name">${greetName}</div>
+        <div class="meta">${me.manager ? "Менеджер: " + me.manager.full_name + (me.manager.salon ? ", " + me.manager.salon : "") : "ЗОВ — кухонная мебель"}</div>
+      </div>
+    </header>
+  `));
+
+  const sections = [
+    {
+      label: "Подобрать кухню",
+      items: [
+        { icon: "ruler",     color: "blue",  label: "Замер кухни",         href: "#/c/measure"  },
+        { icon: "wrench",    color: "green", label: "Подобрать технику",   soon: true },
+        { icon: "wallet",    color: "gold",  label: "Калькулятор бюджета", soon: true },
+      ],
+    },
+    {
+      label: "Помощь",
+      items: [
+        { icon: "lightbulb", color: "gold",  label: "Идеи и кейсы",        soon: true },
+        { icon: "phone",     color: "blue",  label: "Связаться с менеджером", href: "#/c/contact" },
+        { icon: "pin",       color: "green", label: "Записаться в салон",  soon: true },
+      ],
+    },
+  ];
+
+  sections.forEach(section => {
+    app.appendChild(el(`<div class="section-label">${section.label}</div>`));
+    app.appendChild(buildMenu(section.items));
+  });
+
+  app.appendChild(el(`
+    <div class="footer-hint">
+      Фабрика кухонной мебели <strong>ЗОВ</strong><br>
+      <a href="https://t.me/wasrusgen1">канал @wasrusgen1</a>
+    </div>
+  `));
+}
+
+function buildMenu(items) {
+  const menu = el(`<nav class="menu"></nav>`);
+  items.forEach(item => {
+    const cls = item.soon ? "menu-item disabled" : "menu-item";
+    const node = el(`
+      <a class="${cls}" ${item.href && !item.soon ? `href="${item.href}"` : ""}>
+        <div class="icon ${item.color}">${ICONS[item.icon] || ""}</div>
+        <div class="text">
+          <div class="label">
+            ${item.label}
+            ${item.soon ? '<span class="badge">скоро</span>' : ""}
+          </div>
+          ${item.sub ? `<div class="sub">${item.sub}</div>` : ""}
+        </div>
+        ${item.soon ? "" : `<div class="chevron">${ICONS.chevron}</div>`}
+      </a>
+    `);
+    if (!item.soon) node.addEventListener("click", () => haptic("impact"));
+    menu.appendChild(node);
+  });
+  return menu;
+}
+
+function renderError() {
+  app.innerHTML = "";
+  app.appendChild(el(`
+    <div class="error">
+      <h3>Не удалось загрузить кабинет</h3>
+      <div>Проверьте подключение и попробуйте позже.</div>
+    </div>
+  `));
+}
+
+/* ----------------- Init ----------------- */
 async function init() {
-  if (tg) {
-    tg.ready();
-    tg.expand();
-  }
+  setupTelegram();
   try {
     const me = await fetchMe();
     if (me.role === "manager") renderManager(me);
     else renderClient(me);
   } catch (e) {
-    app.innerHTML = `<div class="loader">Ошибка загрузки. Попробуйте позже.</div>`;
     console.error(e);
+    renderError();
   }
 }
 
