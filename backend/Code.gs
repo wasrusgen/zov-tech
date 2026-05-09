@@ -29,10 +29,14 @@ function doPost(e) {
 
     let result;
     switch (path) {
-      case "me":          result = handleMe(body); break;
-      case "measurement": result = handleMeasurement(body); break;
-      case "podbor":      result = handlePodbor(body); break;
-      case "ping":        result = { pong: true, time: new Date().toISOString() }; break;
+      case "me":            result = handleMe(body); break;
+      case "measurement":   result = handleMeasurement(body); break;
+      case "podbor":        result = handlePodbor(body); break;
+      case "ping":          result = { pong: true, time: new Date().toISOString() }; break;
+      // Сервисные эндпоинты для разовых тестов (без авторизации, на этапе разработки)
+      case "seed_admin":    result = seedAdminAsManager(); break;
+      case "test_claude":   result = testClaude(); break;
+      case "test_telegram": result = testTelegram(); break;
       default:
         return jsonResponse({ error: "unknown_path", path });
     }
@@ -43,12 +47,22 @@ function doPost(e) {
   }
 }
 
-function doGet() {
-  return jsonResponse({
-    status: "ok",
-    service: "zov-tech-backend",
-    time: new Date().toISOString(),
-  });
+function doGet(e) {
+  // Для удобного тестирования через GET-запросы из браузера
+  const path = (e && e.parameter && e.parameter.path) || "";
+  try {
+    switch (path) {
+      case "ping":          return jsonResponse({ pong: true, time: new Date().toISOString() });
+      case "seed_admin":    return jsonResponse(seedAdminAsManager());
+      case "test_claude":   return jsonResponse(testClaude());
+      case "test_telegram": return jsonResponse(testTelegram());
+      default:
+        return jsonResponse({ status: "ok", service: "zov-tech-backend", time: new Date().toISOString(),
+          available_paths: ["ping", "seed_admin", "test_claude", "test_telegram"] });
+    }
+  } catch (err) {
+    return jsonResponse({ error: String(err), stack: err.stack });
+  }
 }
 
 function jsonResponse(obj) {
@@ -289,15 +303,29 @@ function findUser(tgId) {
 
 function getOrCreateUser(tgUser, startParam) {
   const tgId = tgUser.id;
+  const props = PropertiesService.getScriptProperties();
+  const adminId = parseInt(props.getProperty("ADMIN_TG_ID") || "0", 10);
+
   const existing = findUser(tgId);
   if (existing) {
     updateColumnByKey("Users", "tg_id", tgId, "last_seen_at", new Date());
+    // Если это админ и роль ещё не manager — повышаем + автозавод в Managers
+    if (tgId === adminId && existing.role !== "manager") {
+      updateColumnByKey("Users", "tg_id", tgId, "role", "manager");
+      ensureAdminManager(tgUser);
+      existing.role = "manager";
+    }
     return existing;
   }
-  // Если пришли по invite-коду менеджера — клиент с привязкой
+  // Определяем роль:
+  // - админ → manager (автозавод в Managers как ZOV-employee)
+  // - invite-код менеджера → клиент с привязкой
+  // - иначе → client
   let role = "client";
   let inviteCode = "";
-  if (startParam && startParam.indexOf("client_inv_") === 0) {
+  if (tgId === adminId) {
+    role = "manager";
+  } else if (startParam && startParam.indexOf("client_inv_") === 0) {
     role = "client";
     inviteCode = startParam;
   }
@@ -306,8 +334,25 @@ function getOrCreateUser(tgUser, startParam) {
     tgId, tgUser.username || "", tgUser.first_name || "", tgUser.last_name || "",
     role, now, now, inviteCode,
   ]);
+  if (tgId === adminId) {
+    ensureAdminManager(tgUser);
+  }
   log("user_registered", tgId, { role, startParam });
   return findUser(tgId);
+}
+
+// Гарантирует что админ есть в Managers как ZOV-employee
+function ensureAdminManager(tgUser) {
+  const tgId = tgUser.id;
+  const data = sheet("Managers").getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(tgId)) return; // уже есть
+  }
+  const fullName = ((tgUser.first_name || "") + " " + (tgUser.last_name || "")).trim() || tgUser.username || String(tgId);
+  appendRow("Managers", [
+    tgId, fullName, "", "", "ЗОВ — куратор сети", "Санкт-Петербург",
+    true, "active", "", "", 0, 0, 0, "MGR_ADMIN"
+  ]);
 }
 
 function getManagerProfile(tgId) {
@@ -599,30 +644,21 @@ function log(event, tgId, payload) {
 
 /**
  * Заводит Руслана (admin) как ZOV-employee менеджера.
- * Запустить ОДИН РАЗ после деплоя через Run в редакторе.
+ * Можно дёрнуть через GET ?path=seed_admin или нажать Run в редакторе.
  */
 function seedAdminAsManager() {
-  const adminId = 5937498515;
+  const props = PropertiesService.getScriptProperties();
+  const adminId = parseInt(props.getProperty("ADMIN_TG_ID") || "5937498515", 10);
   const data = sheet("Managers").getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]) === String(adminId)) {
-      Logger.log("Уже заведён, ничего не делаем.");
-      return;
+      return { ok: true, status: "already_seeded", admin_id: adminId };
     }
   }
   appendRow("Managers", [
-    adminId,                      // tg_id
-    "Руслан Васильев",            // full_name
-    "vasrusgen@gmail.com",        // email
-    "",                           // phone
-    "ЗОВ — куратор сети",         // salon
-    "Санкт-Петербург",            // city
-    true,                         // is_zov_employee → всегда active
-    "active",                     // status (стат-поле; реальный считается на лету)
-    "",                           // last_order_date
-    "",                           // active_until
-    0, 0, 0,                      // total_leads, total_deals, conversion
-    "MGR_ADMIN",                  // invite_code
+    adminId, "Руслан Васильев", "vasrusgen@gmail.com", "",
+    "ЗОВ — куратор сети", "Санкт-Петербург",
+    true, "active", "", "", 0, 0, 0, "MGR_ADMIN"
   ]);
   // Также заводим в Users с ролью manager, если ещё нет
   const u = findUser(adminId);
@@ -631,22 +667,19 @@ function seedAdminAsManager() {
   } else if (u.role !== "manager") {
     updateColumnByKey("Users", "tg_id", adminId, "role", "manager");
   }
-  Logger.log("✅ Руслан Васильев заведён как ZOV-employee менеджер.");
+  return { ok: true, status: "seeded", admin_id: adminId, full_name: "Руслан Васильев" };
 }
 
-/**
- * Удобный тестовый прогон Claude API: проверяет что ключ работает.
- */
+/** Тестовый прогон Claude API: проверяет что ключ работает. */
 function testClaude() {
   const ai = callClaude("Скажи одной фразой: что за фабрика ЗОВ?");
-  Logger.log(JSON.stringify(ai, null, 2));
+  return { ok: !ai.error, response_text: (ai.text || "").slice(0, 500), tokens: ai.tokens, model: PropertiesService.getScriptProperties().getProperty("ANTHROPIC_MODEL") || "claude-haiku-4-5-20251001" };
 }
 
-/**
- * Тест отправки сообщения через бота — пришлёт админу «привет».
- */
+/** Тест отправки сообщения через бота — пришлёт админу «привет». */
 function testTelegram() {
   const props = PropertiesService.getScriptProperties();
-  const adminId = props.getProperty("ADMIN_TG_ID") || 5937498515;
+  const adminId = props.getProperty("ADMIN_TG_ID") || "5937498515";
   sendTelegram(adminId, "🟢 Привет из Apps Script бэкенда! Если видишь — связка бот↔backend работает.");
+  return { ok: true, sent_to: adminId };
 }
