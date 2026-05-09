@@ -3,7 +3,7 @@
 // Ходим на backend → получаем профиль (роль, статус) → рендерим меню.
 
 const tg = window.Telegram?.WebApp;
-const BACKEND_URL = ""; // TODO: заполнить URL Apps Script Web App после Шага 4
+const BACKEND_URL = "https://script.google.com/macros/s/AKfycbyxSwfD4hi5Y176nKV3tmnQq21kCQM3BBm34WGgObgAuybsAW7WPEuxlrPZ1a16viK3/exec";
 
 const app = document.getElementById("app");
 
