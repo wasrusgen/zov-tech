@@ -1,0 +1,2314 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Подбор техники для кухни · фабрика мебели «ЗОВ»</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,300,0,0" />
+<style>
+  :root {
+    --ink: #1A1A1A; --ink-soft: #3A3A3A;
+    --bronze: #76BD22; --bronze-light: #A0D962;
+    --accent: #003E7E; --accent-light: #1F5DA0;
+    --cream: #FAFAFA; --sand: #F0F9E8;
+    --gray: #7A7A7A; --gray-light: #D4D4D4;
+    --green: #4F7942; --green-bg: #DBF0C0;
+    --warn: #A8632B; --white: #FFFFFF;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Tahoma, Arial, sans-serif;
+    background: var(--cream); color: var(--ink);
+    line-height: 1.5; font-size: 15px;
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 30px 20px 60px; }
+
+  h1 { font-size: 40px; font-weight: 800; margin: 0 0 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 26px; font-weight: 700; margin: 0 0 4px; }
+  h3 { font-size: 9px; font-weight: 700; color: var(--bronze); letter-spacing: 3px; text-transform: uppercase; margin: 0 0 8px; }
+  h4 { font-size: 16px; font-weight: 700; margin: 0 0 10px; }
+
+  /* ========= ШАПКА ========= */
+  .cover {
+    text-align: center; padding: 24px 0 18px;
+    border-bottom: 0.5px solid var(--bronze-light); margin-bottom: 24px;
+  }
+  .cover .pre-line { width: 50px; height: 2px; background: var(--bronze); margin: 0 auto 12px; }
+  .cover .pre { color: var(--bronze); font-size: 11px; font-weight: 700; letter-spacing: 4px; margin-bottom: 12px; }
+  .cover .sub { color: var(--gray); font-size: 14px; }
+  .brand-mark {
+    display: flex; align-items: center; justify-content: center;
+    margin: 8px 0 6px;
+  }
+  .brand-mark svg { display: block; }
+  .brand-slogan-line {
+    text-align: center; color: var(--bronze);
+    font-size: 12px; font-weight: 600; letter-spacing: 5px;
+    text-transform: uppercase; margin: 0 0 14px;
+  }
+
+  .recipient-info {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--sand); padding: 10px 16px; border-radius: 6px;
+    margin-bottom: 16px; font-size: 13px; flex-wrap: wrap; gap: 8px;
+  }
+  .recipient-text strong { color: var(--ink); }
+  .recipient-text a { color: var(--accent); text-decoration: none; }
+  .recipient-edit { color: var(--bronze); font-weight: 600; cursor: pointer; font-size: 12px; text-decoration: underline; }
+
+  .recipient-edit-panel { background: var(--white); border: 1px solid var(--bronze); border-radius: 6px; padding: 14px; margin-bottom: 16px; }
+  .recipient-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px; }
+  .recipient-fields label { display: block; font-size: 9px; font-weight: 700; color: var(--bronze); letter-spacing: 2px; margin-bottom: 4px; text-transform: uppercase; }
+  .recipient-fields input { width: 100%; padding: 8px 10px; border: 1px solid var(--gray-light); border-radius: 4px; font-size: 14px; font-family: inherit; }
+
+  /* ========= СТРАНИЦЫ (SPA) ========= */
+  .page { display: none; }
+  .page.active { display: block; animation: fadeIn .3s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  .nav-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 0; margin-bottom: 24px;
+    border-bottom: 1px solid var(--gray-light);
+    position: sticky; top: 0; background: var(--cream); z-index: 10;
+  }
+  .btn-back, .btn-next, .btn-clear {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; background: transparent;
+    border: 1px solid var(--bronze); color: var(--bronze);
+    border-radius: 4px; font-size: 13px; font-weight: 600;
+    font-family: inherit; cursor: pointer;
+    text-decoration: none; transition: all .15s;
+  }
+  .btn-back:hover, .btn-next:hover { background: var(--bronze); color: var(--white); }
+  .btn-next { background: var(--accent); border-color: var(--accent); color: var(--white); }
+  .btn-next:hover { background: var(--accent-light); border-color: var(--accent-light); }
+  .btn-clear { border-color: var(--warn); color: var(--warn); }
+  .btn-clear:hover { background: var(--warn); color: var(--white); }
+  .progress-text { font-size: 12px; color: var(--gray); }
+  .progress-text strong { color: var(--ink); }
+
+  /* ========= МЕНЮ КАТЕГОРИЙ ========= */
+  .menu-intro { background: var(--sand); border-left: 4px solid var(--bronze); padding: 16px 20px; margin-bottom: 24px; font-style: italic; line-height: 1.6; }
+  .menu-intro strong { font-style: normal; }
+
+  .categories-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px; margin: 28px 0;
+  }
+  .cat-card {
+    display: flex; align-items: center; gap: 14px;
+    padding: 18px 20px;
+    background: var(--white); border: 2px solid var(--gray-light); border-radius: 10px;
+    cursor: pointer; transition: all .2s; user-select: none;
+    position: relative;
+  }
+  .cat-card:hover { border-color: var(--bronze); transform: translateY(-2px); box-shadow: 0 4px 14px rgba(0,0,0,0.05); }
+  .cat-card input { display: none; }
+  .cat-card:has(input:checked) {
+    border-color: var(--bronze); background: var(--green-bg);
+    box-shadow: 0 0 0 2px var(--bronze-light);
+  }
+  .cat-card .cat-checkbox {
+    width: 22px; height: 22px; border: 2px solid var(--bronze);
+    border-radius: 4px; flex-shrink: 0; background: var(--white);
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s;
+  }
+  .cat-card:has(input:checked) .cat-checkbox { background: var(--bronze); border-color: var(--bronze); }
+  .cat-card:has(input:checked) .cat-checkbox::after {
+    content: '✓'; color: var(--white); font-weight: 800; font-size: 14px;
+  }
+  .cat-card .cat-icon {
+    width: 40px; height: 40px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--bronze); transition: color .2s;
+  }
+  .cat-card .cat-icon .material-symbols-outlined {
+    font-size: 36px; font-variation-settings: 'wght' 300, 'GRAD' 0, 'opsz' 24;
+  }
+  .cat-card:has(input:checked) .cat-icon { color: var(--ink); }
+  .cat-card.filled .cat-icon { color: var(--green); }
+
+  /* ========= КАРТОЧКА «ОЧИСТИТЬ ВСЁ» ========= */
+  .cat-card.cat-clear-all {
+    border-style: dashed; border-color: var(--warn);
+    background: var(--cream);
+  }
+  .cat-card.cat-clear-all:hover {
+    background: var(--warn); border-color: var(--warn); border-style: solid;
+    transform: translateY(-2px);
+  }
+  .cat-card.cat-clear-all:hover .cat-name,
+  .cat-card.cat-clear-all:hover .cat-text small,
+  .cat-card.cat-clear-all:hover .cat-icon { color: var(--white); }
+  .cat-card.cat-clear-all .cat-icon { color: var(--warn); }
+  .cat-card.cat-clear-all .cat-checkbox { display: none; }
+  .cat-card .cat-text { flex: 1; }
+  .cat-card .cat-text .cat-name { font-weight: 700; font-size: 15px; display: block; }
+  .cat-card .cat-text small { color: var(--gray); font-size: 12px; }
+  .cat-card .cat-status {
+    position: absolute; top: 8px; right: 8px;
+    font-size: 9px; font-weight: 700; color: var(--green);
+    letter-spacing: 1px; display: none;
+    background: var(--green-bg); padding: 3px 8px; border-radius: 10px;
+    white-space: nowrap; z-index: 2;
+  }
+  .cat-card.filled .cat-status { display: inline-block; }
+  .cat-card .cat-clear-x {
+    position: absolute; top: 8px; right: 8px;
+    width: 24px; height: 24px;
+    border-radius: 50%; background: var(--white);
+    border: 1.5px solid var(--warn); color: var(--warn);
+    font-size: 13px; font-weight: 700; line-height: 1;
+    display: none; align-items: center; justify-content: center;
+    cursor: pointer; transition: all .15s; z-index: 3;
+    font-family: inherit; padding: 0;
+  }
+  .cat-card.filled .cat-clear-x { display: flex; }
+  .cat-card.filled:hover .cat-status { display: none; }
+  .cat-card.filled:hover .cat-clear-x {
+    background: var(--warn); color: var(--white);
+  }
+  .cat-card .cat-clear-x:hover { transform: scale(1.1); }
+
+  .menu-action {
+    margin-top: 32px; padding: 24px;
+    background: var(--ink); color: var(--white);
+    text-align: center; border-radius: 8px;
+    border-top: 2px solid var(--bronze); border-bottom: 2px solid var(--bronze);
+  }
+  .menu-action p { color: var(--bronze-light); margin: 0 0 14px; font-size: 13px; }
+  .menu-action .btn-go {
+    padding: 16px 32px; background: var(--bronze); color: var(--white);
+    border: none; border-radius: 6px; font-size: 16px; font-weight: 800;
+    font-family: inherit; cursor: pointer; transition: all .15s;
+    letter-spacing: 1px;
+  }
+  .menu-action .btn-go:hover:not(:disabled) { background: var(--bronze-light); }
+  .menu-action .btn-go:disabled { opacity: 0.4; cursor: not-allowed; background: var(--gray); }
+  .menu-action .secondary-btn {
+    margin-top: 12px; background: transparent; color: var(--bronze-light);
+    border: 1px solid var(--bronze-light); padding: 10px 20px; border-radius: 4px;
+    font-family: inherit; cursor: pointer; font-size: 13px;
+  }
+  .menu-action .secondary-btn:hover { background: rgba(176,141,90,0.2); }
+
+  /* ========= БЛОК ПАРАМЕТРОВ ========= */
+  .section-block {
+    background: var(--white); border-radius: 8px; padding: 20px;
+    margin-bottom: 16px; border: 1px solid var(--gray-light);
+  }
+  .params { display: grid; grid-template-columns: 240px 1fr; gap: 0; border-top: 1px solid var(--bronze); }
+  .params .row-label, .params .row-options { padding: 12px 14px; border-bottom: 1px solid var(--gray-light); }
+  .params .row-label { background: var(--cream); font-weight: 700; font-size: 13px; }
+  .params .header { grid-column: 1 / 3; display: grid; grid-template-columns: 240px 1fr; background: var(--cream); font-size: 9px; color: var(--bronze); font-weight: 700; letter-spacing: 2px; text-transform: uppercase; border-bottom: 0.5px solid var(--bronze); }
+  .params .header > div { padding: 8px 14px; }
+
+  .options { display: flex; flex-wrap: wrap; gap: 6px 10px; }
+  .option {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px 4px 4px; border-radius: 4px;
+    cursor: pointer; user-select: none; transition: background .15s;
+    font-size: 13px;
+  }
+  .option:hover { background: var(--sand); }
+  .option input[type="radio"], .option input[type="checkbox"] {
+    appearance: none; -webkit-appearance: none;
+    width: 16px; height: 16px; border: 1.5px solid var(--bronze);
+    background: var(--white); margin: 0; cursor: pointer;
+    flex-shrink: 0; position: relative;
+  }
+  .option input[type="radio"] { border-radius: 50%; }
+  .option input[type="checkbox"] { border-radius: 3px; }
+  .option input:checked { background: var(--accent); border-color: var(--accent); }
+  .option input[type="radio"]:checked::after {
+    content: ''; position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%); width: 7px; height: 7px;
+    border-radius: 50%; background: var(--white);
+  }
+  .option input[type="checkbox"]:checked::after {
+    content: '✓'; position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -55%); color: var(--white); font-size: 11px; font-weight: 700;
+  }
+
+  input[type="text"].free, input[type="number"].free {
+    border: none; border-bottom: 1px solid var(--bronze); background: transparent;
+    padding: 4px 0; font-size: 14px; color: var(--ink); font-family: inherit;
+    width: 100%; max-width: 380px;
+  }
+  input[type="text"].free:focus, input[type="number"].free:focus { outline: none; border-bottom: 2px solid var(--accent); }
+  textarea.free { width: 100%; min-height: 80px; border: 1px solid var(--bronze); border-radius: 6px; padding: 10px; font-family: inherit; font-size: 14px; resize: vertical; }
+
+  /* ========= ОНБОРДИНГ ========= */
+  .onboarding-hero {
+    text-align: center; padding: 32px 24px;
+    background: linear-gradient(135deg, var(--cream) 0%, var(--sand) 100%);
+    border: 1px solid var(--bronze-light); border-radius: 12px;
+    margin-bottom: 28px;
+  }
+  .onboarding-hero .welcome-ico { font-size: 44px; margin-bottom: 12px; }
+  .onboarding-hero h2 { font-size: 28px; margin: 0 0 6px; }
+  .onboarding-hero p { color: var(--gray); margin: 0; max-width: 580px; margin: 0 auto; }
+  .onb-step {
+    background: var(--white); border-radius: 8px; padding: 22px;
+    margin-bottom: 14px; border-left: 4px solid var(--bronze);
+  }
+  .onb-step .step-num {
+    display: inline-block; padding: 2px 10px; background: var(--bronze);
+    color: var(--white); font-size: 11px; font-weight: 700; letter-spacing: 1px;
+    border-radius: 12px; margin-bottom: 10px;
+  }
+  .onb-step h3 { color: var(--ink); font-size: 16px; letter-spacing: 0; text-transform: none; margin-bottom: 12px; font-weight: 700; }
+  .onb-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .onb-fields label { display: block; }
+  .onb-fields .lbl {
+    display: block; font-size: 9px; font-weight: 700; color: var(--bronze);
+    letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px;
+  }
+  .onb-fields input {
+    width: 100%; border: 1px solid var(--gray-light); border-radius: 4px;
+    padding: 10px 12px; font-family: inherit; font-size: 14px;
+    background: var(--cream);
+  }
+  .onb-fields input:focus { outline: none; border-color: var(--accent); background: var(--white); }
+  .onb-fields .full { grid-column: 1 / 3; }
+  .onb-actions {
+    margin-top: 24px; padding: 24px;
+    background: var(--ink); color: var(--white);
+    border-radius: 12px; text-align: center;
+    border-top: 2px solid var(--bronze); border-bottom: 2px solid var(--bronze);
+  }
+  .onb-actions h4 { color: var(--bronze-light); margin-bottom: 4px; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; }
+  .onb-actions p { color: var(--cream); margin: 0 0 18px; font-size: 13px; }
+  .onb-actions .btn-grid {
+    display: grid; gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    max-width: 720px; margin: 0 auto;
+  }
+  .onb-btn {
+    padding: 14px 18px; background: var(--bronze); color: var(--white);
+    border: none; border-radius: 6px; font-family: inherit;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+    transition: all .15s;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+    text-align: left;
+  }
+  .onb-btn:hover { background: var(--bronze-light); transform: translateY(-1px); }
+  .onb-btn.primary { background: var(--accent); }
+  .onb-btn.primary:hover { background: var(--accent-light); }
+  .onb-btn .ico { font-size: 18px; }
+  .onb-btn .label { font-size: 14px; }
+  .onb-btn .hint { font-size: 11px; font-weight: 400; opacity: 0.85; }
+  .onb-skip {
+    background: transparent; color: var(--bronze-light);
+    border: 1px solid var(--bronze-light); padding: 10px 18px;
+    border-radius: 4px; font-family: inherit; font-size: 12px;
+    cursor: pointer; margin-top: 12px;
+  }
+  .onb-skip:hover { background: rgba(176,141,90,0.2); }
+  .onb-status {
+    margin-top: 14px; padding: 0; font-size: 14px; font-weight: 600;
+    min-height: 0; text-align: center; transition: all .2s;
+  }
+  .onb-status.show {
+    padding: 12px 16px; min-height: 48px;
+    border-radius: 6px;
+  }
+  .onb-status.success { background: rgba(79,121,66,0.2); color: var(--bronze-light); border-left: 4px solid var(--green); }
+  .onb-status.warn    { background: rgba(168,99,43,0.25); color: var(--white); border-left: 4px solid var(--warn); }
+
+  /* ========= БРЕНДЫ ========= */
+  .price-range {
+    display: inline-block; padding: 2px 8px;
+    background: var(--white); color: var(--ink);
+    font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+    border-radius: 3px; margin-left: 8px;
+    border: 1px solid var(--gray-light);
+  }
+  .brand-tier.premium .price-range { background: var(--ink); color: var(--bronze-light); border-color: var(--ink); }
+  .brand-tier.middle .price-range  { background: var(--accent); color: var(--white); border-color: var(--accent); }
+  .brand-tier.budget .price-range  { background: var(--bronze); color: var(--white); border-color: var(--bronze); }
+  .brands-block { margin-top: 16px; }
+  .brands-block h4 { display: flex; align-items: center; gap: 8px; }
+  .brands-block .brand-explainer { font-size: 12px; color: var(--gray); margin: 0 0 12px; }
+  .brand-tier { margin-bottom: 14px; }
+  .brand-tier .tier-label {
+    display: inline-block; padding: 2px 8px; background: var(--bronze);
+    color: var(--white); font-size: 10px; font-weight: 700; letter-spacing: 1px;
+    border-radius: 3px; margin-bottom: 8px;
+  }
+  .brand-tier.premium .tier-label { background: var(--ink); }
+  .brand-tier.middle .tier-label  { background: var(--accent); }
+  .brand-tier.budget .tier-label  { background: var(--bronze); }
+  .brands-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+  .brand-chip {
+    display: inline-flex; align-items: stretch; gap: 0;
+    padding: 0; border: 1.5px solid var(--gray-light);
+    border-radius: 18px; user-select: none; overflow: hidden;
+    font-size: 13px; transition: all .15s; background: var(--cream);
+  }
+  .brand-chip:hover { border-color: var(--bronze); }
+  .brand-chip .brand-state-btn {
+    width: 30px; min-height: 30px;
+    border: none; background: transparent; cursor: pointer;
+    padding: 0; font-size: 13px; font-weight: 700;
+    color: var(--gray-light); font-family: inherit;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s;
+    border-right: 1px solid var(--gray-light);
+  }
+  .brand-chip .brand-state-btn:hover { background: var(--sand); color: var(--ink); }
+  .brand-chip .brand-name {
+    padding: 6px 12px 6px 10px; align-self: center;
+    white-space: nowrap;
+  }
+  .brand-chip[data-state="preferred"] {
+    border-color: var(--accent); background: var(--white);
+  }
+  .brand-chip[data-state="preferred"] .brand-state-pref {
+    background: var(--accent); color: var(--white);
+  }
+  .brand-chip[data-state="acceptable"] {
+    border-color: var(--bronze); background: var(--green-bg);
+  }
+  .brand-chip[data-state="acceptable"] .brand-state-acc {
+    background: var(--bronze); color: var(--white);
+  }
+
+  .brand-presets {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    padding: 12px 14px; background: var(--ink); color: var(--white);
+    border-radius: 6px; margin-bottom: 10px;
+    align-items: center;
+  }
+  .brand-presets .preset-label {
+    font-size: 11px; color: var(--bronze-light);
+    letter-spacing: 1px; font-weight: 700; text-transform: uppercase;
+    margin-right: 4px;
+  }
+  .preset-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 8px 14px; background: transparent;
+    border: 1.5px solid var(--bronze); color: var(--white);
+    border-radius: 18px; font-size: 13px; font-weight: 600;
+    font-family: inherit; cursor: pointer; transition: all .15s;
+  }
+  .preset-btn:hover { background: var(--bronze); color: var(--white); transform: translateY(-1px); }
+  .preset-btn.active { background: var(--bronze); color: var(--white); }
+  .preset-btn .preset-ico { font-size: 14px; }
+
+
+  /* ========= ИТОГ ========= */
+  .summary-text {
+    background: var(--white); border: 1px solid var(--gray-light); border-radius: 8px;
+    padding: 20px 24px; font-family: 'SF Mono', Consolas, Monaco, monospace;
+    font-size: 13px; line-height: 1.6; white-space: pre-wrap;
+    max-height: 480px; overflow-y: auto;
+    margin-bottom: 24px;
+  }
+
+  .send-actions {
+    background: var(--ink); color: var(--white);
+    padding: 28px; border-radius: 12px;
+    border-top: 2px solid var(--bronze); border-bottom: 2px solid var(--bronze);
+    text-align: center;
+  }
+  .send-actions h3 { color: var(--bronze-light); }
+  .send-actions p { color: var(--cream); margin: 0 0 22px; }
+  .send-grid {
+    display: grid; gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    max-width: 800px; margin: 0 auto;
+  }
+  .send-btn {
+    padding: 18px 16px; background: var(--bronze); color: var(--white);
+    border: none; border-radius: 8px; font-family: inherit;
+    font-size: 14px; font-weight: 700; cursor: pointer;
+    transition: all .15s; text-align: left;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .send-btn:hover { background: var(--bronze-light); transform: translateY(-2px); }
+  .send-btn .ico { font-size: 22px; flex-shrink: 0; }
+  .send-btn .label { display: block; font-size: 14px; }
+  .send-btn .hint { display: block; font-size: 11px; font-weight: 400; color: rgba(255,255,255,0.7); margin-top: 2px; }
+  .send-btn.primary { background: var(--accent); }
+  .send-btn.primary:hover { background: var(--accent-light); }
+
+  .save-bar {
+    position: fixed; bottom: 16px; right: 16px;
+    background: var(--ink); color: var(--cream); padding: 10px 16px;
+    border-radius: 24px; font-size: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    opacity: 0; pointer-events: none;
+    transition: opacity .3s; z-index: 100;
+  }
+  .save-bar.show { opacity: 1; }
+
+  .footer {
+    text-align: center; margin-top: 36px;
+    padding-top: 24px; border-top: 0.5px solid var(--gray-light);
+    font-size: 13px; color: var(--gray);
+  }
+  .footer .zov-logo { font-weight: 800; font-size: 14px; letter-spacing: 1px; color: var(--ink); }
+
+  @media (max-width: 720px) {
+    .wrap { padding: 16px; }
+    .params, .params .header { grid-template-columns: 1fr; }
+    .params .row-label { background: var(--ink); color: var(--cream); }
+    .recipient-fields { grid-template-columns: 1fr; }
+    .nav-bar { flex-direction: column; gap: 8px; align-items: stretch; }
+    .send-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+
+<body>
+<div class="wrap">
+
+  <!-- ========= ШАПКА ========= -->
+  <header>
+    <div class="cover">
+      <div class="pre-line"></div>
+      <div class="pre">ПОДБОР ТЕХНИКИ ДЛЯ ВАШЕЙ КУХНИ</div>
+      <div class="brand-mark">
+        <svg width="100" height="92" viewBox="0 0 128 117" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M38.9357 44.8551C35.0934 46.5151 32.2412 48.1838 32.2412 48.1838L63.767 0L87.9468 35.8374C87.9468 35.8374 86.6265 35.0766 82.3187 34.6875C76.2759 34.1428 67.8802 35.5261 61.3381 37.0478C54.8213 38.5609 45.3171 42.0884 38.9357 44.8551Z" fill="#212121"/>
+          <path d="M90.8406 40.4902L101.149 56.4679C101.149 56.4679 92.9733 55.0154 85.8642 55.5601C78.755 56.1048 59.0186 58.2836 59.0186 58.2836C59.0186 58.2836 75.5559 49.75 82.1319 46.2917C88.7079 42.8506 90.8406 40.4902 90.8406 40.4902Z" fill="#212121"/>
+          <path d="M128 97.7108L108.264 67.3809C108.264 67.3809 108.086 71.3753 99.1995 76.4591C90.313 81.5429 84.2703 84.0848 72.7094 88.451C61.157 92.8085 49.4521 97.8924 49.4521 97.8924L128 97.7108Z" fill="#212121"/>
+          <path d="M0 98.0718H35.0889C35.0889 98.0718 60.4535 88.1117 75.1458 80.6416C88.01 74.1053 96.7526 67.8197 94.586 63.393C92.9864 60.1248 85.0479 60.1248 75.5605 60.1248C67.9773 60.1248 59.3956 60.756 54.9354 60.6695C48.8333 60.5485 50.8476 59.8222 52.9803 58.3092C54.5545 57.1939 70.0339 48.3058 73.9609 45.9628C79.5298 42.6341 77.3377 41 74.7903 41.7868C70.8041 43.0145 57.9567 48.8678 44.627 57.0469C31.2888 65.2173 21.5137 73.7508 14.0491 80.8405C6.57597 87.9042 0 98.0718 0 98.0718Z" fill="#212121"/>
+          <path d="M1.95514 105.926V102.84C1.95514 102.84 29.5709 102.658 32.77 102.658C35.9691 102.658 38.0426 104.37 38.0426 106.713C38.0426 109.073 35.3768 109.92 35.3768 109.92C35.3768 109.92 38.0426 110.776 38.0426 113.551C38.0426 115.427 36.68 117.001 32.77 117.001H1.77734V113.733H26.4903V111.736H11.3747V107.923H26.4903V105.969L1.95514 105.926Z" fill="#212121"/>
+          <path d="M70.5301 113.322H52.8418V105.878H70.5301V113.322ZM76.7084 102.523H46.6636C43.5576 102.523 41.0186 105.117 41.0186 108.29V110.918C41.0186 114.091 43.5576 116.685 46.6636 116.685H76.7084C79.8144 116.685 82.3534 114.091 82.3534 110.918V108.29C82.3534 105.117 79.8229 102.523 76.7084 102.523Z" fill="#212121"/>
+          <path d="M126.046 117.001H120.092L102.404 105.345V117.001H97.0186V102.523H103.06L120.394 113.733V102.523H126.046V117.001Z" fill="#212121"/>
+        </svg>
+      </div>
+      <div class="brand-slogan-line">сделано с душой</div>
+      <div class="sub">подбор кухонной техники · персональное предложение</div>
+    </div>
+
+    <div class="recipient-info">
+      <div class="recipient-text">
+        Запрос будет передан:
+        <strong id="recipientNameInline">Любовь АЛПЕЕВА</strong>
+        · <a id="recipientEmailInline">lyubov.alpeeva@zovofficial.com</a>
+      </div>
+      <a class="recipient-edit" onclick="toggleRecipientEdit()">изменить</a>
+    </div>
+
+    <div class="recipient-edit-panel" id="recipientEditPanel" style="display:none">
+      <div class="recipient-fields">
+        <div><label>ФИО менеджера</label><input type="text" id="managerNameInput"></div>
+        <div><label>Email менеджера</label><input type="text" id="managerEmailInput"></div>
+      </div>
+      <button class="btn-back" onclick="saveRecipient()" style="margin-right:8px">Сохранить</button>
+      <span id="copyStatus" style="font-size:12px;color:var(--green);font-weight:600"></span>
+    </div>
+  </header>
+
+  <!-- ========= ОНБОРДИНГ — ПЕРВЫЙ ЗАПУСК ========= -->
+  <section class="page active" id="onboarding">
+    <div class="onboarding-hero">
+      <div class="welcome-ico">👋</div>
+      <h2>Добро пожаловать!</h2>
+      <p>
+        Этот чек-лист поможет собрать запрос на подбор кухонной техники.
+        Заполните данные менеджера и клиента — потом сможете выбрать категории
+        и параметры. На любом шаге вы сможете вернуться сюда.
+      </p>
+    </div>
+
+    <div class="onb-step">
+      <span class="step-num">ШАГ 1</span>
+      <h3>👤 Менеджер фабрики «ЗОВ» (отправитель запроса)</h3>
+      <div class="onb-fields">
+        <label>
+          <span class="lbl">ФИО менеджера</span>
+          <input type="text" id="onbManagerName" value="Любовь АЛПЕЕВА">
+        </label>
+        <label>
+          <span class="lbl">Email менеджера</span>
+          <input type="email" id="onbManagerEmail" placeholder="lyubov@zovofficial.com">
+        </label>
+      </div>
+    </div>
+
+    <div class="onb-step">
+      <span class="step-num">ШАГ 2</span>
+      <h3>🏠 Клиент (для кого подбираем технику)</h3>
+      <div class="onb-fields">
+        <label>
+          <span class="lbl">ФИО клиента</span>
+          <input type="text" id="onbClientName" placeholder="Иванов Иван Иванович">
+        </label>
+        <label>
+          <span class="lbl">Телефон клиента</span>
+          <input type="tel" id="onbClientPhone" placeholder="+7 921 123-45-67">
+        </label>
+        <label>
+          <span class="lbl">Email клиента</span>
+          <input type="email" id="onbClientEmail" placeholder="ivan@example.com">
+        </label>
+        <label>
+          <span class="lbl">Адрес объекта</span>
+          <input type="text" id="onbClientAddress" placeholder="ул. Черниговская, 14, кв. 410">
+        </label>
+      </div>
+    </div>
+
+    <div class="onb-actions">
+      <h4>ЧТО СДЕЛАЕМ ДАЛЬШЕ?</h4>
+      <p>Выберите подходящий сценарий — вы сможете изменить решение позже</p>
+      <div class="btn-grid">
+        <button class="onb-btn primary" onclick="onbSendToClient()">
+          <span class="ico">📧</span>
+          <span class="label">Сохранить и отправить ссылку клиенту</span>
+          <span class="hint">Откроется почта — клиент сам заполнит чек-лист</span>
+        </button>
+        <button class="onb-btn" onclick="onbSaveAndContinue()">
+          <span class="ico">✏️</span>
+          <span class="label">Сохранить и заполнить самому</span>
+          <span class="hint">Я заполню чек-лист за клиента</span>
+        </button>
+      </div>
+      <button class="onb-skip" onclick="onbSkip()">Пропустить — заполню без сохранения</button>
+      <div id="onbStatus" class="onb-status"></div>
+    </div>
+  </section>
+
+  <!-- ========= ГЛАВНОЕ МЕНЮ ========= -->
+  <section class="page" id="menu">
+    <h2>Какую технику подбираем?</h2>
+    <div class="menu-intro">
+      <strong>Шаг 1.</strong> Отметьте категории техники, которую нужно подобрать
+      для вашей кухни. На следующих страницах вы укажете параметры по каждой
+      выбранной категории и предпочтительные торговые марки. В конце получите
+      готовый запрос для менеджера — его можно скопировать в мессенджер,
+      отправить по email или сохранить файлом.
+    </div>
+
+    <div class="categories-grid">
+      <label class="cat-card" data-cat="hob">
+        <input type="checkbox" data-cat="hob" onchange="onCatToggle(this)">
+        <div class="cat-checkbox"></div>
+        <span class="cat-icon"><span class="material-symbols-outlined">countertops</span></span>
+        <span class="cat-text">
+          <span class="cat-name">Варочная панель</span>
+          <small>индукция / стеклокерамика / газ / Domino</small>
+        </span>
+        <span class="cat-status">✓ заполнено</span>
+        <button type="button" class="cat-clear-x" onclick="event.preventDefault(); event.stopPropagation(); clearCategory('hob'); return false;" title="Очистить категорию">✕</button>
+      </label>
+
+      <label class="cat-card" data-cat="fridge">
+        <input type="checkbox" data-cat="fridge" onchange="onCatToggle(this)">
+        <div class="cat-checkbox"></div>
+        <span class="cat-icon"><span class="material-symbols-outlined">kitchen</span></span>
+        <span class="cat-text">
+          <span class="cat-name">Холодильник</span>
+          <small>двухкам. / SbS / French Door / встр. колонной</small>
+        </span>
+        <span class="cat-status">✓ заполнено</span>
+        <button type="button" class="cat-clear-x" onclick="event.preventDefault(); event.stopPropagation(); clearCategory('fridge'); return false;" title="Очистить категорию">✕</button>
+      </label>
+
+      <label class="cat-card" data-cat="dw">
+        <input type="checkbox" data-cat="dw" onchange="onCatToggle(this)">
+        <div class="cat-checkbox"></div>
+        <span class="cat-icon"><span class="material-symbols-outlined">dishwasher_gen</span></span>
+        <span class="cat-text">
+          <span class="cat-name">Посудомоечная машина</span>
+          <small>45 / 60 см, встраиваемая</small>
+        </span>
+        <span class="cat-status">✓ заполнено</span>
+        <button type="button" class="cat-clear-x" onclick="event.preventDefault(); event.stopPropagation(); clearCategory('dw'); return false;" title="Очистить категорию">✕</button>
+      </label>
+
+      <label class="cat-card" data-cat="hood">
+        <input type="checkbox" data-cat="hood" onchange="onCatToggle(this)">
+        <div class="cat-checkbox"></div>
+        <span class="cat-icon"><span class="material-symbols-outlined">mode_fan</span></span>
+        <span class="cat-text">
+          <span class="cat-name">Вытяжка</span>
+          <small>наклонная / Т-обр. / встр. в шкаф / купол</small>
+        </span>
+        <span class="cat-status">✓ заполнено</span>
+        <button type="button" class="cat-clear-x" onclick="event.preventDefault(); event.stopPropagation(); clearCategory('hood'); return false;" title="Очистить категорию">✕</button>
+      </label>
+
+      <label class="cat-card" data-cat="oven">
+        <input type="checkbox" data-cat="oven" onchange="onCatToggle(this)">
+        <div class="cat-checkbox"></div>
+        <span class="cat-icon"><span class="material-symbols-outlined">oven_gen</span></span>
+        <span class="cat-text">
+          <span class="cat-name">Духовой шкаф (± СВЧ)</span>
+          <small>компакт 45 см с СВЧ / 60 см / 90 см XL</small>
+        </span>
+        <span class="cat-status">✓ заполнено</span>
+        <button type="button" class="cat-clear-x" onclick="event.preventDefault(); event.stopPropagation(); clearCategory('oven'); return false;" title="Очистить категорию">✕</button>
+      </label>
+
+      <label class="cat-card" data-cat="microwave">
+        <input type="checkbox" data-cat="microwave" onchange="onCatToggle(this)">
+        <div class="cat-checkbox"></div>
+        <span class="cat-icon"><span class="material-symbols-outlined">microwave_gen</span></span>
+        <span class="cat-text">
+          <span class="cat-name">Микроволновая печь</span>
+          <small>отдельно от духовки</small>
+        </span>
+        <span class="cat-status">✓ заполнено</span>
+        <button type="button" class="cat-clear-x" onclick="event.preventDefault(); event.stopPropagation(); clearCategory('microwave'); return false;" title="Очистить категорию">✕</button>
+      </label>
+
+      <label class="cat-card" data-cat="coffee">
+        <input type="checkbox" data-cat="coffee" onchange="onCatToggle(this)">
+        <div class="cat-checkbox"></div>
+        <span class="cat-icon"><span class="material-symbols-outlined">coffee_maker</span></span>
+        <span class="cat-text">
+          <span class="cat-name">Кофемашина</span>
+          <small>встраиваемая / отдельностоящая</small>
+        </span>
+        <span class="cat-status">✓ заполнено</span>
+        <button type="button" class="cat-clear-x" onclick="event.preventDefault(); event.stopPropagation(); clearCategory('coffee'); return false;" title="Очистить категорию">✕</button>
+      </label>
+
+      <label class="cat-card" data-cat="washer">
+        <input type="checkbox" data-cat="washer" onchange="onCatToggle(this)">
+        <div class="cat-checkbox"></div>
+        <span class="cat-icon"><span class="material-symbols-outlined">local_laundry_service</span></span>
+        <span class="cat-text">
+          <span class="cat-name">Стиральная машина</span>
+          <small>если для кухни-прачечной</small>
+        </span>
+        <span class="cat-status">✓ заполнено</span>
+        <button type="button" class="cat-clear-x" onclick="event.preventDefault(); event.stopPropagation(); clearCategory('washer'); return false;" title="Очистить категорию">✕</button>
+      </label>
+
+      <div class="cat-card cat-clear-all" onclick="clearAll()" title="Очистить все категории">
+        <span class="cat-icon"><span class="material-symbols-outlined">restart_alt</span></span>
+        <span class="cat-text">
+          <span class="cat-name">Очистить всё</span>
+          <small>сбросить категории и марки</small>
+        </span>
+      </div>
+    
+</div>
+
+    <div class="menu-action">
+      <p>Выберите категории и переходите к настройке характеристик</p>
+      <button class="btn-go" id="goBtn" onclick="goToFirstCategory()" disabled>
+        ПЕРЕЙТИ К ВЫБОРУ ХАРАКТЕРИСТИК →
+      </button>
+      <br>
+      <button class="secondary-btn" id="goSummaryBtn" onclick="showSummary()" style="display:none">
+        Сразу к итогу — сформировать запрос →
+      </button>
+      
+    </div>
+  </section>
+
+  <!-- ========= СТРАНИЦЫ КАТЕГОРИЙ — генерируются динамически в шаблонах ========= -->
+
+  <!-- 01. ВАРОЧНАЯ ПАНЕЛЬ -->
+  <section class="page" id="page-hob" data-cat="hob">
+    <div class="nav-bar">
+      <button class="btn-back" onclick="showMenu()">← ВОЗВРАТ К МЕНЮ</button> <button class="btn-clear" onclick="clearCategory('hob')">🗑 Очистить</button>
+      <span class="progress-text" id="prog-hob"></span>
+      <button class="btn-next" onclick="goNext('hob')">СОХРАНИТЬ И ДАЛЕЕ →</button>
+    </div>
+
+    <h3>Категория · Cooking · Hob</h3>
+    <h2>🔥 Варочная панель</h2>
+    <p style="color:var(--gray)">Параметры подбора и предпочтительные марки</p>
+
+    <div class="section-block brands-block">
+      <h4>Марки техники</h4>
+      <p class="brand-explainer">
+        У каждой марки две кнопки: <strong>★ — предпочтительная</strong> (хочу в первую очередь),
+        <strong>✓ — готов рассмотреть</strong> (альтернатива, если первая не подойдёт).
+        Можно выбирать любые сочетания. Повторный клик снимает отметку.
+      </p>
+
+      <div class="brand-presets">
+        <span class="preset-label">Быстрый выбор:</span>
+        <button type="button" class="preset-btn" onclick="applyBrandPreset('hob', 'premium', this)"><span class="preset-ico">💎</span> Премиум</button>
+        <button type="button" class="preset-btn" onclick="applyBrandPreset('hob', 'middle', this)"><span class="preset-ico">★</span> Цена / качество</button>
+        <button type="button" class="preset-btn" onclick="applyBrandPreset('hob', 'budget', this)"><span class="preset-ico">₽</span> Бюджет</button>
+      </div>
+
+
+      <div class="brand-tier premium">
+        <span class="tier-label">ПРЕМИУМ-СЕГМЕНТ</span><span class="price-range">от 100 000 ₽</span>
+        <div class="brands-grid" data-cat="hob">
+          <div class="brand-chip" data-cat="hob" data-brand="Miele" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Miele</span></div>
+          <div class="brand-chip" data-cat="hob" data-brand="Gaggenau" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Gaggenau</span></div>
+          <div class="brand-chip" data-cat="hob" data-brand="V-Zug" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">V-Zug</span></div>
+          <div class="brand-chip" data-cat="hob" data-brand="Smeg" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Smeg</span></div>
+          <div class="brand-chip" data-cat="hob" data-brand="Asko" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Asko</span></div>
+        </div>
+      </div>
+
+    <div class="section-block">
+      <h4>Технические параметры</h4>
+      <div class="params">
+        <div class="header"><div>Параметр</div><div>Варианты</div></div>
+
+        <div class="row-label">Тип нагрева</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="radio" name="hob.heat" value="induction"> индукция</label>
+          <label class="option"><input type="radio" name="hob.heat" value="hi_light"> стеклокер. Hi-Light</label>
+          <label class="option"><input type="radio" name="hob.heat" value="gas"> газ</label>
+          <label class="option"><input type="radio" name="hob.heat" value="domino"> Domino (комбо)</label>
+        </div></div>
+
+        <div class="row-label">Ширина</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="radio" name="hob.width" value="30"> 30 см</label>
+          <label class="option"><input type="radio" name="hob.width" value="45"> 45 см</label>
+          <label class="option"><input type="radio" name="hob.width" value="60"> 60 см</label>
+          <label class="option"><input type="radio" name="hob.width" value="80"> 80 см</label>
+          <label class="option"><input type="radio" name="hob.width" value="90"> 90 см</label>
+        </div></div>
+
+        <div class="row-label">Кол-во зон</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="radio" name="hob.zones" value="2"> 2</label>
+          <label class="option"><input type="radio" name="hob.zones" value="3"> 3</label>
+          <label class="option"><input type="radio" name="hob.zones" value="4"> 4</label>
+          <label class="option"><input type="radio" name="hob.zones" value="5"> 5</label>
+        </div></div>
+
+        <div class="row-label">Цвет / монтаж</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="radio" name="hob.color" value="black"> чёрное стекло</label>
+          <label class="option"><input type="radio" name="hob.color" value="white"> белое стекло</label>
+          <label class="option"><input type="radio" name="hob.color" value="frameless"> безрамочная</label>
+          <label class="option"><input type="radio" name="hob.color" value="inox"> рамка нерж.</label>
+        </div></div>
+
+        <div class="row-label">Доп. функции</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="checkbox" name="hob.f.boost"> PowerBoost</label>
+          <label class="option"><input type="checkbox" name="hob.f.flex"> FlexZone</label>
+          <label class="option"><input type="checkbox" name="hob.f.hob2hood"> Hob2Hood</label>
+          <label class="option"><input type="checkbox" name="hob.f.child_lock"> защита от детей</label>
+        </div></div>
+
+        <div class="row-label">Особенности (своими словами)</div>
+        <div class="row-options"><input type="text" class="free" name="hob.notes" placeholder="например: для чугунной посуды, тихий вентилятор охлаждения"></div>
+      </div>
+    </div>
+
+      <div class="brand-tier middle">
+        <span class="tier-label">СРЕДНИЙ СЕГМЕНТ</span><span class="price-range">30 000 — 100 000 ₽</span>
+        <div class="brands-grid" data-cat="hob">
+          <div class="brand-chip" data-cat="hob" data-brand="Bosch" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Bosch</span></div>
+          <div class="brand-chip" data-cat="hob" data-brand="Siemens" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Siemens</span></div>
+          <div class="brand-chip" data-cat="hob" data-brand="NEFF" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">NEFF</span></div>
+          <div class="brand-chip" data-cat="hob" data-brand="Electrolux" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Electrolux</span></div>
+          <div class="brand-chip" data-cat="hob" data-brand="AEG" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">AEG</span></div>
+          <div class="brand-chip" data-cat="hob" data-brand="Whirlpool" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Whirlpool</span></div>
+        </div>
+      </div>
+
+      <div class="brand-tier budget">
+        <span class="tier-label">БЮДЖЕТ / РФ-ГАРАНТИЯ</span><span class="price-range">до 30 000 ₽</span>
+        <div class="brands-grid" data-cat="hob">
+          <div class="brand-chip" data-cat="hob" data-brand="Kuppersberg" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Kuppersberg</span></div>
+          <div class="brand-chip" data-cat="hob" data-brand="Maunfeld" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Maunfeld</span></div>
+          <div class="brand-chip" data-cat="hob" data-brand="Korting" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Korting</span></div>
+          <div class="brand-chip" data-cat="hob" data-brand="Hansa" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Hansa</span></div>
+          <div class="brand-chip" data-cat="hob" data-brand="Beko" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Beko</span></div>
+          <div class="brand-chip" data-cat="hob" data-brand="Haier" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Haier</span></div>
+          <div class="brand-chip" data-cat="hob" data-brand="Weissgauff" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Weissgauff</span></div>
+          <div class="brand-chip" data-cat="hob" data-brand="Gorenje" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Gorenje</span></div>
+          <div class="brand-chip" data-cat="hob" data-brand="Hotpoint" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Hotpoint</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-bar">
+      <button class="btn-back" onclick="showMenu()">← ВОЗВРАТ К МЕНЮ</button> <button class="btn-clear" onclick="clearCategory('hob')">🗑 Очистить</button>
+      <button class="btn-next" onclick="goNext('hob')">СОХРАНИТЬ И ДАЛЕЕ →</button>
+    </div>
+  </section>
+
+  <!-- 02. ХОЛОДИЛЬНИК -->
+  <section class="page" id="page-fridge" data-cat="fridge">
+    <div class="nav-bar">
+      <button class="btn-back" onclick="showMenu()">← ВОЗВРАТ К МЕНЮ</button> <button class="btn-clear" onclick="clearCategory('fridge')">🗑 Очистить</button>
+      <span class="progress-text" id="prog-fridge"></span>
+      <button class="btn-next" onclick="goNext('fridge')">СОХРАНИТЬ И ДАЛЕЕ →</button>
+    </div>
+
+    <h3>Категория · Cooling</h3>
+    <h2>❄️ Холодильник</h2>
+
+    <div class="section-block brands-block">
+      <h4>Марки техники</h4>
+      <div class="brand-presets">
+        <span class="preset-label">Быстрый выбор:</span>
+        <button type="button" class="preset-btn" onclick="applyBrandPreset('fridge', 'premium', this)"><span class="preset-ico">💎</span> Премиум</button>
+        <button type="button" class="preset-btn" onclick="applyBrandPreset('fridge', 'middle', this)"><span class="preset-ico">★</span> Цена / качество</button>
+        <button type="button" class="preset-btn" onclick="applyBrandPreset('fridge', 'budget', this)"><span class="preset-ico">₽</span> Бюджет</button>
+      </div>
+
+
+      <div class="brand-tier premium">
+        <span class="tier-label">ПРЕМИУМ</span><span class="price-range">от 250 000 ₽</span>
+        <div class="brands-grid" data-cat="fridge">
+          <div class="brand-chip" data-cat="fridge" data-brand="Miele" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Miele</span></div>
+          <div class="brand-chip" data-cat="fridge" data-brand="Liebherr" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Liebherr</span></div>
+          <div class="brand-chip" data-cat="fridge" data-brand="Gaggenau" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Gaggenau</span></div>
+          <div class="brand-chip" data-cat="fridge" data-brand="Smeg" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Smeg</span></div>
+          <div class="brand-chip" data-cat="fridge" data-brand="Asko" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Asko</span></div>
+        </div>
+      </div>
+
+    <div class="section-block">
+      <h4>Технические параметры</h4>
+      <div class="params">
+        <div class="header"><div>Параметр</div><div>Варианты</div></div>
+
+        <div class="row-label">Тип</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="radio" name="fridge.type" value="two_chamber"> двухкамерный</label>
+          <label class="option"><input type="radio" name="fridge.type" value="sbs"> Side-by-Side</label>
+          <label class="option"><input type="radio" name="fridge.type" value="french"> French Door</label>
+          <label class="option"><input type="radio" name="fridge.type" value="column"> встр. колонной</label>
+          <label class="option"><input type="radio" name="fridge.type" value="combi"> комби-морозильник</label>
+        </div></div>
+
+        <div class="row-label">Ширина ниши</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="radio" name="fridge.width" value="54"> 54 см</label>
+          <label class="option"><input type="radio" name="fridge.width" value="60"> 60 см</label>
+          <label class="option"><input type="radio" name="fridge.width" value="70"> 70 см</label>
+          <label class="option"><input type="radio" name="fridge.width" value="75"> 75 см</label>
+          <label class="option"><input type="radio" name="fridge.width" value="91"> 91 см</label>
+        </div></div>
+
+        <div class="row-label">Объём</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="radio" name="fridge.volume" value="to300"> до 300 л</label>
+          <label class="option"><input type="radio" name="fridge.volume" value="300-450"> 300–450 л</label>
+          <label class="option"><input type="radio" name="fridge.volume" value="450-600"> 450–600 л</label>
+          <label class="option"><input type="radio" name="fridge.volume" value="600+"> 600+ л</label>
+        </div></div>
+
+        <div class="row-label">Цвет</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="radio" name="fridge.color" value="white"> белый</label>
+          <label class="option"><input type="radio" name="fridge.color" value="inox"> нерж.</label>
+          <label class="option"><input type="radio" name="fridge.color" value="black"> чёрный</label>
+          <label class="option"><input type="radio" name="fridge.color" value="anthracite"> антрацит</label>
+          <label class="option"><input type="radio" name="fridge.color" value="builtin"> встр. под фасад</label>
+        </div></div>
+
+        <div class="row-label">Особенности</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="checkbox" name="fridge.f.nofrost"> NoFrost обязательно</label>
+          <label class="option"><input type="checkbox" name="fridge.f.inverter"> инверторный компрессор</label>
+          <label class="option"><input type="checkbox" name="fridge.f.freshzone"> зона свежести</label>
+          <label class="option"><input type="checkbox" name="fridge.f.silent"> низкий шум (≤40 дБ)</label>
+          <label class="option"><input type="checkbox" name="fridge.f.smart"> Wi-Fi / Smart</label>
+          <label class="option"><input type="checkbox" name="fridge.f.ice"> лёдогенератор</label>
+        </div></div>
+
+        <div class="row-label">Особенности (своими словами)</div>
+        <div class="row-options"><input type="text" class="free" name="fridge.notes" placeholder="например: тихий, ширина не более 700 мм, дверца справа"></div>
+      </div>
+    </div>
+
+      <div class="brand-tier middle">
+        <span class="tier-label">СРЕДНИЙ</span><span class="price-range">80 000 — 250 000 ₽</span>
+        <div class="brands-grid" data-cat="fridge">
+          <div class="brand-chip" data-cat="fridge" data-brand="Bosch" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Bosch</span></div>
+          <div class="brand-chip" data-cat="fridge" data-brand="Siemens" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Siemens</span></div>
+          <div class="brand-chip" data-cat="fridge" data-brand="NEFF" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">NEFF</span></div>
+          <div class="brand-chip" data-cat="fridge" data-brand="Electrolux" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Electrolux</span></div>
+          <div class="brand-chip" data-cat="fridge" data-brand="AEG" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">AEG</span></div>
+          <div class="brand-chip" data-cat="fridge" data-brand="LG" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">LG</span></div>
+          <div class="brand-chip" data-cat="fridge" data-brand="Samsung" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Samsung</span></div>
+          <div class="brand-chip" data-cat="fridge" data-brand="Haier" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Haier</span></div>
+        </div>
+      </div>
+
+      <div class="brand-tier budget">
+        <span class="tier-label">БЮДЖЕТ</span><span class="price-range">до 80 000 ₽</span>
+        <div class="brands-grid" data-cat="fridge">
+          <div class="brand-chip" data-cat="fridge" data-brand="Beko" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Beko</span></div>
+          <div class="brand-chip" data-cat="fridge" data-brand="Hansa" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Hansa</span></div>
+          <div class="brand-chip" data-cat="fridge" data-brand="Atlant" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Atlant</span></div>
+          <div class="brand-chip" data-cat="fridge" data-brand="Indesit" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Indesit</span></div>
+          <div class="brand-chip" data-cat="fridge" data-brand="Hisense" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Hisense</span></div>
+          <div class="brand-chip" data-cat="fridge" data-brand="Midea" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Midea</span></div>
+          <div class="brand-chip" data-cat="fridge" data-brand="Gorenje" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Gorenje</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-bar">
+      <button class="btn-back" onclick="showMenu()">← ВОЗВРАТ К МЕНЮ</button> <button class="btn-clear" onclick="clearCategory('fridge')">🗑 Очистить</button>
+      <button class="btn-next" onclick="goNext('fridge')">СОХРАНИТЬ И ДАЛЕЕ →</button>
+    </div>
+  </section>
+
+  <!-- 03. ПММ -->
+  <section class="page" id="page-dw" data-cat="dw">
+    <div class="nav-bar">
+      <button class="btn-back" onclick="showMenu()">← ВОЗВРАТ К МЕНЮ</button> <button class="btn-clear" onclick="clearCategory('dw')">🗑 Очистить</button>
+      <span class="progress-text" id="prog-dw"></span>
+      <button class="btn-next" onclick="goNext('dw')">СОХРАНИТЬ И ДАЛЕЕ →</button>
+    </div>
+
+    <h3>Категория · Dishwashing</h3>
+    <h2>💧 Посудомоечная машина</h2>
+
+    <div class="section-block brands-block">
+      <h4>Марки техники</h4>
+      <div class="brand-presets">
+        <span class="preset-label">Быстрый выбор:</span>
+        <button type="button" class="preset-btn" onclick="applyBrandPreset('dw', 'premium', this)"><span class="preset-ico">💎</span> Премиум</button>
+        <button type="button" class="preset-btn" onclick="applyBrandPreset('dw', 'middle', this)"><span class="preset-ico">★</span> Цена / качество</button>
+        <button type="button" class="preset-btn" onclick="applyBrandPreset('dw', 'budget', this)"><span class="preset-ico">₽</span> Бюджет</button>
+      </div>
+
+      <div class="brand-tier premium">
+        <span class="tier-label">ПРЕМИУМ</span><span class="price-range">от 150 000 ₽</span>
+        <div class="brands-grid" data-cat="dw">
+          <div class="brand-chip" data-cat="dw" data-brand="Miele" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Miele</span></div>
+          <div class="brand-chip" data-cat="dw" data-brand="Asko" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Asko</span></div>
+          <div class="brand-chip" data-cat="dw" data-brand="Gaggenau" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Gaggenau</span></div>
+          <div class="brand-chip" data-cat="dw" data-brand="NEFF" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">NEFF</span></div>
+          <div class="brand-chip" data-cat="dw" data-brand="Smeg" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Smeg</span></div>
+        </div>
+      </div>
+
+    <div class="section-block">
+      <h4>Технические параметры</h4>
+      <div class="params">
+        <div class="header"><div>Параметр</div><div>Варианты</div></div>
+        <div class="row-label">Ширина</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="radio" name="dw.width" value="45"> 45 см</label>
+          <label class="option"><input type="radio" name="dw.width" value="60"> 60 см</label>
+        </div></div>
+        <div class="row-label">Тип монтажа</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="radio" name="dw.mount" value="full_built_in"> полностью встр.</label>
+          <label class="option"><input type="radio" name="dw.mount" value="partial"> с открыт. панелью</label>
+          <label class="option"><input type="radio" name="dw.mount" value="freestanding"> отдельностоящая</label>
+        </div></div>
+        <div class="row-label">Кол-во комплектов</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="radio" name="dw.settings" value="8-9"> 8–9</label>
+          <label class="option"><input type="radio" name="dw.settings" value="10-11"> 10–11</label>
+          <label class="option"><input type="radio" name="dw.settings" value="12-14"> 12–14</label>
+        </div></div>
+        <div class="row-label">Доп. функции</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="checkbox" name="dw.f.aquastop"> AquaStop полный</label>
+          <label class="option"><input type="checkbox" name="dw.f.tray"> 3-й лоток</label>
+          <label class="option"><input type="checkbox" name="dw.f.silent"> низкий шум (≤44 дБ)</label>
+          <label class="option"><input type="checkbox" name="dw.f.smart"> Smart-управление</label>
+          <label class="option"><input type="checkbox" name="dw.f.autoopen"> AutoOpen-сушка</label>
+        </div></div>
+        <div class="row-label">Особенности</div>
+        <div class="row-options"><input type="text" class="free" name="dw.notes" placeholder="например: цеолит, луч на пол, тихая"></div>
+      </div>
+    </div>
+      <div class="brand-tier middle">
+        <span class="tier-label">СРЕДНИЙ</span><span class="price-range">50 000 — 150 000 ₽</span>
+        <div class="brands-grid" data-cat="dw">
+          <div class="brand-chip" data-cat="dw" data-brand="Bosch" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Bosch</span></div>
+          <div class="brand-chip" data-cat="dw" data-brand="Siemens" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Siemens</span></div>
+          <div class="brand-chip" data-cat="dw" data-brand="Electrolux" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Electrolux</span></div>
+          <div class="brand-chip" data-cat="dw" data-brand="AEG" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">AEG</span></div>
+        </div>
+      </div>
+      <div class="brand-tier budget">
+        <span class="tier-label">БЮДЖЕТ</span><span class="price-range">до 50 000 ₽</span>
+        <div class="brands-grid" data-cat="dw">
+          <div class="brand-chip" data-cat="dw" data-brand="Kuppersberg" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Kuppersberg</span></div>
+          <div class="brand-chip" data-cat="dw" data-brand="Maunfeld" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Maunfeld</span></div>
+          <div class="brand-chip" data-cat="dw" data-brand="Hansa" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Hansa</span></div>
+          <div class="brand-chip" data-cat="dw" data-brand="Beko" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Beko</span></div>
+          <div class="brand-chip" data-cat="dw" data-brand="Hotpoint" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Hotpoint</span></div>
+          <div class="brand-chip" data-cat="dw" data-brand="Weissgauff" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Weissgauff</span></div>
+          <div class="brand-chip" data-cat="dw" data-brand="Midea" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Midea</span></div>
+          <div class="brand-chip" data-cat="dw" data-brand="Gorenje" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Gorenje</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-bar">
+      <button class="btn-back" onclick="showMenu()">← ВОЗВРАТ К МЕНЮ</button> <button class="btn-clear" onclick="clearCategory('dw')">🗑 Очистить</button>
+      <button class="btn-next" onclick="goNext('dw')">СОХРАНИТЬ И ДАЛЕЕ →</button>
+    </div>
+  </section>
+
+  <!-- 04. ВЫТЯЖКА -->
+  <section class="page" id="page-hood" data-cat="hood">
+    <div class="nav-bar">
+      <button class="btn-back" onclick="showMenu()">← ВОЗВРАТ К МЕНЮ</button> <button class="btn-clear" onclick="clearCategory('hood')">🗑 Очистить</button>
+      <span class="progress-text" id="prog-hood"></span>
+      <button class="btn-next" onclick="goNext('hood')">СОХРАНИТЬ И ДАЛЕЕ →</button>
+    </div>
+
+    <h3>Категория · Ventilation</h3>
+    <h2>🌬️ Вытяжка</h2>
+
+    <div class="section-block brands-block">
+      <h4>Марки техники</h4>
+      <div class="brand-presets">
+        <span class="preset-label">Быстрый выбор:</span>
+        <button type="button" class="preset-btn" onclick="applyBrandPreset('hood', 'premium', this)"><span class="preset-ico">💎</span> Премиум</button>
+        <button type="button" class="preset-btn" onclick="applyBrandPreset('hood', 'middle', this)"><span class="preset-ico">★</span> Цена / качество</button>
+        <button type="button" class="preset-btn" onclick="applyBrandPreset('hood', 'budget', this)"><span class="preset-ico">₽</span> Бюджет</button>
+      </div>
+
+      <div class="brand-tier premium">
+        <span class="tier-label">ПРЕМИУМ</span><span class="price-range">от 80 000 ₽</span>
+        <div class="brands-grid" data-cat="hood">
+          <div class="brand-chip" data-cat="hood" data-brand="Miele" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Miele</span></div>
+          <div class="brand-chip" data-cat="hood" data-brand="Gaggenau" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Gaggenau</span></div>
+          <div class="brand-chip" data-cat="hood" data-brand="Falmec" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Falmec</span></div>
+          <div class="brand-chip" data-cat="hood" data-brand="Faber" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Faber (premium)</span></div>
+          <div class="brand-chip" data-cat="hood" data-brand="Smeg" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Smeg</span></div>
+        </div>
+      </div>
+
+    <div class="section-block">
+      <h4>Технические параметры</h4>
+      <div class="params">
+        <div class="header"><div>Параметр</div><div>Варианты</div></div>
+        <div class="row-label">Тип</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="radio" name="hood.type" value="inclined"> наклонная</label>
+          <label class="option"><input type="radio" name="hood.type" value="t_shape"> Т-образная</label>
+          <label class="option"><input type="radio" name="hood.type" value="dome"> купольная</label>
+          <label class="option"><input type="radio" name="hood.type" value="built_in"> встр. в шкаф</label>
+          <label class="option"><input type="radio" name="hood.type" value="telescopic"> телескопическая</label>
+          <label class="option"><input type="radio" name="hood.type" value="island"> островная</label>
+        </div></div>
+        <div class="row-label">Ширина</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="radio" name="hood.width" value="50"> 50 см</label>
+          <label class="option"><input type="radio" name="hood.width" value="60"> 60 см</label>
+          <label class="option"><input type="radio" name="hood.width" value="80"> 80 см</label>
+          <label class="option"><input type="radio" name="hood.width" value="90"> 90 см</label>
+        </div></div>
+        <div class="row-label">Цвет</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="radio" name="hood.color" value="inox"> нерж.</label>
+          <label class="option"><input type="radio" name="hood.color" value="black"> чёрный</label>
+          <label class="option"><input type="radio" name="hood.color" value="white"> белый</label>
+          <label class="option"><input type="radio" name="hood.color" value="black_glass"> чёрное стекло</label>
+        </div></div>
+        <div class="row-label">Режим</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="radio" name="hood.mode" value="exhaust"> отвод в шахту</label>
+          <label class="option"><input type="radio" name="hood.mode" value="recirc"> рециркуляция</label>
+          <label class="option"><input type="radio" name="hood.mode" value="combi"> комбинированный</label>
+        </div></div>
+        <div class="row-label">Производительность мин.</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="radio" name="hood.perf" value="to400"> до 400 м³/ч</label>
+          <label class="option"><input type="radio" name="hood.perf" value="400-600"> 400–600</label>
+          <label class="option"><input type="radio" name="hood.perf" value="600-900"> 600–900</label>
+          <label class="option"><input type="radio" name="hood.perf" value="900+"> 900+</label>
+        </div></div>
+        <div class="row-label">Объём кухни (м³)</div>
+        <div class="row-options"><input type="number" class="free" name="hood.kitchen_volume" placeholder="например, 32"></div>
+        <div class="row-label">Особенности</div>
+        <div class="row-options"><input type="text" class="free" name="hood.notes" placeholder="например: тихая, LED, угольный фильтр в комплекте"></div>
+      </div>
+    </div>
+      <div class="brand-tier middle">
+        <span class="tier-label">СРЕДНИЙ</span><span class="price-range">25 000 — 80 000 ₽</span>
+        <div class="brands-grid" data-cat="hood">
+          <div class="brand-chip" data-cat="hood" data-brand="Bosch" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Bosch</span></div>
+          <div class="brand-chip" data-cat="hood" data-brand="Siemens" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Siemens</span></div>
+          <div class="brand-chip" data-cat="hood" data-brand="NEFF" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">NEFF</span></div>
+          <div class="brand-chip" data-cat="hood" data-brand="Asko" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Asko</span></div>
+          <div class="brand-chip" data-cat="hood" data-brand="Elica" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Elica</span></div>
+          <div class="brand-chip" data-cat="hood" data-brand="Best" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Best</span></div>
+          <div class="brand-chip" data-cat="hood" data-brand="Cata" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Cata</span></div>
+        </div>
+      </div>
+      <div class="brand-tier budget">
+        <span class="tier-label">БЮДЖЕТ</span><span class="price-range">до 25 000 ₽</span>
+        <div class="brands-grid" data-cat="hood">
+          <div class="brand-chip" data-cat="hood" data-brand="Maunfeld" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Maunfeld</span></div>
+          <div class="brand-chip" data-cat="hood" data-brand="Krona" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Krona</span></div>
+          <div class="brand-chip" data-cat="hood" data-brand="Korting" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Korting</span></div>
+          <div class="brand-chip" data-cat="hood" data-brand="Kuppersberg" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Kuppersberg</span></div>
+          <div class="brand-chip" data-cat="hood" data-brand="Hansa" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Hansa</span></div>
+          <div class="brand-chip" data-cat="hood" data-brand="Elikor" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Elikor</span></div>
+          <div class="brand-chip" data-cat="hood" data-brand="LEX" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">LEX</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-bar">
+      <button class="btn-back" onclick="showMenu()">← ВОЗВРАТ К МЕНЮ</button> <button class="btn-clear" onclick="clearCategory('hood')">🗑 Очистить</button>
+      <button class="btn-next" onclick="goNext('hood')">СОХРАНИТЬ И ДАЛЕЕ →</button>
+    </div>
+  </section>
+
+  <!-- 05. ДУХОВКА -->
+  <section class="page" id="page-oven" data-cat="oven">
+    <div class="nav-bar">
+      <button class="btn-back" onclick="showMenu()">← ВОЗВРАТ К МЕНЮ</button> <button class="btn-clear" onclick="clearCategory('oven')">🗑 Очистить</button>
+      <span class="progress-text" id="prog-oven"></span>
+      <button class="btn-next" onclick="goNext('oven')">СОХРАНИТЬ И ДАЛЕЕ →</button>
+    </div>
+
+    <h3>Категория · Cooking · Oven</h3>
+    <h2>🍞 Духовой шкаф (± СВЧ)</h2>
+
+    <div class="section-block brands-block">
+      <h4>Марки техники</h4>
+      <div class="brand-presets">
+        <span class="preset-label">Быстрый выбор:</span>
+        <button type="button" class="preset-btn" onclick="applyBrandPreset('oven', 'premium', this)"><span class="preset-ico">💎</span> Премиум</button>
+        <button type="button" class="preset-btn" onclick="applyBrandPreset('oven', 'middle', this)"><span class="preset-ico">★</span> Цена / качество</button>
+        <button type="button" class="preset-btn" onclick="applyBrandPreset('oven', 'budget', this)"><span class="preset-ico">₽</span> Бюджет</button>
+      </div>
+
+      <div class="brand-tier premium">
+        <span class="tier-label">ПРЕМИУМ</span><span class="price-range">от 250 000 ₽</span>
+        <div class="brands-grid" data-cat="oven">
+          <div class="brand-chip" data-cat="oven" data-brand="Miele" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Miele</span></div>
+          <div class="brand-chip" data-cat="oven" data-brand="Gaggenau" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Gaggenau</span></div>
+          <div class="brand-chip" data-cat="oven" data-brand="V-Zug" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">V-Zug</span></div>
+          <div class="brand-chip" data-cat="oven" data-brand="NEFF" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">NEFF</span></div>
+          <div class="brand-chip" data-cat="oven" data-brand="Smeg" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Smeg</span></div>
+          <div class="brand-chip" data-cat="oven" data-brand="Asko" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Asko</span></div>
+        </div>
+      </div>
+
+    <div class="section-block">
+      <h4>Технические параметры</h4>
+      <div class="params">
+        <div class="header"><div>Параметр</div><div>Варианты</div></div>
+        <div class="row-label">Конфигурация</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="radio" name="oven.config" value="compact_combi"> компакт 45 см с СВЧ</label>
+          <label class="option"><input type="radio" name="oven.config" value="full_60"> полноразмер 60 см</label>
+          <label class="option"><input type="radio" name="oven.config" value="xl_90"> XL 90 см</label>
+          <label class="option"><input type="radio" name="oven.config" value="two_separate"> 2 прибора (60+45)</label>
+        </div></div>
+        <div class="row-label">Цвет</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="radio" name="oven.color" value="black"> чёрный</label>
+          <label class="option"><input type="radio" name="oven.color" value="inox"> нерж.</label>
+          <label class="option"><input type="radio" name="oven.color" value="white"> белый</label>
+          <label class="option"><input type="radio" name="oven.color" value="blackglass"> чёрное стекло</label>
+          <label class="option"><input type="radio" name="oven.color" value="anthracite"> антрацит</label>
+        </div></div>
+        <div class="row-label">Тип очистки</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="radio" name="oven.cleaning" value="hydro"> гидролиз</label>
+          <label class="option"><input type="radio" name="oven.cleaning" value="pyro"> пиролиз</label>
+          <label class="option"><input type="radio" name="oven.cleaning" value="eco"> EcoClean / катализ</label>
+          <label class="option"><input type="radio" name="oven.cleaning" value="aqua"> AquaClean (пар)</label>
+          <label class="option"><input type="radio" name="oven.cleaning" value="std"> традиционная</label>
+        </div></div>
+        <div class="row-label">Доп. функции</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="checkbox" name="oven.f.4d"> 4D HotAir</label>
+          <label class="option"><input type="checkbox" name="oven.f.steam"> функция пара</label>
+          <label class="option"><input type="checkbox" name="oven.f.probe"> термощуп</label>
+          <label class="option"><input type="checkbox" name="oven.f.smart"> Home Connect</label>
+          <label class="option"><input type="checkbox" name="oven.f.autopilot"> AutoPilot</label>
+          <label class="option"><input type="checkbox" name="oven.f.softclose"> SoftClose</label>
+        </div></div>
+        <div class="row-label">Особенности</div>
+        <div class="row-options"><input type="text" class="free" name="oven.notes" placeholder="например: TFT-дисплей, телескопические направляющие"></div>
+      </div>
+    </div>
+      <div class="brand-tier middle">
+        <span class="tier-label">СРЕДНИЙ</span><span class="price-range">80 000 — 250 000 ₽</span>
+        <div class="brands-grid" data-cat="oven">
+          <div class="brand-chip" data-cat="oven" data-brand="Bosch" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Bosch</span></div>
+          <div class="brand-chip" data-cat="oven" data-brand="Siemens" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Siemens</span></div>
+          <div class="brand-chip" data-cat="oven" data-brand="Electrolux" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Electrolux</span></div>
+          <div class="brand-chip" data-cat="oven" data-brand="AEG" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">AEG</span></div>
+          <div class="brand-chip" data-cat="oven" data-brand="Whirlpool" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Whirlpool</span></div>
+        </div>
+      </div>
+      <div class="brand-tier budget">
+        <span class="tier-label">БЮДЖЕТ</span><span class="price-range">до 80 000 ₽</span>
+        <div class="brands-grid" data-cat="oven">
+          <div class="brand-chip" data-cat="oven" data-brand="Kuppersberg" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Kuppersberg</span></div>
+          <div class="brand-chip" data-cat="oven" data-brand="Maunfeld" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Maunfeld</span></div>
+          <div class="brand-chip" data-cat="oven" data-brand="Hansa" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Hansa</span></div>
+          <div class="brand-chip" data-cat="oven" data-brand="Beko" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Beko</span></div>
+          <div class="brand-chip" data-cat="oven" data-brand="Hotpoint" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Hotpoint</span></div>
+          <div class="brand-chip" data-cat="oven" data-brand="Gorenje" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Gorenje</span></div>
+          <div class="brand-chip" data-cat="oven" data-brand="Indesit" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Indesit</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-bar">
+      <button class="btn-back" onclick="showMenu()">← ВОЗВРАТ К МЕНЮ</button> <button class="btn-clear" onclick="clearCategory('oven')">🗑 Очистить</button>
+      <button class="btn-next" onclick="goNext('oven')">СОХРАНИТЬ И ДАЛЕЕ →</button>
+    </div>
+  </section>
+
+  <!-- 06. МИКРОВОЛНОВКА -->
+  <section class="page" id="page-microwave" data-cat="microwave">
+    <div class="nav-bar">
+      <button class="btn-back" onclick="showMenu()">← ВОЗВРАТ К МЕНЮ</button> <button class="btn-clear" onclick="clearCategory('microwave')">🗑 Очистить</button>
+      <span class="progress-text" id="prog-microwave"></span>
+      <button class="btn-next" onclick="goNext('microwave')">СОХРАНИТЬ И ДАЛЕЕ →</button>
+    </div>
+    <h3>Категория · Microwave</h3>
+    <h2>📡 Микроволновая печь (отдельно)</h2>
+    <div class="section-block brands-block">
+      <h4>Марки техники</h4>
+      <div class="brand-presets">
+        <span class="preset-label">Быстрый выбор:</span>
+        <button type="button" class="preset-btn" onclick="applyBrandPreset('microwave', 'premium', this)"><span class="preset-ico">💎</span> Премиум</button>
+        <button type="button" class="preset-btn" onclick="applyBrandPreset('microwave', 'middle', this)"><span class="preset-ico">★</span> Цена / качество</button>
+        <button type="button" class="preset-btn" onclick="applyBrandPreset('microwave', 'budget', this)"><span class="preset-ico">₽</span> Бюджет</button>
+      </div>
+
+      <div class="brand-tier middle">
+        <span class="tier-label">ПОПУЛЯРНЫЕ</span><span class="price-range">15 000 — 80 000 ₽</span>
+        <div class="brands-grid" data-cat="microwave">
+          <div class="brand-chip" data-cat="microwave" data-brand="Bosch" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Bosch</span></div>
+          <div class="brand-chip" data-cat="microwave" data-brand="Siemens" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Siemens</span></div>
+          <div class="brand-chip" data-cat="microwave" data-brand="NEFF" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">NEFF</span></div>
+          <div class="brand-chip" data-cat="microwave" data-brand="Miele" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Miele</span></div>
+          <div class="brand-chip" data-cat="microwave" data-brand="Samsung" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Samsung</span></div>
+          <div class="brand-chip" data-cat="microwave" data-brand="LG" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">LG</span></div>
+          <div class="brand-chip" data-cat="microwave" data-brand="Panasonic" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Panasonic</span></div>
+          <div class="brand-chip" data-cat="microwave" data-brand="Kuppersberg" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Kuppersberg</span></div>
+          <div class="brand-chip" data-cat="microwave" data-brand="Maunfeld" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Maunfeld</span></div>
+        </div>
+      </div>
+    <div class="section-block">
+      <h4>Технические параметры</h4>
+      <div class="params">
+        <div class="header"><div>Параметр</div><div>Варианты</div></div>
+        <div class="row-label">Тип</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="radio" name="microwave.type" value="builtin"> встраиваемая</label>
+          <label class="option"><input type="radio" name="microwave.type" value="freestanding"> отдельностоящая</label>
+        </div></div>
+        <div class="row-label">Объём</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="radio" name="microwave.volume" value="to20"> до 20 л</label>
+          <label class="option"><input type="radio" name="microwave.volume" value="20-25"> 20–25 л</label>
+          <label class="option"><input type="radio" name="microwave.volume" value="25+"> 25+ л</label>
+        </div></div>
+        <div class="row-label">Доп. функции</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="checkbox" name="microwave.f.grill"> гриль</label>
+          <label class="option"><input type="checkbox" name="microwave.f.convection"> конвекция</label>
+          <label class="option"><input type="checkbox" name="microwave.f.inverter"> инвертор</label>
+        </div></div>
+        <div class="row-label">Особенности</div>
+        <div class="row-options"><input type="text" class="free" name="microwave.notes"></div>
+      </div>
+    </div>
+    </div>
+    <div class="nav-bar">
+      <button class="btn-back" onclick="showMenu()">← ВОЗВРАТ К МЕНЮ</button> <button class="btn-clear" onclick="clearCategory('microwave')">🗑 Очистить</button>
+      <button class="btn-next" onclick="goNext('microwave')">СОХРАНИТЬ И ДАЛЕЕ →</button>
+    </div>
+  </section>
+
+  <!-- 07. КОФЕМАШИНА -->
+  <section class="page" id="page-coffee" data-cat="coffee">
+    <div class="nav-bar">
+      <button class="btn-back" onclick="showMenu()">← ВОЗВРАТ К МЕНЮ</button> <button class="btn-clear" onclick="clearCategory('coffee')">🗑 Очистить</button>
+      <span class="progress-text" id="prog-coffee"></span>
+      <button class="btn-next" onclick="goNext('coffee')">СОХРАНИТЬ И ДАЛЕЕ →</button>
+    </div>
+    <h3>Категория · Coffee</h3>
+    <h2>☕ Кофемашина</h2>
+    <div class="section-block brands-block">
+      <h4>Марки техники</h4>
+      <div class="brand-presets">
+        <span class="preset-label">Быстрый выбор:</span>
+        <button type="button" class="preset-btn" onclick="applyBrandPreset('coffee', 'premium', this)"><span class="preset-ico">💎</span> Премиум</button>
+        <button type="button" class="preset-btn" onclick="applyBrandPreset('coffee', 'middle', this)"><span class="preset-ico">★</span> Цена / качество</button>
+        <button type="button" class="preset-btn" onclick="applyBrandPreset('coffee', 'budget', this)"><span class="preset-ico">₽</span> Бюджет</button>
+      </div>
+
+      <div class="brand-tier premium">
+        <span class="tier-label">ПРЕМИУМ</span><span class="price-range">от 150 000 ₽</span>
+        <div class="brands-grid" data-cat="coffee">
+          <div class="brand-chip" data-cat="coffee" data-brand="Miele" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Miele</span></div>
+          <div class="brand-chip" data-cat="coffee" data-brand="Gaggenau" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Gaggenau</span></div>
+          <div class="brand-chip" data-cat="coffee" data-brand="Jura" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Jura</span></div>
+          <div class="brand-chip" data-cat="coffee" data-brand="Smeg" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Smeg</span></div>
+        </div>
+      </div>
+    <div class="section-block">
+      <h4>Технические параметры</h4>
+      <div class="params">
+        <div class="header"><div>Параметр</div><div>Варианты</div></div>
+        <div class="row-label">Тип</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="radio" name="coffee.type" value="builtin"> встраиваемая</label>
+          <label class="option"><input type="radio" name="coffee.type" value="freestanding"> отдельностоящая</label>
+        </div></div>
+        <div class="row-label">Технология</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="radio" name="coffee.tech" value="auto_grinder"> авто с кофемолкой</label>
+          <label class="option"><input type="radio" name="coffee.tech" value="capsule"> капсульная</label>
+          <label class="option"><input type="radio" name="coffee.tech" value="manual"> рожковая</label>
+        </div></div>
+        <div class="row-label">Доп. функции</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="checkbox" name="coffee.f.milk"> авто-капучинатор</label>
+          <label class="option"><input type="checkbox" name="coffee.f.profiles"> профили пользователей</label>
+          <label class="option"><input type="checkbox" name="coffee.f.smart"> Smart-управление</label>
+        </div></div>
+        <div class="row-label">Особенности</div>
+        <div class="row-options"><input type="text" class="free" name="coffee.notes"></div>
+      </div>
+    </div>
+      <div class="brand-tier middle">
+        <span class="tier-label">СРЕДНИЙ</span><span class="price-range">50 000 — 150 000 ₽</span>
+        <div class="brands-grid" data-cat="coffee">
+          <div class="brand-chip" data-cat="coffee" data-brand="Bosch" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Bosch</span></div>
+          <div class="brand-chip" data-cat="coffee" data-brand="Siemens" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Siemens</span></div>
+          <div class="brand-chip" data-cat="coffee" data-brand="NEFF" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">NEFF</span></div>
+          <div class="brand-chip" data-cat="coffee" data-brand="DeLonghi" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">De'Longhi</span></div>
+          <div class="brand-chip" data-cat="coffee" data-brand="Philips" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Philips</span></div>
+          <div class="brand-chip" data-cat="coffee" data-brand="Saeco" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Saeco</span></div>
+          <div class="brand-chip" data-cat="coffee" data-brand="Krups" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Krups</span></div>
+        </div>
+      </div>
+      <div class="brand-tier budget">
+        <span class="tier-label">БЮДЖЕТ</span><span class="price-range">до 50 000 ₽</span>
+        <div class="brands-grid" data-cat="coffee">
+          <div class="brand-chip" data-cat="coffee" data-brand="Polaris" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Polaris</span></div>
+          <div class="brand-chip" data-cat="coffee" data-brand="Redmond" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Redmond</span></div>
+          <div class="brand-chip" data-cat="coffee" data-brand="Kitfort" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Kitfort</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="nav-bar">
+      <button class="btn-back" onclick="showMenu()">← ВОЗВРАТ К МЕНЮ</button> <button class="btn-clear" onclick="clearCategory('coffee')">🗑 Очистить</button>
+      <button class="btn-next" onclick="goNext('coffee')">СОХРАНИТЬ И ДАЛЕЕ →</button>
+    </div>
+  </section>
+
+  <!-- 08. СТИРАЛКА -->
+  <section class="page" id="page-washer" data-cat="washer">
+    <div class="nav-bar">
+      <button class="btn-back" onclick="showMenu()">← ВОЗВРАТ К МЕНЮ</button> <button class="btn-clear" onclick="clearCategory('washer')">🗑 Очистить</button>
+      <span class="progress-text" id="prog-washer"></span>
+      <button class="btn-next" onclick="goNext('washer')">СОХРАНИТЬ И ДАЛЕЕ →</button>
+    </div>
+    <h3>Категория · Laundry</h3>
+    <h2>🧺 Стиральная машина</h2>
+    <div class="section-block brands-block">
+      <h4>Марки техники</h4>
+      <div class="brand-presets">
+        <span class="preset-label">Быстрый выбор:</span>
+        <button type="button" class="preset-btn" onclick="applyBrandPreset('washer', 'premium', this)"><span class="preset-ico">💎</span> Премиум</button>
+        <button type="button" class="preset-btn" onclick="applyBrandPreset('washer', 'middle', this)"><span class="preset-ico">★</span> Цена / качество</button>
+        <button type="button" class="preset-btn" onclick="applyBrandPreset('washer', 'budget', this)"><span class="preset-ico">₽</span> Бюджет</button>
+      </div>
+
+      <div class="brand-tier premium">
+        <span class="tier-label">ПРЕМИУМ</span><span class="price-range">от 200 000 ₽</span>
+        <div class="brands-grid" data-cat="washer">
+          <div class="brand-chip" data-cat="washer" data-brand="Miele" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Miele</span></div>
+          <div class="brand-chip" data-cat="washer" data-brand="Asko" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Asko</span></div>
+          <div class="brand-chip" data-cat="washer" data-brand="Smeg" data-tier="premium" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Smeg</span></div>
+        </div>
+      </div>
+    <div class="section-block">
+      <h4>Технические параметры</h4>
+      <div class="params">
+        <div class="header"><div>Параметр</div><div>Варианты</div></div>
+        <div class="row-label">Тип</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="radio" name="washer.type" value="freestanding"> отдельностоящая</label>
+          <label class="option"><input type="radio" name="washer.type" value="builtin"> встраиваемая</label>
+        </div></div>
+        <div class="row-label">Загрузка</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="radio" name="washer.load" value="to6"> до 6 кг</label>
+          <label class="option"><input type="radio" name="washer.load" value="6-8"> 6–8 кг</label>
+          <label class="option"><input type="radio" name="washer.load" value="8-10"> 8–10 кг</label>
+          <label class="option"><input type="radio" name="washer.load" value="10+"> 10+ кг</label>
+        </div></div>
+        <div class="row-label">Глубина</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="radio" name="washer.depth" value="slim"> узкая (до 45 см)</label>
+          <label class="option"><input type="radio" name="washer.depth" value="standard"> стандарт (60 см)</label>
+        </div></div>
+        <div class="row-label">Доп. функции</div>
+        <div class="row-options"><div class="options">
+          <label class="option"><input type="checkbox" name="washer.f.dry"> с сушкой</label>
+          <label class="option"><input type="checkbox" name="washer.f.steam"> пар</label>
+          <label class="option"><input type="checkbox" name="washer.f.smart"> Smart-управление</label>
+          <label class="option"><input type="checkbox" name="washer.f.silent"> низкий шум (≤50 дБ)</label>
+        </div></div>
+        <div class="row-label">Особенности</div>
+        <div class="row-options"><input type="text" class="free" name="washer.notes"></div>
+      </div>
+    </div>
+      <div class="brand-tier middle">
+        <span class="tier-label">СРЕДНИЙ</span><span class="price-range">50 000 — 200 000 ₽</span>
+        <div class="brands-grid" data-cat="washer">
+          <div class="brand-chip" data-cat="washer" data-brand="Bosch" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Bosch</span></div>
+          <div class="brand-chip" data-cat="washer" data-brand="Siemens" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Siemens</span></div>
+          <div class="brand-chip" data-cat="washer" data-brand="LG" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">LG</span></div>
+          <div class="brand-chip" data-cat="washer" data-brand="Samsung" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Samsung</span></div>
+          <div class="brand-chip" data-cat="washer" data-brand="Electrolux" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Electrolux</span></div>
+          <div class="brand-chip" data-cat="washer" data-brand="AEG" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">AEG</span></div>
+          <div class="brand-chip" data-cat="washer" data-brand="Haier" data-tier="middle" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Haier</span></div>
+        </div>
+      </div>
+      <div class="brand-tier budget">
+        <span class="tier-label">БЮДЖЕТ</span><span class="price-range">до 50 000 ₽</span>
+        <div class="brands-grid" data-cat="washer">
+          <div class="brand-chip" data-cat="washer" data-brand="Beko" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Beko</span></div>
+          <div class="brand-chip" data-cat="washer" data-brand="Hansa" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Hansa</span></div>
+          <div class="brand-chip" data-cat="washer" data-brand="Indesit" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Indesit</span></div>
+          <div class="brand-chip" data-cat="washer" data-brand="Atlant" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Atlant</span></div>
+          <div class="brand-chip" data-cat="washer" data-brand="Candy" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Candy</span></div>
+          <div class="brand-chip" data-cat="washer" data-brand="Gorenje" data-tier="budget" data-state="none"><button type="button" class="brand-state-btn brand-state-pref" onclick="setBrandState(this,'preferred')" title="Предпочтительная">★</button><button type="button" class="brand-state-btn brand-state-acc" onclick="setBrandState(this,'acceptable')" title="Готов рассмотреть">✓</button><span class="brand-name">Gorenje</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="nav-bar">
+      <button class="btn-back" onclick="showMenu()">← ВОЗВРАТ К МЕНЮ</button> <button class="btn-clear" onclick="clearCategory('washer')">🗑 Очистить</button>
+      <button class="btn-next" onclick="goNext('washer')">СОХРАНИТЬ И ДАЛЕЕ →</button>
+    </div>
+  </section>
+
+  <!-- ИТОГ — формирование запроса -->
+  <section class="page" id="page-summary">
+    <div class="nav-bar">
+      <button class="btn-back" onclick="showMenu()">← ВОЗВРАТ К МЕНЮ</button>
+      <span class="progress-text">Финальный шаг — формирование запроса</span>
+      <span></span>
+    </div>
+
+    <h3>Запрос готов</h3>
+    <h2>📋 Запрос менеджеру для подбора аналогов</h2>
+    <p style="color:var(--gray);margin-bottom:18px">
+      Ниже — текст запроса со всеми вашими параметрами и предпочтениями по маркам.
+      Передайте его удобным способом — по этому запросу мы выполним поиск и предложим
+      конкретные модели.
+    </p>
+
+    <div class="section-block">
+      <h4>Контактные данные</h4>
+      <div class="params">
+        <div class="row-label">ФИО клиента</div>
+        <div class="row-options"><input type="text" class="free" name="client.name"></div>
+        <div class="row-label">Телефон / Email</div>
+        <div class="row-options"><input type="text" class="free" name="client.contact"></div>
+        <div class="row-label">Адрес объекта</div>
+        <div class="row-options"><input type="text" class="free" name="client.address"></div>
+        <div class="row-label">Бюджет (общий)</div>
+        <div class="row-options"><input type="text" class="free" name="client.budget" placeholder="например: 300 000 ₽"></div>
+        <div class="row-label">Свободные пожелания</div>
+        <div class="row-options"><textarea class="free" name="client.notes" placeholder="что важно учесть при подборе"></textarea></div>
+      </div>
+    </div>
+
+    <h4>Текст запроса (готов к отправке)</h4>
+    <pre class="summary-text" id="summaryText">— заполните параметры и нажмите «Обновить» —</pre>
+    <button class="btn-back" onclick="renderSummary()" style="margin-bottom:24px">🔄 Обновить текст</button>
+
+    <div class="send-actions">
+      <h3>СКОПИРОВАТЬ ЗАПРОС ДЛЯ МЕНЕДЖЕРА</h3>
+      <p>Выберите удобный способ передачи запроса</p>
+      <div class="send-grid">
+        <button class="send-btn primary" onclick="copyText()">
+          <span class="ico">📋</span>
+          <span>
+            <span class="label">Скопировать текст</span>
+            <span class="hint">в Telegram, WhatsApp, Viber</span>
+          </span>
+        </button>
+        <button class="send-btn" onclick="openEmail()">
+          <span class="ico">📧</span>
+          <span>
+            <span class="label">Открыть в почте</span>
+            <span class="hint">Outlook, Gmail, Mail.ru</span>
+          </span>
+        </button>
+        <button class="send-btn" onclick="downloadFile()">
+          <span class="ico">💾</span>
+          <span>
+            <span class="label">Скачать файл</span>
+            <span class="hint">.txt + .json для архива</span>
+          </span>
+        </button>
+        <button class="send-btn" onclick="shareNative()" id="shareBtn">
+          <span class="ico">📤</span>
+          <span>
+            <span class="label">Поделиться</span>
+            <span class="hint">выбор приложения</span>
+          </span>
+        </button>
+      </div>
+      <div id="sendStatus" style="margin-top:14px;font-size:13px;color:var(--bronze-light);font-weight:600;min-height:18px"></div>
+    </div>
+  </section>
+
+  <div class="footer">
+    <div class="zov-logo">ГРУППА КОМПАНИЙ «ЗОВ»</div>
+    <small>фабрика мебели · zovofficial.com</small>
+  </div>
+</div>
+
+<div class="save-bar" id="saveBar">✓ Автосохранено</div>
+
+<script>
+// ========= КОНФИГ =========
+const DEFAULT_MANAGER = { name: 'Любовь АЛПЕЕВА', email: 'lyubov.alpeeva@zovofficial.com' };
+const STORAGE_KEY = 'zov-tech-checklist-v4';
+const MANAGER_KEY = 'zov-tech-manager';
+let MANAGER = {...DEFAULT_MANAGER};
+const ALL_CATS = ['hob','fridge','dw','hood','oven','microwave','coffee','washer'];
+const CAT_LABELS = {
+  hob: 'Варочная панель', fridge: 'Холодильник', dw: 'Посудомоечная машина',
+  hood: 'Вытяжка', oven: 'Духовой шкаф (± СВЧ)', microwave: 'Микроволновая печь',
+  coffee: 'Кофемашина', washer: 'Стиральная машина',
+};
+
+// ========= НАВИГАЦИЯ ПО СТРАНИЦАМ =========
+function showSection(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+function showMenu() { showSection('menu'); updateMenuStatus(); }
+function showSummary() { showSection('page-summary'); renderSummary(); }
+
+function getSelectedCats() {
+  const out = [];
+  document.querySelectorAll('#menu input[type="checkbox"][data-cat]:checked').forEach(c => out.push(c.dataset.cat));
+  return out;
+}
+
+function onCatToggle(cb) {
+  // Перезапускаем проверку — кнопка PERH становится активной
+  updateGoBtn();
+}
+
+function updateGoBtn() {
+  const selected = getSelectedCats();
+  const btn = document.getElementById('goBtn');
+  btn.disabled = selected.length === 0;
+  const sumBtn = document.getElementById('goSummaryBtn');
+  // если есть хоть одна заполненная категория — показываем "сразу к итогу"
+  const filled = ALL_CATS.filter(cat => isCategoryFilled(cat));
+  sumBtn.style.display = filled.length > 0 ? 'inline-block' : 'none';
+}
+
+function goToFirstCategory() {
+  const sel = getSelectedCats();
+  if (sel.length === 0) return;
+  showSection('page-' + sel[0]);
+  updateProgress(sel[0]);
+}
+
+function goNext(currentCat) {
+  // пометить категорию как заполненную
+  const card = document.querySelector(`.cat-card[data-cat="${currentCat}"]`);
+  if (card) card.classList.add('filled');
+
+  const sel = getSelectedCats();
+  const idx = sel.indexOf(currentCat);
+  if (idx === -1) { showMenu(); return; }
+  if (idx === sel.length - 1) {
+    showSummary();
+  } else {
+    const next = sel[idx + 1];
+    showSection('page-' + next);
+    updateProgress(next);
+  }
+}
+
+function updateProgress(cat) {
+  const sel = getSelectedCats();
+  const idx = sel.indexOf(cat);
+  const el = document.getElementById('prog-' + cat);
+  if (el && idx !== -1) {
+    el.innerHTML = `Категория <strong>${idx + 1}</strong> из <strong>${sel.length}</strong>`;
+  }
+}
+
+function updateMenuStatus() {
+  ALL_CATS.forEach(cat => {
+    const card = document.querySelector(`.cat-card[data-cat="${cat}"]`);
+    if (!card) return;
+    if (isCategoryFilled(cat)) card.classList.add('filled');
+    else card.classList.remove('filled');
+  });
+  updateGoBtn();
+}
+
+function applyBrandPreset(cat, tier, btnEl) {
+  // Снимаем все марки в категории
+  document.querySelectorAll(`#page-${cat} .brand-chip`).forEach(chip => {
+    chip.dataset.state = 'none';
+  });
+  // Помечаем все марки нужного сегмента как «preferred»
+  document.querySelectorAll(`#page-${cat} .brand-chip[data-tier="${tier}"]`).forEach(chip => {
+    chip.dataset.state = 'preferred';
+  });
+  // Подсвечиваем активную кнопку пресета
+  document.querySelectorAll(`#page-${cat} .preset-btn`).forEach(b => b.classList.remove('active'));
+  const btn = btnEl || (event && event.target && event.target.closest('.preset-btn'));
+  if (btn) btn.classList.add('active');
+  autoSave();
+}
+
+function setBrandState(btnEl, state) {
+  const chip = btnEl.closest('.brand-chip');
+  if (!chip) return;
+  // Тоггл: повторный клик по той же кнопке -> сброс в 'none'
+  chip.dataset.state = (chip.dataset.state === state) ? 'none' : state;
+  // Снимаем подсветку пресета — пользователь корректирует вручную
+  const cat = chip.dataset.cat;
+  if (cat) {
+    document.querySelectorAll(`#page-${cat} .preset-btn`).forEach(b => b.classList.remove('active'));
+  }
+  autoSave();
+}
+
+function clearAll() {
+  if (!confirm('Очистить ВСЕ заполненные категории и снять выбор в меню?\n(данные клиента и менеджера сохранятся)')) return;
+  // Сбрасываем все категории
+  ['hob','fridge','dw','hood','oven','microwave','coffee','washer'].forEach(cat => {
+    document.querySelectorAll(`#page-${cat} input, #page-${cat} textarea`).forEach(el => {
+      if (el.type === 'radio' || el.type === 'checkbox') el.checked = false;
+      else el.value = '';
+    });
+    document.querySelectorAll(`#page-${cat} .brand-chip`).forEach(chip => {
+      chip.dataset.state = 'none';
+    });
+    document.querySelectorAll(`#page-${cat} .preset-btn`).forEach(b => b.classList.remove('active'));
+    const card = document.querySelector(`.cat-card[data-cat="${cat}"]`);
+    if (card) card.classList.remove('filled');
+  });
+  // Снимаем выбор в меню
+  document.querySelectorAll('.cat-card input[type="checkbox"][data-cat]').forEach(c => c.checked = false);
+  updateGoBtn();
+  autoSave();
+}
+
+function clearCategory(cat) {
+  if (!confirm(`Очистить все параметры категории «${CAT_LABELS[cat] || cat}»?`)) return;
+  document.querySelectorAll(`#page-${cat} input, #page-${cat} textarea`).forEach(el => {
+    if (el.type === 'radio' || el.type === 'checkbox') el.checked = false;
+    else el.value = '';
+  });
+  document.querySelectorAll(`#page-${cat} .brand-chip`).forEach(chip => {
+    chip.dataset.state = 'none';
+  });
+  document.querySelectorAll(`#page-${cat} .preset-btn`).forEach(b => b.classList.remove('active'));
+  const card = document.querySelector(`.cat-card[data-cat="${cat}"]`);
+  if (card) card.classList.remove('filled');
+  autoSave();
+}
+
+function isCategoryFilled(cat) {
+  // Категория заполнена если: выбран хотя бы один параметр или марка или заполнено текстовое поле
+  const fields = document.querySelectorAll(`#page-${cat} input, #page-${cat} textarea`);
+  for (const f of fields) {
+    if (f.type === 'radio' || f.type === 'checkbox') {
+      if (f.checked) return true;
+    } else if (f.value && f.value.trim()) {
+      return true;
+    }
+  }
+  // Любая помеченная марка (preferred / acceptable)
+  const anyChip = document.querySelector(`#page-${cat} .brand-chip[data-state="preferred"], #page-${cat} .brand-chip[data-state="acceptable"]`);
+  if (anyChip) return true;
+  return false;
+}
+
+// ========= АВТОСОХРАНЕНИЕ =========
+function autoSave() {
+  const data = {};
+  document.querySelectorAll('input, textarea').forEach(el => {
+    if (!el.name && !el.id) return;
+    const k = el.name || el.id;
+    if (el.type === 'radio' || el.type === 'checkbox') {
+      data[k + '|' + el.value] = el.checked;
+    } else {
+      data[k] = el.value;
+    }
+  });
+  // состояние брендов
+  document.querySelectorAll('.brand-chip').forEach(chip => {
+    const cat   = chip.dataset.cat;
+    const brand = chip.dataset.brand;
+    const state = chip.dataset.state || 'none';
+    if (cat && brand && state !== 'none') {
+      data['brand|' + cat + '|' + brand] = state;
+    }
+  });
+  // активный пресет в каждой категории
+  document.querySelectorAll('.preset-btn.active').forEach(btn => {
+    const page = btn.closest('[id^="page-"]');
+    if (page) data['preset|' + page.id.replace('page-','')] = btn.textContent.trim();
+  });
+  // выбор категорий в меню
+  document.querySelectorAll('.cat-card[data-cat] input[type="checkbox"]').forEach(c => {
+    data['menucat|' + c.dataset.cat] = c.checked;
+  });
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  showSaveBar();
+}
+function loadSaved() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return;
+  try {
+    const data = JSON.parse(raw);
+    document.querySelectorAll('input, textarea').forEach(el => {
+      const k = el.name || el.id;
+      if (!k) return;
+      if (el.type === 'radio' || el.type === 'checkbox') {
+        const fk = k + '|' + el.value;
+        if (data[fk]) el.checked = true;
+      } else {
+        if (data[k]) el.value = data[k];
+      }
+    });
+    // восстановим состояния брендов
+    Object.keys(data).forEach(k => {
+      if (k.startsWith('brand|')) {
+        const [_, cat, brand] = k.split('|');
+        const chip = document.querySelector(`.brand-chip[data-cat="${cat}"][data-brand="${brand}"]`);
+        if (chip) chip.dataset.state = data[k];
+      }
+      if (k.startsWith('menucat|')) {
+        const cat = k.replace('menucat|', '');
+        const cb = document.querySelector(`.cat-card[data-cat="${cat}"] input[type="checkbox"]`);
+        if (cb) cb.checked = !!data[k];
+      }
+    });
+    updateMenuStatus();
+  } catch (e) { console.error(e); }
+}
+
+let saveTimer;
+function showSaveBar() {
+  const bar = document.getElementById('saveBar');
+  bar.classList.add('show');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => bar.classList.remove('show'), 1500);
+}
+document.addEventListener('input', autoSave);
+document.addEventListener('change', autoSave);
+
+// ========= МЕНЕДЖЕР =========
+function initManager() {
+  const params = new URLSearchParams(window.location.search);
+  const urlEmail = params.get('email');
+  const urlName  = params.get('name');
+  if (urlEmail || urlName) {
+    MANAGER.email = urlEmail || DEFAULT_MANAGER.email;
+    MANAGER.name  = urlName  || DEFAULT_MANAGER.name;
+  } else {
+    const stored = localStorage.getItem(MANAGER_KEY);
+    if (stored) {
+      try {
+        const m = JSON.parse(stored);
+        MANAGER.email = m.email || DEFAULT_MANAGER.email;
+        MANAGER.name  = m.name  || DEFAULT_MANAGER.name;
+      } catch (e) {}
+    }
+  }
+  applyManager();
+  applyClientPrefill(params);
+  applyCategoryFilter(params);
+}
+function applyManager() {
+  document.getElementById('recipientNameInline').textContent = MANAGER.name;
+  document.getElementById('recipientEmailInline').textContent = MANAGER.email;
+  document.getElementById('recipientEmailInline').href = 'mailto:' + MANAGER.email;
+  document.getElementById('managerNameInput').value  = MANAGER.name;
+  document.getElementById('managerEmailInput').value = MANAGER.email;
+}
+function applyClientPrefill(params) {
+  const map = {
+    'clientName':    'client.name',
+    'clientEmail':   'client.contact',
+    'clientPhone':   'client.contact',
+    'clientAddress': 'client.address',
+    'budget':        'client.budget',
+  };
+  for (const [urlKey, fieldName] of Object.entries(map)) {
+    const v = params.get(urlKey);
+    if (!v) continue;
+    const el = document.querySelector(`[name="${fieldName}"]`);
+    if (el && !el.value) el.value = v;
+  }
+}
+function applyCategoryFilter(params) {
+  const cats = params.get('categories');
+  if (!cats) return;
+  const allowed = new Set(cats.split(',').map(s => s.trim()).filter(Boolean));
+  // отметим в меню только разрешённые
+  document.querySelectorAll('.cat-card[data-cat]').forEach(card => {
+    const cat = card.dataset.cat;
+    const cb = card.querySelector('input[type="checkbox"]');
+    if (allowed.has(cat)) {
+      cb.checked = true;
+    } else {
+      // скроем категорию, если её не запросили
+      card.style.display = 'none';
+    }
+  });
+  updateGoBtn();
+}
+function toggleRecipientEdit() {
+  const p = document.getElementById('recipientEditPanel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+function saveRecipient() {
+  const n = document.getElementById('managerNameInput').value.trim();
+  const e = document.getElementById('managerEmailInput').value.trim();
+  if (!e || !e.includes('@')) { alert('Укажите корректный email'); return; }
+  MANAGER.name = n || DEFAULT_MANAGER.name;
+  MANAGER.email = e;
+  localStorage.setItem(MANAGER_KEY, JSON.stringify(MANAGER));
+  applyManager();
+  document.getElementById('copyStatus').textContent = '✓ Сохранено';
+  setTimeout(() => document.getElementById('copyStatus').textContent = '', 2000);
+}
+
+// ========= ФОРМИРОВАНИЕ ТЕКСТА ЗАПРОСА =========
+function collectAll() {
+  const out = { client: {}, project: {}, items: {} };
+
+  // клиент
+  ['client.name','client.contact','client.address','client.budget','client.notes'].forEach(name => {
+    const el = document.querySelector(`[name="${name}"]`);
+    if (el && el.value.trim()) {
+      const key = name.replace('client.','');
+      out.client[key] = el.value.trim();
+    }
+  });
+
+  // выбранные категории + параметры
+  const cats = getSelectedCats();
+  cats.forEach(cat => {
+    const item = { params: {}, brandsPreferred: [], brandsAcceptable: [] };
+    document.querySelectorAll(`#page-${cat} input[name], #page-${cat} textarea[name]`).forEach(el => {
+      const name = el.name;
+      if (name.endsWith('.brand')) return; // отдельно через data-state
+      if (el.type === 'radio' && el.checked) item.params[name.replace(cat+'.','')] = el.value;
+      else if (el.type === 'checkbox' && el.checked) item.params[name.replace(cat+'.','')] = true;
+      else if (el.type === 'text' || el.type === 'number' || el.tagName === 'TEXTAREA') {
+        if (el.value && el.value.trim()) item.params[name.replace(cat+'.','')] = el.value.trim();
+      }
+    });
+    // бренды по состоянию (мультивыбор: preferred / acceptable)
+    document.querySelectorAll(`#page-${cat} .brand-chip[data-state="preferred"]`).forEach(chip => {
+      item.brandsPreferred.push(chip.dataset.brand);
+    });
+    document.querySelectorAll(`#page-${cat} .brand-chip[data-state="acceptable"]`).forEach(chip => {
+      item.brandsAcceptable.push(chip.dataset.brand);
+    });
+    if (Object.keys(item.params).length || item.brandsPreferred.length || item.brandsAcceptable.length) {
+      out.items[cat] = item;
+    }
+  });
+
+  return out;
+}
+
+const PARAM_LABELS = {
+  // hob
+  heat: 'Тип нагрева', width: 'Ширина', zones: 'Зон', color: 'Цвет/монтаж', notes: 'Особенности',
+  // fridge
+  type: 'Тип', volume: 'Объём',
+  // dw
+  mount: 'Монтаж', settings: 'Комплектов',
+  // hood
+  mode: 'Режим', perf: 'Производительность', kitchen_volume: 'Объём кухни (м³)',
+  // oven
+  config: 'Конфигурация', cleaning: 'Очистка',
+  // microwave
+  // coffee
+  tech: 'Технология',
+  // washer
+  load: 'Загрузка', depth: 'Глубина',
+  // f.* (доп функции)
+  'f.boost': 'PowerBoost', 'f.flex': 'FlexZone', 'f.hob2hood': 'Hob2Hood', 'f.child_lock': 'защита детей',
+  'f.nofrost': 'NoFrost', 'f.inverter': 'инвертор', 'f.freshzone': 'зона свежести',
+  'f.silent': 'низкий шум', 'f.smart': 'Smart', 'f.ice': 'лёдогенератор',
+  'f.aquastop': 'AquaStop', 'f.tray': '3-й лоток', 'f.autoopen': 'AutoOpen',
+  'f.4d': '4D HotAir', 'f.steam': 'функция пара', 'f.probe': 'термощуп',
+  'f.autopilot': 'AutoPilot', 'f.softclose': 'SoftClose',
+  'f.grill': 'гриль', 'f.convection': 'конвекция',
+  'f.milk': 'авто-капучинатор', 'f.profiles': 'профили',
+  'f.dry': 'с сушкой',
+};
+
+function formatRequest() {
+  const data = collectAll();
+  const cats = Object.keys(data.items);
+  let out = '';
+  out += '═══════════════════════════════════════════════════════\n';
+  out += '  ЗАПРОС НА ПОДБОР ТЕХНИКИ ДЛЯ КУХНИ — фабрика «ЗОВ»\n';
+  out += '═══════════════════════════════════════════════════════\n\n';
+  if (data.client.name)    out += `Клиент: ${data.client.name}\n`;
+  if (data.client.contact) out += `Контакт: ${data.client.contact}\n`;
+  if (data.client.address) out += `Адрес: ${data.client.address}\n`;
+  if (data.client.budget)  out += `Бюджет: ${data.client.budget}\n`;
+  if (data.client.notes)   out += `Пожелания: ${data.client.notes}\n`;
+  out += `Менеджер: ${MANAGER.name} · ${MANAGER.email}\n`;
+  out += `Дата: ${new Date().toLocaleDateString('ru-RU')}\n\n`;
+
+  if (cats.length === 0) {
+    out += '⚠️ Не выбрано ни одной категории техники. Заполните параметры и обновите.\n';
+    return out;
+  }
+
+  cats.forEach((cat, idx) => {
+    const item = data.items[cat];
+    out += `\n▶ ${idx + 1}. ${CAT_LABELS[cat].toUpperCase()}\n`;
+    out += '─'.repeat(50) + '\n';
+    // Параметры
+    const params = Object.entries(item.params);
+    const fParams = params.filter(([k]) => k.startsWith('f.'));
+    const mainParams = params.filter(([k]) => !k.startsWith('f.'));
+    mainParams.forEach(([k, v]) => {
+      const label = PARAM_LABELS[k] || k;
+      out += `   · ${label}: ${v}\n`;
+    });
+    if (fParams.length) {
+      const labels = fParams.map(([k]) => PARAM_LABELS[k] || k.replace('f.','')).join(', ');
+      out += `   · Доп. функции: ${labels}\n`;
+    }
+    // Бренды
+    if (item.brandsPreferred.length) {
+      out += `   ⭐ Предпочтительные марки: ${item.brandsPreferred.join(', ')}\n`;
+    }
+    if (item.brandsAcceptable.length) {
+      out += `   ✓ Готовы рассмотреть: ${item.brandsAcceptable.join(', ')}\n`;
+    }
+    if (!item.brandsPreferred.length && !item.brandsAcceptable.length) {
+      out += `   · Марки: на усмотрение менеджера\n`;
+    }
+  });
+
+  out += '\n═══════════════════════════════════════════════════════\n';
+  out += 'По этому запросу будет выполнен поиск моделей и подбор аналогов.\n';
+  out += 'Результат — каталог-предложение с ценами по магазинам СПб.\n';
+  out += '═══════════════════════════════════════════════════════\n';
+  return out;
+}
+
+function renderSummary() {
+  const text = formatRequest();
+  document.getElementById('summaryText').textContent = text;
+}
+
+// ========= КНОПКИ ОТПРАВКИ =========
+function copyText() {
+  const text = formatRequest();
+  navigator.clipboard.writeText(text).then(() => {
+    setSendStatus('✓ Текст скопирован — вставьте в любой мессенджер (Ctrl+V)');
+  }).catch(() => {
+    // fallback: показать в модалке
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    setSendStatus('✓ Текст скопирован — вставьте в мессенджер');
+  });
+}
+
+function openEmail() {
+  if (!MANAGER.email) { alert('Не указан email менеджера'); return; }
+  const text = formatRequest();
+  const data = collectAll();
+  const subject = `Запрос на подбор техники: ${data.client.name || 'клиент'}`;
+  const mailto = `mailto:${MANAGER.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
+  if (mailto.length > 8000) {
+    alert('Запрос большой — используйте «Скачать файл» и пришлите вложением.');
+    return;
+  }
+  window.location.href = mailto;
+  setSendStatus('✓ Открыта почта — нажмите «Отправить»');
+}
+
+function downloadFile() {
+  const text = formatRequest();
+  const data = collectAll();
+  const cname = (data.client.name || 'client').replace(/[^a-zA-Zа-яА-Я0-9 _-]/g, '').slice(0, 40);
+  const date = new Date().toISOString().split('T')[0];
+
+  // 1. Текстовый запрос
+  const txtBlob = new Blob([text], {type: 'text/plain;charset=utf-8'});
+  const a1 = document.createElement('a');
+  a1.href = URL.createObjectURL(txtBlob);
+  a1.download = `Запрос_${cname}_${date}.txt`;
+  a1.click();
+  URL.revokeObjectURL(a1.href);
+
+  // 2. JSON-копия
+  setTimeout(() => {
+    const jsonBlob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+    const a2 = document.createElement('a');
+    a2.href = URL.createObjectURL(jsonBlob);
+    a2.download = `Запрос_${cname}_${date}.json`;
+    a2.click();
+    URL.revokeObjectURL(a2.href);
+  }, 200);
+
+  setSendStatus('✓ Скачано: .txt (для прочтения) + .json (для алгоритма)');
+}
+
+async function shareNative() {
+  const text = formatRequest();
+  const data = collectAll();
+  const cname = (data.client.name || 'client').replace(/[^a-zA-Zа-яА-Я0-9 _-]/g, '').slice(0, 30);
+  const title = `Запрос на подбор техники: ${cname}`;
+
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: title, text: text });
+      setSendStatus('✓ Запрос отправлен через выбранное приложение');
+    } catch (e) {
+      if (e.name !== 'AbortError') setSendStatus('✗ Отмена', 'warn');
+    }
+  } else {
+    // Браузер не поддерживает Web Share API — копируем в буфер
+    copyText();
+    setSendStatus('Web Share не поддерживается в этом браузере — скопировал в буфер');
+  }
+}
+
+function setSendStatus(msg, type) {
+  const el = document.getElementById('sendStatus');
+  el.textContent = msg || '';
+  el.style.color = type === 'warn' ? 'var(--warn)' : 'var(--bronze-light)';
+}
+
+// ========= ОНБОРДИНГ =========
+const CLIENT_KEY = 'zov-tech-client';
+
+function shouldShowOnboarding(params) {
+  // 1. Если в URL есть clientName — это клиент перешёл по ссылке от менеджера → пропустить
+  if (params.get('clientName')) return false;
+  // 2. Если в localStorage уже есть и менеджер и клиент → пропустить (всё настроено)
+  const m = localStorage.getItem(MANAGER_KEY);
+  const c = localStorage.getItem(CLIENT_KEY);
+  if (m && c) {
+    try {
+      const md = JSON.parse(m), cd = JSON.parse(c);
+      if (md.email && cd.name) return false;
+    } catch(e) {}
+  }
+  return true;
+}
+
+function loadClientForOnboarding() {
+  const stored = localStorage.getItem(CLIENT_KEY);
+  if (!stored) return;
+  try {
+    const c = JSON.parse(stored);
+    if (c.name)    document.getElementById('onbClientName').value    = c.name;
+    if (c.phone)   document.getElementById('onbClientPhone').value   = c.phone;
+    if (c.email)   document.getElementById('onbClientEmail').value   = c.email;
+    if (c.address) document.getElementById('onbClientAddress').value = c.address;
+  } catch(e) {}
+}
+
+function loadManagerForOnboarding() {
+  const m = localStorage.getItem(MANAGER_KEY);
+  if (m) {
+    try {
+      const md = JSON.parse(m);
+      if (md.name)  document.getElementById('onbManagerName').value  = md.name;
+      if (md.email) document.getElementById('onbManagerEmail').value = md.email;
+    } catch(e) {}
+  } else {
+    document.getElementById('onbManagerName').value = MANAGER.name;
+  }
+}
+
+function getOnbData() {
+  return {
+    manager: {
+      name:  document.getElementById('onbManagerName').value.trim()  || DEFAULT_MANAGER.name,
+      email: document.getElementById('onbManagerEmail').value.trim(),
+    },
+    client: {
+      name:    document.getElementById('onbClientName').value.trim(),
+      phone:   document.getElementById('onbClientPhone').value.trim(),
+      email:   document.getElementById('onbClientEmail').value.trim(),
+      address: document.getElementById('onbClientAddress').value.trim(),
+    },
+  };
+}
+
+function validateOnb(d, mode) {
+  // mode = 'send' (отправить ссылку клиенту) или 'continue' (заполнить самому)
+  // Очищаем подсветку
+  ['onbManagerName','onbManagerEmail','onbClientName','onbClientPhone','onbClientEmail','onbClientAddress']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.style.borderColor = ''; });
+
+  const errors = [];
+  const highlight = (id) => {
+    const el = document.getElementById(id);
+    if (el) { el.style.borderColor = 'var(--warn)'; el.style.background = '#FFF3E8'; }
+  };
+
+  if (mode === 'send') {
+    // Для отправки клиенту нужен email обоих
+    if (!d.manager.email || !d.manager.email.includes('@')) {
+      errors.push('Email менеджера');
+      highlight('onbManagerEmail');
+    }
+    if (!d.client.name) {
+      errors.push('ФИО клиента');
+      highlight('onbClientName');
+    }
+    if (!d.client.email || !d.client.email.includes('@')) {
+      errors.push('Email клиента (туда отправим письмо)');
+      highlight('onbClientEmail');
+    }
+  }
+  // Для 'continue' — ничего обязательного, можно просто пропустить
+  return errors.length ? 'Заполните: ' + errors.join(', ') : null;
+}
+
+function saveOnbData(d) {
+  try {
+    localStorage.setItem(MANAGER_KEY, JSON.stringify(d.manager));
+    localStorage.setItem(CLIENT_KEY, JSON.stringify(d.client));
+  } catch (e) { console.warn('localStorage save failed:', e); }
+
+  MANAGER.name  = d.manager.name  || DEFAULT_MANAGER.name;
+  MANAGER.email = d.manager.email || DEFAULT_MANAGER.email;
+
+  try { applyManager(); } catch (e) { console.warn('applyManager failed:', e); }
+
+  // Заполнить поля контактов в финальном экране (если они есть)
+  const fillField = (name, value) => {
+    const el = document.querySelector(`[name="${name}"]`);
+    if (el && value && !el.value) el.value = value;
+  };
+  if (d.client.name)    fillField('client.name', d.client.name);
+  if (d.client.email || d.client.phone)
+    fillField('client.contact', d.client.email || d.client.phone);
+  if (d.client.address) fillField('client.address', d.client.address);
+}
+
+function onbSendToClient() {
+  const d = getOnbData();
+  const err = validateOnb(d, 'send');
+  if (err) { setOnbStatus(err, 'warn'); return; }
+
+  saveOnbData(d);
+
+  // Сформировать URL для клиента (без mode_manager → онбординг скроется)
+  const params = new URLSearchParams();
+  params.set('email',    d.manager.email);
+  params.set('name',     d.manager.name);
+  params.set('clientName',    d.client.name);
+  if (d.client.email)   params.set('clientEmail',   d.client.email);
+  if (d.client.phone)   params.set('clientPhone',   d.client.phone);
+  if (d.client.address) params.set('clientAddress', d.client.address);
+  const baseUrl = window.location.href.split('?')[0];
+  const clientUrl = baseUrl + '?' + params.toString();
+
+  const subject = `Подбор техники для кухни — ${d.client.name}`;
+  const body =
+`Здравствуйте, ${d.client.name}!
+
+По вашему запросу подготовлен персональный чек-лист для подбора кухонной техники.
+Откройте ссылку в браузере и отметьте параметры — это займёт 10–15 минут.
+После заполнения нажмите внизу страницы «Скопировать запрос» (или «Открыть в почте»),
+и я выполню анализ и сформирую персональное предложение по технике.
+
+🔗 Ссылка на чек-лист:
+${clientUrl}
+
+Если возникнут вопросы — пишите или звоните.
+
+С уважением,
+${d.manager.name}
+${d.manager.email}
+Фабрика мебели «ЗОВ»`;
+
+  // mailto клиенту с CC менеджеру (копия как подтверждение)
+  const mailto = `mailto:${encodeURIComponent(d.client.email)}` +
+    `?cc=${encodeURIComponent(d.manager.email)}` +
+    `&subject=${encodeURIComponent(subject)}` +
+    `&body=${encodeURIComponent(body)}`;
+
+  window.location.href = mailto;
+  setOnbStatus('✓ Открыта почта — нажмите «Отправить». Копия придёт вам автоматически.');
+
+  // Через 3 сек — показать меню
+  setTimeout(() => showMenu(), 3000);
+}
+
+function onbSaveAndContinue() {
+  const d = getOnbData();
+  // Никаких обязательных полей — сохраняем что есть и переходим
+  saveOnbData(d);
+  setOnbStatus('✓ Сохранено — переходим к выбору категорий');
+  setTimeout(() => showMenu(), 500);
+}
+
+function onbSkip() { showMenu(); }
+
+function setOnbStatus(msg, type) {
+  const el = document.getElementById('onbStatus');
+  if (!msg) {
+    el.classList.remove('show', 'success', 'warn');
+    el.textContent = '';
+    return;
+  }
+  el.textContent = (type === 'warn' ? '⚠ ' : '') + msg;
+  el.classList.add('show');
+  el.classList.remove(type === 'warn' ? 'success' : 'warn');
+  el.classList.add(type === 'warn' ? 'warn' : 'success');
+}
+
+// ========= INIT =========
+window.addEventListener('load', () => {
+  initManager();
+  loadSaved();
+
+  // Решаем — показывать ли онбординг
+  const params = new URLSearchParams(window.location.search);
+  if (shouldShowOnboarding(params)) {
+    loadManagerForOnboarding();
+    loadClientForOnboarding();
+    showSection('onboarding');
+  } else {
+    showSection('menu');
+  }
+
+  // Скрываем кнопку Web Share если не поддерживается
+  if (!navigator.share) {
+    const sb = document.getElementById('shareBtn');
+    if (sb) sb.style.opacity = '0.5';
+  }
+});
+</script>
+
+</body>
+</html>

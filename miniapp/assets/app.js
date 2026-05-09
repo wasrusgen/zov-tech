@@ -175,10 +175,10 @@ function renderManagerHome(me) {
 
   // Quick actions
   const quickActions = [
-    { icon: "camera", title: "Новый замер", subtitle: "С фото" },
-    { icon: "cube",   title: "3D просмотр", subtitle: "Проекты" },
-    { icon: "bolt",   title: "Коммуникации", subtitle: "Чек-лист" },
-    { icon: "package", title: "Каталог техники", subtitle: "Встройка" },
+    { icon: "camera",  title: "Новый замер",   subtitle: "С фото",      href: null },
+    { icon: "cube",    title: "3D просмотр",   subtitle: "Проекты",     href: null },
+    { icon: "bolt",    title: "Коммуникации",  subtitle: "Чек-лист",    href: null },
+    { icon: "package", title: "Подбор техники", subtitle: "Встройка + AI", href: "#/podbor" },
   ];
   app.appendChild(el(`<div class="section-head"><span class="label">Быстрые действия</span></div>`));
   const grid = el(`<div class="quick-grid"></div>`);
@@ -190,7 +190,11 @@ function renderManagerHome(me) {
         <div class="subtitle">${qa.subtitle}</div>
       </button>
     `);
-    card.addEventListener("click", () => { haptic("impact"); tg?.showAlert?.(`«${qa.title}» — скоро`); });
+    card.addEventListener("click", () => {
+      haptic("impact");
+      if (qa.href) location.hash = qa.href;
+      else tg?.showAlert?.(`«${qa.title}» — скоро`);
+    });
     grid.appendChild(card);
   });
   app.appendChild(grid);
@@ -350,13 +354,33 @@ function renderError() {
 /* ----------------- Init ----------------- */
 async function init() {
   setupTelegram();
+  // Hash-роутер: позволяет открывать подэкраны (например подбор) напрямую
+  window.addEventListener("hashchange", routeByHash);
+
   try {
     const me = await fetchMe();
+    window.__zovMe = me; // кешируем профиль для подэкранов
+    if (location.hash.startsWith("#/podbor")) {
+      Podbor.mount(app);
+      return;
+    }
     if (me.role === "manager") renderManager(me);
     else renderClient(me);
   } catch (e) {
     console.error(e);
     renderError();
+  }
+}
+
+function routeByHash() {
+  if (location.hash.startsWith("#/podbor")) {
+    Podbor.mount(app);
+  } else {
+    // Главный экран по роли
+    const me = window.__zovMe;
+    if (!me) { init(); return; }
+    if (me.role === "manager") renderManager(me);
+    else renderClient(me);
   }
 }
 
