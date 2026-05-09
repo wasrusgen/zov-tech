@@ -19,19 +19,6 @@ const PODBOR_BUDGET_TIERS = [
   { key: "budget",  label: "Бюджет",  hint: "только нужное" },
 ];
 
-const PODBOR_FAMILY = [
-  { key: "single",  label: "1 взрослый" },
-  { key: "couple",  label: "Пара" },
-  { key: "family",  label: "Семья с детьми" },
-  { key: "multigen", label: "2+ поколения" },
-];
-
-const PODBOR_COOKING = [
-  { key: "daily",  label: "Ежедневно" },
-  { key: "weekly", label: "3–5 раз в неделю" },
-  { key: "rare",   label: "По выходным или реже" },
-];
-
 const PODBOR_INFRA = {
   stove: [
     { key: "induction", label: "Индукция / 380 В" },
@@ -40,19 +27,19 @@ const PODBOR_INFRA = {
     { key: "any",       label: "Не знаю / любой" },
   ],
   vent: [
-    { key: "shaft",     label: "Шахта вентиляции есть" },
-    { key: "no_shaft",  label: "Только рециркуляция" },
-    { key: "unknown",   label: "Не знаю" },
+    { key: "yes", label: "Да — есть выводы в вентиляцию" },
+    { key: "no",  label: "Нет — рециркуляция с угольным фильтром" },
+    { key: "unknown", label: "Не знаю — менеджер уточнит" },
   ],
 };
 
-const PODBOR_TECHNIQUES = [
-  { key: "bake",   label: "Выпечка" },
-  { key: "steam",  label: "На пару" },
-  { key: "grill",  label: "Гриль" },
-  { key: "wok",    label: "Wok / стир-фрай" },
-  { key: "low_t",  label: "Низкотемпературное" },
-  { key: "smart",  label: "Умные режимы / Smart" },
+const PODBOR_PRIORITIES = [
+  { key: "balance",  label: "Цена / качество" },
+  { key: "reviews",  label: "Отзывы" },
+  { key: "popular",  label: "Популярность бренда" },
+  { key: "design",   label: "Дизайн и цвет" },
+  { key: "tech",     label: "Технологичность" },
+  { key: "service",  label: "Сервис и гарантия" },
 ];
 
 /* Бренды для каждой категории — для чипов с тирами.
