@@ -85,66 +85,174 @@ function getInitial(name) {
 
 /* ----------------- Renders ----------------- */
 function renderManager(me) {
-  const status = me.status || "active";
-  const statusUntil = me.status_until ? `до ${me.status_until}` : "";
-  const initial = me.user?.avatar_initial || getInitial(me.user?.full_name);
-  const tgId = me.user?.tg_id ? `ID ${me.user.tg_id}` : "";
+  // Новый главный экран — «утро менеджера»
+  return renderManagerHome(me);
+}
 
+function timeOfDay(date = new Date()) {
+  const h = date.getHours();
+  if (h >= 5 && h < 12)  return "Доброе утро";
+  if (h >= 12 && h < 18) return "Добрый день";
+  if (h >= 18 && h < 23) return "Добрый вечер";
+  return "Доброй ночи";
+}
+
+function pluralRu(n, forms) {
+  // forms = ["замер", "замера", "замеров"]
+  const mod10 = n % 10, mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 14) return forms[2];
+  if (mod10 === 1) return forms[0];
+  if (mod10 >= 2 && mod10 <= 4) return forms[1];
+  return forms[2];
+}
+
+function renderManagerHome(me) {
+  // === MOCK DATA (Этап 1 — визуал, без реального backend) ===
+  const firstName = (me.user?.full_name || "").split(/\s+/)[0] || "Артём";
+  const todayTask = {
+    time: "15:30",
+    tag: "ЗАМЕР",
+    client: "А. Пестова",
+    address: "ЖК Сады Пекина, корп. 3",
+    phone: "+7 999 000-00-00",
+  };
+  const projects = [
+    { name: "Семья Иваниковых", address: "ул. Орджоникидзе, 14 — 47", stage: "Согласование", date: "14 мая", progress: 0.40, statusLabel: "Ожидает клиента", statusKind: "waiting" },
+    { name: "Кабанова И. С.",   address: "Никольская набережная, 20", stage: "Производство", date: "21 мая", progress: 0.60, statusLabel: "В работе", statusKind: "active" },
+    { name: "Карелин А.",       address: "посёлок Сосновый, дом 4",   stage: "Замер",        date: "сегодня", progress: 0.10, statusLabel: "Срочно", statusKind: "urgent" },
+    { name: "Петросян Г.",      address: "ул. Лесная, 18 — 12",       stage: "Доставка",     date: "16 мая", progress: 0.85, statusLabel: "В работе", statusKind: "active" },
+    { name: "Тимирясов И.",     address: "пос. Барвиха, дом 8",       stage: "Монтаж",       date: "11 мая", progress: 0.95, statusLabel: "Завершается", statusKind: "active" },
+  ];
+  const unreadChats = 2;
+  const tasksTodayCount = todayTask ? 1 : 0;
+  const taskWord = pluralRu(tasksTodayCount, ["замер", "замера", "замеров"]);
+  const phraseTail = tasksTodayCount === 0 ? "ничего на сегодня" : `${tasksTodayCount === 1 ? "один" : tasksTodayCount} ${taskWord} сегодня`;
+
+  // === RENDER ===
   app.innerHTML = "";
+  document.body.classList.add("has-bottom-nav");
 
+  // Greeting
   app.appendChild(el(`
-    <header class="profile-card">
-      <div class="role-tag">Менеджер</div>
-      <div class="head-row">
-        <div class="info">
-          <div class="name">${me.user?.full_name || ""}</div>
-          <div class="meta">${me.user?.salon || ""}</div>
+    <header class="greeting">
+      <div class="greeting-text">
+        <div class="greeting-kicker">${timeOfDay()}</div>
+        <div class="greeting-headline">${firstName},<br>
+          <span class="accent">${phraseTail}</span>
         </div>
-        <div class="avatar">${initial}</div>
       </div>
-      <div class="meta-row">
-        <span class="status-row">
-          <span class="status-dot ${status}"></span>
-          <span>${statusLabel(status)}</span>
-        </span>
-        ${statusUntil ? `<span class="sep">·</span><span>${statusUntil}</span>` : ""}
-        ${tgId ? `<span class="sep">·</span><span>${tgId}</span>` : ""}
-      </div>
+      <button class="bell-btn" aria-label="Уведомления">
+        ${ICONS.bell}
+        <span class="dot"></span>
+      </button>
     </header>
   `));
 
-  const sections = [
-    {
-      label: "Работа с клиентами",
-      items: [
-        { icon: "wrench",    color: "green", label: "Подбор техники для клиента", href: "#/m/podbor" },
-        { icon: "ruler",     color: "blue",  label: "Замеры",                     href: "#/m/measurements" },
-        { icon: "clipboard", color: "gold",  label: "Заявки клиентов", soon: true },
-        { icon: "briefcase", color: "gray",  label: "Сделки",          soon: true },
-      ],
-    },
-    {
-      label: "Аккаунт",
-      items: [
-        { icon: "wallet", color: "gold", label: "Мой статус и доступ", href: "#/m/status" },
-        { icon: "help",   color: "blue", label: "Связь с куратором",   href: "#/m/help"   },
-      ],
-    },
+  // Hero task
+  if (todayTask) {
+    app.appendChild(el(`
+      <section class="hero">
+        <div class="hero-meta">
+          <span class="left">
+            <span>На сегодня</span><span class="sep">—</span><span>${todayTask.time}</span>
+          </span>
+          <span class="hero-tag">${todayTask.tag}</span>
+        </div>
+        <div class="hero-client">${todayTask.client}</div>
+        <div class="hero-address">${todayTask.address}</div>
+        <div class="hero-actions">
+          <button class="btn-gold">${ICONS.ruler}<span>Начать замер</span></button>
+          <a class="btn-icon-dark" href="tel:${todayTask.phone}" aria-label="Позвонить">${ICONS.phone}</a>
+        </div>
+      </section>
+    `));
+  }
+
+  // Quick actions
+  const quickActions = [
+    { icon: "camera", title: "Новый замер", subtitle: "С фото" },
+    { icon: "cube",   title: "3D просмотр", subtitle: "Проекты" },
+    { icon: "bolt",   title: "Коммуникации", subtitle: "Чек-лист" },
+    { icon: "package", title: "Каталог техники", subtitle: "Встройка" },
   ];
-
-  sections.forEach(section => {
-    app.appendChild(el(`<div class="section-label">${section.label}</div>`));
-    app.appendChild(buildMenu(section.items));
+  app.appendChild(el(`<div class="section-head"><span class="label">Быстрые действия</span></div>`));
+  const grid = el(`<div class="quick-grid"></div>`);
+  quickActions.forEach(qa => {
+    const card = el(`
+      <button class="quick-card">
+        <div class="icon">${ICONS[qa.icon] || ""}</div>
+        <div>
+          <div class="title">${qa.title}</div>
+          <div class="subtitle">${qa.subtitle}</div>
+        </div>
+      </button>
+    `);
+    card.addEventListener("click", () => { haptic("impact"); tg?.showAlert?.(`«${qa.title}» — скоро`); });
+    grid.appendChild(card);
   });
+  app.appendChild(grid);
 
+  // Active projects
   app.appendChild(el(`
-    <div class="footer-hint">
-      <div class="signature">Куратор партнёрской сети — Руслан Васильев</div>
-      <div class="meta">
-        <a href="https://t.me/wasrusgen">@wasrusgen</a> · ЗОВ
-      </div>
+    <div class="section-head">
+      <span class="label">Активные проекты <span class="count">· ${projects.length}</span></span>
+      <span class="more">Все</span>
     </div>
   `));
+  const list = el(`<div class="project-list"></div>`);
+  projects.forEach(p => {
+    const card = el(`
+      <article class="project-card">
+        <div class="project-head">
+          <div class="project-title">${p.name}</div>
+          <span class="project-pill ${p.statusKind}">${p.statusLabel}</span>
+        </div>
+        <div class="project-address">${p.address}</div>
+        <div class="project-progress"><div class="bar" style="width:${Math.round(p.progress * 100)}%"></div></div>
+        <div class="project-foot">
+          <span class="stage">${p.stage}</span>
+          <span>${p.date}</span>
+        </div>
+      </article>
+    `);
+    card.addEventListener("click", () => { haptic("impact"); tg?.showAlert?.(`Проект «${p.name}» — скоро`); });
+    list.appendChild(card);
+  });
+  app.appendChild(list);
+
+  // Bottom nav (fixed, outside #app)
+  renderBottomNav("home", { unreadChats });
+}
+
+function renderBottomNav(active, opts = {}) {
+  // Удаляем предыдущий, если есть
+  const old = document.getElementById("bottom-nav");
+  if (old) old.remove();
+  const tabs = [
+    { key: "home",     icon: "home",   label: "Главная" },
+    { key: "projects", icon: "folder", label: "Проекты" },
+    { key: "fab",      icon: "plus",   label: "" },
+    { key: "chat",     icon: "chat",   label: "Чат",    badge: opts.unreadChats || 0 },
+    { key: "profile",  icon: "user",   label: "Профиль" },
+  ];
+  const nav = el(`<nav class="bottom-nav" id="bottom-nav" role="tablist"></nav>`);
+  tabs.forEach(t => {
+    const isFab = t.key === "fab";
+    const isActive = t.key === active;
+    const btn = el(`
+      <button class="${isFab ? "fab" : ""} ${isActive && !isFab ? "active" : ""}" aria-label="${t.label || "Создать"}">
+        ${ICONS[t.icon] || ""}
+        ${isFab || !t.label ? "" : `<span>${t.label}</span>`}
+        ${t.badge ? `<span class="badge">${t.badge}</span>` : ""}
+      </button>
+    `);
+    btn.addEventListener("click", () => {
+      haptic("impact");
+      if (t.key !== active) tg?.showAlert?.(`«${t.label || "Новое"}» — скоро`);
+    });
+    nav.appendChild(btn);
+  });
+  document.body.appendChild(nav);
 }
 
 function renderClient(me) {
@@ -152,6 +260,9 @@ function renderClient(me) {
   const greetName = me.user?.full_name || "Здравствуйте";
 
   app.innerHTML = "";
+  document.body.classList.remove("has-bottom-nav");
+  const oldNav = document.getElementById("bottom-nav");
+  if (oldNav) oldNav.remove();
 
   app.appendChild(el(`
     <header class="profile-card">
