@@ -147,7 +147,8 @@ function handleMe(body) {
 
   // Регистрируем пользователя если первый раз, обновляем last_seen_at
   const startParam = body.startParam || auth.start_param;
-  const user = getOrCreateUser(auth.user, startParam);
+  const explicitRole = (body.role === "manager" || body.role === "client") ? body.role : null;
+  const user = getOrCreateUser(auth.user, startParam, explicitRole);
 
   if (user.role === "manager") {
     const m = getManagerProfile(tgId) || synthesizeManagerFromUser(user);
@@ -301,7 +302,7 @@ function findUser(tgId) {
   return null;
 }
 
-function getOrCreateUser(tgUser, startParam) {
+function getOrCreateUser(tgUser, startParam, explicitRole) {
   const tgId = tgUser.id;
   const props = PropertiesService.getScriptProperties();
   const adminId = parseInt(props.getProperty("ADMIN_TG_ID") || "0", 10);
@@ -309,22 +310,26 @@ function getOrCreateUser(tgUser, startParam) {
   const existing = findUser(tgId);
   if (existing) {
     updateColumnByKey("Users", "tg_id", tgId, "last_seen_at", new Date());
-    // Если это админ и роль ещё не manager — повышаем + автозавод в Managers
+    // Админ всегда manager
     if (tgId === adminId && existing.role !== "manager") {
       updateColumnByKey("Users", "tg_id", tgId, "role", "manager");
       ensureAdminManager(tgUser);
       existing.role = "manager";
     }
+    // Не-админ может явно сменить роль через URL ?role=
+    else if (explicitRole && tgId !== adminId && existing.role !== explicitRole) {
+      updateColumnByKey("Users", "tg_id", tgId, "role", explicitRole);
+      existing.role = explicitRole;
+    }
     return existing;
   }
-  // Определяем роль:
-  // - админ → manager (автозавод в Managers как ZOV-employee)
-  // - invite-код менеджера → клиент с привязкой
-  // - иначе → client
+  // Новый пользователь — определяем роль
   let role = "client";
   let inviteCode = "";
   if (tgId === adminId) {
     role = "manager";
+  } else if (explicitRole) {
+    role = explicitRole;
   } else if (startParam && startParam.indexOf("client_inv_") === 0) {
     role = "client";
     inviteCode = startParam;
@@ -337,7 +342,7 @@ function getOrCreateUser(tgUser, startParam) {
   if (tgId === adminId) {
     ensureAdminManager(tgUser);
   }
-  log("user_registered", tgId, { role, startParam });
+  log("user_registered", tgId, { role, startParam, explicitRole });
   return findUser(tgId);
 }
 

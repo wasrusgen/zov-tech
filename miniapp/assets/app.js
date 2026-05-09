@@ -53,11 +53,16 @@ async function fetchMe() {
   // Заголовок Content-Type НЕ ставим — иначе браузер шлёт CORS preflight,
   // который Apps Script не обрабатывает. Без заголовка fetch использует
   // text/plain — Apps Script всё равно парсит body как JSON.
+  // Роль приходит в URL (?role=manager|client) — её бот подставляет в WebApp-кнопку
+  const urlParams = new URLSearchParams(window.location.search);
+  const explicitRole = urlParams.get("role");
+
   const res = await fetch(`${BACKEND_URL}?path=me`, {
     method: "POST",
     body: JSON.stringify({
       initData: tg?.initData || "",
       startParam: tg?.initDataUnsafe?.start_param || null,
+      role: explicitRole,
     }),
   });
   if (!res.ok) throw new Error("backend HTTP " + res.status);
