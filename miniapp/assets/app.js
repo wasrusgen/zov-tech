@@ -67,9 +67,9 @@ function el(html) {
 
 function statusLabel(s) {
   return ({
-    active: "Доступ открыт",
-    lapsed: "Доступ ограничен",
-    grace:  "Грейс-период",
+    active: "Активен",
+    lapsed: "Ограничен",
+    grace:  "Грейс",
   })[s] || s;
 }
 
@@ -82,20 +82,27 @@ function renderManager(me) {
   const status = me.status || "active";
   const statusUntil = me.status_until ? `до ${me.status_until}` : "";
   const initial = me.user?.avatar_initial || getInitial(me.user?.full_name);
+  const tgId = me.user?.tg_id ? `ID ${me.user.tg_id}` : "";
 
   app.innerHTML = "";
 
   app.appendChild(el(`
     <header class="profile-card">
-      <div class="avatar">${initial}</div>
-      <div class="info">
-        <div class="role-tag">Менеджер</div>
-        <div class="name">${me.user?.full_name || ""}</div>
-        <div class="meta">${me.user?.salon || ""}</div>
+      <div class="role-tag">Менеджер</div>
+      <div class="head-row">
+        <div class="info">
+          <div class="name">${me.user?.full_name || ""}</div>
+          <div class="meta">${me.user?.salon || ""}</div>
+        </div>
+        <div class="avatar">${initial}</div>
+      </div>
+      <div class="meta-row">
         <span class="status-row">
           <span class="status-dot ${status}"></span>
-          <span>${statusLabel(status)}${statusUntil ? " · " + statusUntil : ""}</span>
+          <span>${statusLabel(status)}</span>
         </span>
+        ${statusUntil ? `<span class="sep">·</span><span>${statusUntil}</span>` : ""}
+        ${tgId ? `<span class="sep">·</span><span>${tgId}</span>` : ""}
       </div>
     </header>
   `));
@@ -126,8 +133,10 @@ function renderManager(me) {
 
   app.appendChild(el(`
     <div class="footer-hint">
-      Куратор партнёрской сети — Руслан Васильев<br>
-      <a href="https://t.me/wasrusgen">@wasrusgen</a>
+      <div class="signature">Куратор партнёрской сети — Руслан Васильев</div>
+      <div class="meta">
+        <a href="https://t.me/wasrusgen">@wasrusgen</a> · ЗОВ
+      </div>
     </div>
   `));
 }
@@ -140,11 +149,13 @@ function renderClient(me) {
 
   app.appendChild(el(`
     <header class="profile-card">
-      <div class="avatar">${initial}</div>
-      <div class="info">
-        <div class="role-tag">Клиент</div>
-        <div class="name">${greetName}</div>
-        <div class="meta">${me.manager ? "Менеджер: " + me.manager.full_name + (me.manager.salon ? ", " + me.manager.salon : "") : "ЗОВ — кухонная мебель"}</div>
+      <div class="role-tag">Клиент</div>
+      <div class="head-row">
+        <div class="info">
+          <div class="name">${greetName}</div>
+          <div class="meta">${me.manager ? "Менеджер: " + me.manager.full_name + (me.manager.salon ? ", " + me.manager.salon : "") : "ЗОВ — кухонная мебель"}</div>
+        </div>
+        <div class="avatar">${initial}</div>
       </div>
     </header>
   `));
@@ -175,8 +186,10 @@ function renderClient(me) {
 
   app.appendChild(el(`
     <div class="footer-hint">
-      Фабрика кухонной мебели <strong>ЗОВ</strong><br>
-      <a href="https://t.me/wasrusgen1">канал @wasrusgen1</a>
+      <div class="signature">Фабрика кухонной мебели «ЗОВ»</div>
+      <div class="meta">
+        <a href="https://t.me/wasrusgen1">канал @wasrusgen1</a>
+      </div>
     </div>
   `));
 }
