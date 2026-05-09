@@ -11,10 +11,8 @@ const app = document.getElementById("app");
 function setupTelegram() {
   const scheme = tg?.colorScheme || (window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light");
   document.documentElement.setAttribute("data-theme", scheme);
-
-  // Дизайн-вариант: brand (default) / a / c — сохраняется в localStorage.
-  const savedVariant = (typeof localStorage !== "undefined" && localStorage.getItem("zov_variant")) || "brand";
-  document.documentElement.setAttribute("data-variant", savedVariant);
+  // Зафиксирован вариант A — Editorial Calm
+  document.documentElement.setAttribute("data-variant", "a");
 
   if (!tg) return;
   try {
@@ -25,31 +23,6 @@ function setupTelegram() {
     });
     if (tg.enableClosingConfirmation) tg.enableClosingConfirmation();
   } catch (e) { console.warn(e); }
-}
-
-function setVariant(variant) {
-  document.documentElement.setAttribute("data-variant", variant);
-  try { localStorage.setItem("zov_variant", variant); } catch (e) {}
-  // Перерисовать активную кнопку в свитчере
-  document.querySelectorAll(".theme-switch button").forEach(b => {
-    b.classList.toggle("active", b.dataset.variant === variant);
-  });
-  haptic();
-}
-
-function buildThemeSwitch() {
-  const current = document.documentElement.getAttribute("data-variant") || "brand";
-  const node = el(`
-    <div class="theme-switch" role="tablist" aria-label="Дизайн-вариант">
-      <button data-variant="brand" class="${current === "brand" ? "active" : ""}">Brand · ZOV</button>
-      <button data-variant="a"     class="${current === "a"     ? "active" : ""}">A · Editorial</button>
-      <button data-variant="c"     class="${current === "c"     ? "active" : ""}">C · Architect</button>
-    </div>
-  `);
-  node.querySelectorAll("button").forEach(btn => {
-    btn.addEventListener("click", () => setVariant(btn.dataset.variant));
-  });
-  return node;
 }
 
 function haptic(type = "selection") {
@@ -118,7 +91,6 @@ function renderManager(me) {
   const tgId = me.user?.tg_id ? `ID ${me.user.tg_id}` : "";
 
   app.innerHTML = "";
-  app.appendChild(buildThemeSwitch());
 
   app.appendChild(el(`
     <header class="profile-card">
@@ -180,7 +152,6 @@ function renderClient(me) {
   const greetName = me.user?.full_name || "Здравствуйте";
 
   app.innerHTML = "";
-  app.appendChild(buildThemeSwitch());
 
   app.appendChild(el(`
     <header class="profile-card">

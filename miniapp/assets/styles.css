@@ -72,9 +72,10 @@ html[data-variant="a"] {
   --accent-1:     #3C5278;   /* editorial blue */
   --accent-2:     #6B4A2B;   /* walnut */
   --accent-3:     #B85A2D;   /* terracotta */
-  --status-active: #B85A2D;
+  /* Active = зелёный сигнал (бренд ЗОВ); lapsed/grace остаются в палитре A */
+  --status-active: #76BD22;
   --status-lapsed: #B85A2D;
-  --status-grace:  #B85A2D;
+  --status-grace:  #6B4A2B;
 
   --r-card: 0;
   --r-btn:  0;
@@ -149,7 +150,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 #app {
   max-width: 560px;
   margin: 0 auto;
-  padding: var(--s4) var(--s4) calc(var(--s8) + env(safe-area-inset-bottom));
+  padding: var(--s3) var(--s4) calc(var(--s7) + env(safe-area-inset-bottom));
   min-height: 100vh;
 }
 
@@ -213,8 +214,8 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   background: var(--card);
   border: 1px solid var(--line-strong);
   border-radius: var(--r-card);
-  padding: var(--s6) var(--s5) var(--s5);
-  margin-bottom: var(--s7);
+  padding: var(--s5) var(--s4) var(--s4);
+  margin-bottom: var(--s5);
   position: relative;
   overflow: hidden;
 }
@@ -234,7 +235,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--muted);
-  margin-bottom: var(--s3);
+  margin-bottom: var(--s2);
   display: inline-flex;
   align-items: center;
   gap: var(--s2);
@@ -252,7 +253,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   display: flex;
   align-items: flex-start;
   gap: var(--s4);
-  margin-bottom: var(--s4);
+  margin-bottom: var(--s3);
 }
 
 .profile-card .info { flex: 1; min-width: 0; }
@@ -260,12 +261,12 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .profile-card .name {
   font-family: var(--font-display);
   font-style: italic;
-  font-size: 30px;
+  font-size: 26px;
   font-weight: 400;
   line-height: 1.05;
   letter-spacing: -0.02em;
   color: var(--ink);
-  margin-bottom: var(--s2);
+  margin-bottom: var(--s1);
   word-break: break-word;
 }
 
@@ -275,8 +276,8 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 
 .profile-card .avatar {
-  width: 52px;
-  height: 52px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--r-pill);
   background: var(--paper-2);
   display: grid;
@@ -284,7 +285,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   flex-shrink: 0;
   font-family: var(--font-display);
   font-style: italic;
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 400;
   color: var(--accent-1);
   border: 1px solid var(--line-strong);
@@ -301,8 +302,8 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
-  margin-top: var(--s4);
-  padding-top: var(--s4);
+  margin-top: var(--s3);
+  padding-top: var(--s3);
   border-top: 1px solid var(--line);
 }
 
@@ -350,7 +351,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   letter-spacing: 0.14em;
   color: var(--muted);
   padding: 0 var(--s4);
-  margin: var(--s7) 0 var(--s3);
+  margin: var(--s5) 0 var(--s2);
   display: flex;
   align-items: center;
   gap: var(--s3);
@@ -378,9 +379,9 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .menu-item {
   display: flex;
   align-items: center;
-  gap: var(--s4);
-  padding: var(--s4) var(--s5);
-  min-height: 64px;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  min-height: 52px;
   color: var(--ink);
   cursor: pointer;
   transition: background 0.12s;
@@ -391,7 +392,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   content: "";
   position: absolute;
   top: 0;
-  left: var(--s5);
+  left: var(--s4);
   right: 0;
   height: 1px;
   background: var(--line);
@@ -400,8 +401,8 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .menu-item:active { background: var(--paper-2); }
 
 .menu-item .icon {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
@@ -409,8 +410,8 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 
 .menu-item .icon svg {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   stroke-width: 1.6;
 }
 
@@ -422,7 +423,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 
 .menu-item .label {
   font-family: var(--font-ui);
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 500;
   letter-spacing: -0.01em;
   display: flex;
