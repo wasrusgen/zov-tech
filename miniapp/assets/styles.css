@@ -77,9 +77,10 @@ html[data-variant="a"] {
   --status-lapsed: #B85A2D;
   --status-grace:  #6B4A2B;
 
-  --r-card: 0;
-  --r-btn:  0;
-  --r-tag:  3px;
+  /* Скругления: editorial был с 0px, но пользователь хочет мягкую форму */
+  --r-card: 16px;
+  --r-btn:  12px;
+  --r-tag:  6px;
   --r-pill: 100px;
 
   --font-ui:      "Geist", "Manrope", -apple-system, system-ui, sans-serif;
@@ -380,8 +381,8 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   display: flex;
   align-items: center;
   gap: var(--s3);
-  padding: var(--s3) var(--s4);
-  min-height: 52px;
+  padding: 10px var(--s4);
+  min-height: 48px;
   color: var(--ink);
   cursor: pointer;
   transition: background 0.12s;
