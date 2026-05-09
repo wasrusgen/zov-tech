@@ -663,21 +663,21 @@ body.has-bottom-nav #app {
   align-items: center;
   justify-content: center;
   gap: var(--s2);
-  padding: 12px var(--s3);
+  padding: 10px var(--s3);
   border-radius: var(--r-btn);
   background: #C9985E;
   color: #1F1A14;
   font-family: var(--font-ui);
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
   letter-spacing: -0.01em;
   cursor: pointer;
 }
 
-.btn-gold svg { width: 18px; height: 18px; stroke-width: 1.6; }
+.btn-gold svg { width: 16px; height: 16px; stroke-width: 1.7; }
 
 .btn-icon-dark {
-  width: 48px;
+  width: 40px;
   flex-shrink: 0;
   display: grid;
   place-items: center;
@@ -687,7 +687,7 @@ body.has-bottom-nav #app {
   cursor: pointer;
 }
 
-.btn-icon-dark svg { width: 20px; height: 20px; stroke-width: 1.6; }
+.btn-icon-dark svg { width: 18px; height: 18px; stroke-width: 1.6; }
 
 /* ============= Section header (with right-action) ============= */
 .section-head {
@@ -734,11 +734,10 @@ body.has-bottom-nav #app {
   background: var(--card);
   border: 1px solid var(--line-strong);
   border-radius: var(--r-card);
-  padding: var(--s3);
-  min-height: 88px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  gap: 6px;
   cursor: pointer;
   transition: background 0.12s;
 }
@@ -746,32 +745,34 @@ body.has-bottom-nav #app {
 .quick-card:active { background: var(--paper-2); }
 
 .quick-card .icon {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   display: grid;
   place-items: center;
   color: var(--accent-2);
-  margin-bottom: var(--s4);
+  margin: 0;
 }
 
-.quick-card .icon svg { width: 22px; height: 22px; stroke-width: 1.6; }
+.quick-card .icon svg { width: 20px; height: 20px; stroke-width: 1.6; }
 
 .quick-card .title {
   font-family: var(--font-ui);
-  font-size: 14.5px;
+  font-size: 13.5px;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--ink);
-  margin-bottom: 2px;
+  margin: 0;
+  line-height: 1.2;
 }
 
 .quick-card .subtitle {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
+  line-height: 1.2;
 }
 
 /* ============= Project card ============= */

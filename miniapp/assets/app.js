@@ -186,10 +186,8 @@ function renderManagerHome(me) {
     const card = el(`
       <button class="quick-card">
         <div class="icon">${ICONS[qa.icon] || ""}</div>
-        <div>
-          <div class="title">${qa.title}</div>
-          <div class="subtitle">${qa.subtitle}</div>
-        </div>
+        <div class="title">${qa.title}</div>
+        <div class="subtitle">${qa.subtitle}</div>
       </button>
     `);
     card.addEventListener("click", () => { haptic("impact"); tg?.showAlert?.(`«${qa.title}» — скоро`); });
