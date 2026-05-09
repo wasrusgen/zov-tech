@@ -200,9 +200,9 @@ const Podbor = (function () {
         <div class="niche-row">
           <div class="niche-label">${cat.label}</div>
           <div class="niche-inputs">
-            <input type="number" data-niche="${c}.w" value="${n.w || ""}" placeholder="Ш, мм">
-            <input type="number" data-niche="${c}.h" value="${n.h || ""}" placeholder="В, мм">
-            <input type="number" data-niche="${c}.d" value="${n.d || ""}" placeholder="Г, мм">
+            <input type="number" data-niche="${c}.w" value="${n.w || ""}" placeholder="Ш">
+            <input type="number" data-niche="${c}.h" value="${n.h || ""}" placeholder="В">
+            <input type="number" data-niche="${c}.d" value="${n.d || ""}" placeholder="Г">
           </div>
         </div>
       `;
