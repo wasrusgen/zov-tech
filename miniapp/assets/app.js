@@ -43,14 +43,18 @@ async function fetchMe() {
       status_until: "12.08.2026",
     };
   }
-  const res = await fetch(`${BACKEND_URL}/api/me`, {
+  // Apps Script Web App: путь через query-параметр.
+  // Заголовок Content-Type НЕ ставим — иначе браузер шлёт CORS preflight,
+  // который Apps Script не обрабатывает. Без заголовка fetch использует
+  // text/plain — Apps Script всё равно парсит body как JSON.
+  const res = await fetch(`${BACKEND_URL}?path=me`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       initData: tg?.initData || "",
       startParam: tg?.initDataUnsafe?.start_param || null,
     }),
   });
+  if (!res.ok) throw new Error("backend HTTP " + res.status);
   return res.json();
 }
 
