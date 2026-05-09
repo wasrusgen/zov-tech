@@ -9,12 +9,17 @@ const app = document.getElementById("app");
 
 /* ----------------- Telegram WebApp setup ----------------- */
 function setupTelegram() {
+  // Apply theme based on Telegram color scheme even if OS prefers-color-scheme misses
+  const scheme = tg?.colorScheme || (window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme", scheme);
   if (!tg) return;
   try {
     tg.ready();
     tg.expand();
+    if (tg.onEvent) tg.onEvent("themeChanged", () => {
+      document.documentElement.setAttribute("data-theme", tg.colorScheme || "light");
+    });
     if (tg.setHeaderColor) tg.setHeaderColor("#003E7E");
-    if (tg.setBackgroundColor) tg.setBackgroundColor("#F4F4F5");
     if (tg.enableClosingConfirmation) tg.enableClosingConfirmation();
   } catch (e) { console.warn(e); }
 }

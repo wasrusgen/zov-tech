@@ -45,22 +45,39 @@
   --font-mono:   "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 }
 
-/* ====== Dark theme ====== */
+/* ====== Dark theme — both via OS preference and Telegram-driven [data-theme="dark"] ====== */
+@media (prefers-color-scheme: dark) { :root { color-scheme: dark; } }
+
+html[data-theme="dark"],
 @media (prefers-color-scheme: dark) {
-  :root {
-    --paper:   var(--tg-theme-bg-color, #16140F);
-    --paper-2: var(--tg-theme-secondary-bg-color, #1F1C16);
-    --card:    var(--tg-theme-section-bg-color, #1A1813);
-    --ink:     var(--tg-theme-text-color, #F2EFE8);
-    --ink-2:   #D6D2C7;
-    --muted:   var(--tg-theme-hint-color, #94918A);
-    --muted-2: #6B6862;
-    --line:    rgba(255, 255, 255, 0.07);
-    --line-strong: rgba(255, 255, 255, 0.14);
-    --status-active-bg: rgba(118, 189, 34, 0.18);
-    --status-lapsed-bg: rgba(220, 38, 38, 0.18);
-    --status-grace-bg:  rgba(217, 119, 6, 0.18);
+  :root,
+  html[data-theme="dark"] {
+    --paper:   var(--tg-theme-bg-color, #14130E);
+    --paper-2: var(--tg-theme-secondary-bg-color, #1F1D17);
+    --card:    var(--tg-theme-section-bg-color, #1C1A14);
+    --ink:     var(--tg-theme-text-color, #F4F1EA);
+    --ink-2:   #C8C3B5;
+    --muted:   var(--tg-theme-hint-color, #A5A299);
+    --muted-2: #807D74;
+    --line:    rgba(255, 255, 255, 0.10);
+    --line-strong: rgba(255, 255, 255, 0.20);
+    --status-active-bg: rgba(118, 189, 34, 0.22);
+    --status-lapsed-bg: rgba(220, 38, 38, 0.22);
+    --status-grace-bg:  rgba(217, 119, 6, 0.22);
   }
+}
+
+/* Force light theme when explicitly set (overrides OS dark) */
+html[data-theme="light"] {
+  --paper:    var(--tg-theme-bg-color, #FAFAF7);
+  --paper-2:  var(--tg-theme-secondary-bg-color, #F0EDE5);
+  --card:     var(--tg-theme-section-bg-color, #FFFFFF);
+  --ink:      var(--tg-theme-text-color, #0F0F0E);
+  --ink-2:    #2A2622;
+  --muted:    var(--tg-theme-hint-color, #6E6A62);
+  --muted-2:  #A09C92;
+  --line:     rgba(15, 15, 14, 0.08);
+  --line-strong: rgba(15, 15, 14, 0.16);
 }
 
 /* ============================================================
@@ -374,7 +391,9 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 
 .menu-item.disabled { cursor: not-allowed; }
 .menu-item.disabled .label,
-.menu-item.disabled .icon { color: var(--muted-2); }
+.menu-item.disabled .icon { color: var(--muted); opacity: 0.7; }
+html[data-theme="dark"] .menu-item.disabled .label,
+html[data-theme="dark"] .menu-item.disabled .icon { opacity: 0.85; }
 
 .badge {
   display: inline-block;
