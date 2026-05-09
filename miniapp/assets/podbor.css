@@ -543,3 +543,250 @@
 }
 
 .empty { text-align: center; color: var(--muted); padding: var(--s7) 0; }
+
+/* ============================================================
+   Detail menu — list of categories with status
+   ============================================================ */
+.detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.detail-card {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-card);
+  padding: var(--s3) var(--s4);
+  cursor: pointer;
+  transition: background 0.12s;
+  text-align: left;
+}
+
+.detail-card:active { background: var(--paper-2); }
+
+.detail-card.done { border-color: var(--accent-2); }
+
+.detail-icon {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+
+.detail-icon svg { width: 22px; height: 22px; stroke-width: 1.4; }
+
+.detail-card.done .detail-icon { color: var(--accent-2); }
+
+.detail-text { flex: 1; min-width: 0; }
+
+.detail-name {
+  font-family: var(--font-ui);
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.detail-sum {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.detail-card.done .detail-sum { color: var(--ink-2); text-transform: none; letter-spacing: 0; font-family: var(--font-ui); font-size: 12.5px; }
+
+.detail-status {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  color: var(--muted-2);
+}
+
+.detail-status svg { width: 18px; height: 18px; }
+
+.detail-card.done .detail-status {
+  width: 22px;
+  height: 22px;
+  background: var(--accent-2);
+  color: var(--paper);
+  border-radius: var(--r-pill);
+}
+
+.detail-card.done .detail-status svg { width: 14px; height: 14px; stroke-width: 2.5; }
+
+/* ============================================================
+   Category detail screen
+   ============================================================ */
+.cat-detail-header {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  margin-bottom: var(--s4);
+}
+
+.cat-detail-icon {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  color: var(--accent-2);
+}
+
+.cat-detail-icon svg { width: 26px; height: 26px; stroke-width: 1.4; }
+
+.cat-detail-title {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 24px;
+  font-weight: 400;
+  margin: 0;
+  color: var(--ink);
+  flex: 1;
+}
+
+.param-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--s3) 0;
+  border-top: 1px solid var(--line);
+}
+
+.param-group:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.param-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ============================================================
+   Accordion "Подробнее"
+   ============================================================ */
+.accordion-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--s3) var(--s4);
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-card);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.accordion-chev {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  transition: transform 0.18s;
+}
+
+.accordion-chev svg { width: 16px; height: 16px; transform: rotate(90deg); transition: transform 0.18s; }
+.accordion-chev.open svg { transform: rotate(-90deg); }
+
+.accordion-body {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.25s ease;
+  padding: 0;
+}
+
+.accordion-body.open {
+  max-height: 2000px;
+  padding-top: var(--s3);
+}
+
+.accordion-body > * + * { margin-top: var(--s3); }
+
+/* ============================================================
+   Feature card (in accordion)
+   ============================================================ */
+.feature-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.feature {
+  display: grid;
+  grid-template-columns: 1fr 22px;
+  gap: var(--s2);
+  align-items: center;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-tag);
+  padding: 10px 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.12s;
+}
+
+.feature:active { background: var(--paper-2); }
+.feature.on {
+  border-color: var(--accent-2);
+  background: var(--paper-2);
+}
+
+.feature-name {
+  grid-column: 1 / 2;
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.2;
+}
+
+.feature-hint {
+  grid-column: 1 / 2;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.3;
+  margin-top: 2px;
+}
+
+.feature-tick {
+  grid-column: 2 / 3;
+  grid-row: 1 / 3;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  align-self: center;
+}
+
+.feature.on .feature-tick {
+  background: var(--accent-2);
+  color: var(--paper);
+  border-color: var(--accent-2);
+}
+
+.feature.on .feature-tick svg { width: 12px; height: 12px; stroke-width: 2.5; }

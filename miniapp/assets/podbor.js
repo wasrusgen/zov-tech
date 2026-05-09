@@ -3,8 +3,11 @@
    ============================================================ */
 
 const Podbor = (function () {
-  const STORAGE_KEY = "zov-podbor-v2";
-  const STEPS = ["intro", "categories", "pricing", "infra", "priorities", "brands", "summary"];
+  const STORAGE_KEY = "zov-podbor-v3";
+  const STEPS = ["intro", "categories", "detail", "pricing", "infra", "priorities", "brands", "summary"];
+
+  // Внутренний sub-state для шага «detail»: 'menu' | 'cat:<key>'
+  let detailView = "menu";
 
   let state = loadState();
   let root = null;
@@ -24,6 +27,7 @@ const Podbor = (function () {
       client_phone: "",
       address: "",
       categories: [],          // ['fridge','hob',...]
+      per_cat: {},             // { fridge: { params: {type:'sbs',...}, features: ['nofrost'], notes: '' }, ... }
       price_ranges: {},        // { fridge: { from: 50000, to: 120000 }, ... }
       infra: { stove: "", vent: "" },
       priorities: [],          // ['balance','reviews',...]
@@ -54,6 +58,7 @@ const Podbor = (function () {
   function go(step) {
     if (!STEPS.includes(step)) return;
     currentStep = step;
+    detailView = "menu"; // на любой переход detail возвращается в меню
     render();
     window.scrollTo({ top: 0, behavior: "smooth" });
     haptic && haptic("impact");
@@ -70,6 +75,7 @@ const Podbor = (function () {
     switch (currentStep) {
       case "intro":      screen.appendChild(renderIntro()); break;
       case "categories": screen.appendChild(renderCategories()); break;
+      case "detail":     screen.appendChild(renderDetail()); break;
       case "pricing":    screen.appendChild(renderPricing()); break;
       case "infra":      screen.appendChild(renderInfra()); break;
       case "priorities": screen.appendChild(renderPriorities()); break;
@@ -105,7 +111,7 @@ const Podbor = (function () {
     const idx = STEPS.indexOf(currentStep);
     const total = STEPS.length;
     const pct = Math.round(((idx + 1) / total) * 100);
-    const labels = ["Старт", "Категории", "Цена", "Инфра", "Приоритеты", "Бренды", "Подбор"];
+    const labels = ["Старт", "Категории", "Параметры", "Цена", "Инфра", "Приоритеты", "Бренды", "Подбор"];
     return el(`
       <div class="podbor-progress">
         <div class="podbor-progress-bar"><div class="bar" style="width:${pct}%"></div></div>
@@ -165,7 +171,7 @@ const Podbor = (function () {
         <div class="cat-grid">${grid}</div>
         <div class="podbor-cta-row">
           <button class="btn-secondary" data-go="intro">Назад</button>
-          <button class="btn-primary" data-go="context">Дальше</button>
+          <button class="btn-primary" data-go="detail">Дальше</button>
         </div>
       </section>
     `);
@@ -183,6 +189,191 @@ const Podbor = (function () {
     return node;
   }
 
+  /* ===================== Step: detail — menu + per-category sub-screen ===================== */
+
+  function isCategoryFilled(catKey) {
+    const cat = state.per_cat[catKey];
+    if (!cat || !cat.params) return false;
+    const params = PODBOR_PARAMS[catKey]?.primary || [];
+    return params.every(p => cat.params[p.key]);
+  }
+
+  function renderDetail() {
+    if (!state.categories.length) {
+      return el(`
+        <section class="podbor-step">
+          <div class="empty">Сначала выберите категории.</div>
+          <div class="podbor-cta-row">
+            <button class="btn-secondary" data-go="categories">Назад</button>
+          </div>
+        </section>
+      `);
+    }
+    if (detailView !== "menu" && detailView.startsWith("cat:")) {
+      const catKey = detailView.slice(4);
+      return renderCategoryDetail(catKey);
+    }
+    return renderDetailMenu();
+  }
+
+  function renderDetailMenu() {
+    const cards = state.categories.map(catKey => {
+      const cat = PODBOR_CATEGORIES.find(x => x.key === catKey);
+      const filled = isCategoryFilled(catKey);
+      const summary = filled ? buildPerCatSummary(catKey) : "Заполнить параметры";
+      return `
+        <button class="detail-card${filled ? " done" : ""}" data-cat="${catKey}">
+          <div class="detail-icon">${ICONS[cat.icon] || ""}</div>
+          <div class="detail-text">
+            <div class="detail-name">${cat.label}</div>
+            <div class="detail-sum">${summary}</div>
+          </div>
+          <div class="detail-status">${filled ? ICONS.check : ICONS.chevron}</div>
+        </button>
+      `;
+    }).join("");
+
+    const node = el(`
+      <section class="podbor-step">
+        <h2 class="display-title">Параметры<br><span class="accent">по категориям</span></h2>
+        <p class="lede">Только главное: тип, размер, цвет. Технические фичи — в «Подробнее ↓», по желанию.</p>
+        <div class="detail-list">${cards}</div>
+        <div class="podbor-cta-row">
+          <button class="btn-secondary" data-go="categories">Назад</button>
+          <button class="btn-primary" data-go="pricing">Дальше</button>
+        </div>
+      </section>
+    `);
+    node.querySelectorAll(".detail-card").forEach(c => {
+      c.addEventListener("click", () => {
+        detailView = "cat:" + c.dataset.cat;
+        render();
+      });
+    });
+    bindNav(node);
+    return node;
+  }
+
+  function buildPerCatSummary(catKey) {
+    const cat = state.per_cat[catKey];
+    if (!cat || !cat.params) return "—";
+    const params = PODBOR_PARAMS[catKey]?.primary || [];
+    const labels = params
+      .map(p => {
+        const opt = p.options.find(o => o.key === cat.params[p.key]);
+        return opt ? opt.label : null;
+      })
+      .filter(Boolean);
+    return labels.join(" · ") || "—";
+  }
+
+  function renderCategoryDetail(catKey) {
+    const cat = PODBOR_CATEGORIES.find(x => x.key === catKey);
+    const config = PODBOR_PARAMS[catKey];
+    if (!config) {
+      return el(`<section class="podbor-step"><div class="empty">Параметры для «${cat?.label}» ещё не описаны.</div></section>`);
+    }
+    const catState = state.per_cat[catKey] || { params: {}, features: [], notes: "" };
+    const isExpanded = catState._expanded || false;
+
+    const primaryHtml = config.primary.map(p => {
+      const cur = catState.params?.[p.key] || "";
+      return `
+        <div class="param-group">
+          <div class="param-label">${p.label}</div>
+          <div class="opt-list">
+            ${p.options.map(o => `
+              <button class="opt${cur === o.key ? " on" : ""}" data-param="${p.key}" data-val="${o.key}">${o.label}</button>
+            `).join("")}
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    const featuresHtml = config.features.map(f => {
+      const on = (catState.features || []).includes(f.key);
+      return `
+        <button class="feature${on ? " on" : ""}" data-feat="${f.key}">
+          <div class="feature-name">${f.label}</div>
+          <div class="feature-hint">${f.hint}</div>
+          <div class="feature-tick">${on ? ICONS.check : ""}</div>
+        </button>
+      `;
+    }).join("");
+
+    const node = el(`
+      <section class="podbor-step podbor-cat-detail">
+        <header class="cat-detail-header">
+          <button class="podbor-back" aria-label="К меню">${ICONS.arrow_left}</button>
+          <div class="cat-detail-icon">${ICONS[cat.icon] || ""}</div>
+          <h2 class="cat-detail-title">${cat.label}</h2>
+        </header>
+
+        <div class="block">
+          <div class="block-head">Главное</div>
+          ${primaryHtml}
+        </div>
+
+        <button class="accordion-head" data-toggle="exp">
+          <span>Подробнее</span>
+          <span class="accordion-chev${isExpanded ? " open" : ""}">${ICONS.chevron}</span>
+        </button>
+        <div class="accordion-body${isExpanded ? " open" : ""}">
+          <div class="hint">Технические фичи — необязательно. Если не отметите, AI выберет сам и пояснит в подборе.</div>
+          <div class="feature-list">${featuresHtml}</div>
+          <label class="field">
+            <span class="field-label">Заметки по этой категории</span>
+            <textarea data-bind="cat_notes" rows="2" placeholder="Что-то особенное?">${catState.notes || ""}</textarea>
+          </label>
+        </div>
+
+        <div class="podbor-cta-row">
+          <button class="btn-secondary" id="catBack">К списку</button>
+          <button class="btn-primary" id="catSave">Сохранить</button>
+        </div>
+      </section>
+    `);
+
+    // Главное — radio
+    node.querySelectorAll("[data-param]").forEach(b => {
+      b.addEventListener("click", () => {
+        const cs = state.per_cat[catKey] || { params: {}, features: [], notes: "" };
+        cs.params = { ...(cs.params || {}), [b.dataset.param]: b.dataset.val };
+        update({ per_cat: { ...state.per_cat, [catKey]: cs } });
+        render();
+      });
+    });
+    // Features — toggle
+    node.querySelectorAll("[data-feat]").forEach(b => {
+      b.addEventListener("click", () => {
+        const cs = state.per_cat[catKey] || { params: {}, features: [], notes: "" };
+        const cur = cs.features || [];
+        cs.features = cur.includes(b.dataset.feat) ? cur.filter(x => x !== b.dataset.feat) : [...cur, b.dataset.feat];
+        update({ per_cat: { ...state.per_cat, [catKey]: cs } });
+        render();
+      });
+    });
+    // Accordion
+    node.querySelector("[data-toggle='exp']").addEventListener("click", () => {
+      const cs = state.per_cat[catKey] || { params: {}, features: [], notes: "" };
+      cs._expanded = !cs._expanded;
+      update({ per_cat: { ...state.per_cat, [catKey]: cs } });
+      render();
+    });
+    // Notes
+    const ta = node.querySelector("textarea[data-bind='cat_notes']");
+    if (ta) ta.addEventListener("input", e => {
+      const cs = state.per_cat[catKey] || { params: {}, features: [], notes: "" };
+      cs.notes = e.target.value;
+      update({ per_cat: { ...state.per_cat, [catKey]: cs } });
+    });
+    // Back / save → menu
+    node.querySelector(".podbor-back").addEventListener("click", () => { detailView = "menu"; render(); });
+    node.querySelector("#catBack").addEventListener("click", () => { detailView = "menu"; render(); });
+    node.querySelector("#catSave").addEventListener("click", () => { detailView = "menu"; render(); haptic && haptic("success"); });
+    return node;
+  }
+
   /* ===================== Step: pricing (ценовой коридор по категориям) ===================== */
 
   function renderPricing() {
@@ -191,7 +382,7 @@ const Podbor = (function () {
         <section class="podbor-step">
           <div class="empty">Сначала выберите категории.</div>
           <div class="podbor-cta-row">
-            <button class="btn-secondary" data-go="categories">Назад</button>
+            <button class="btn-secondary" data-go="detail">Назад</button>
           </div>
         </section>
       `);
@@ -234,7 +425,7 @@ const Podbor = (function () {
           ${totalLine}
         </div>
         <div class="podbor-cta-row">
-          <button class="btn-secondary" data-go="categories">Назад</button>
+          <button class="btn-secondary" data-go="detail">Назад</button>
           <button class="btn-primary" data-go="infra">Дальше</button>
         </div>
       </section>
