@@ -11,8 +11,9 @@
  *
  * Script Properties (Project Settings → Script Properties):
  *   BOT_TOKEN          — токен Telegram-бота (для проверки initData и отправки уведомлений)
- *   ANTHROPIC_API_KEY  — ключ Claude API
- *   ANTHROPIC_MODEL    — опционально, модель (default: claude-haiku-4-5-20251001)
+ *   GIGACHAT_AUTH_KEY  — Authorization key из кабинета developers.sber.ru (Base64 client_id:client_secret)
+ *   GIGACHAT_MODEL     — опционально, модель (default: GigaChat-Pro)
+ *   GIGACHAT_SCOPE     — опционально, scope (default: GIGACHAT_API_PERS)
  *   ADMIN_TG_ID        — tg_id куратора, кому слать алерты об ошибках
  */
 
@@ -259,7 +260,7 @@ function handlePodbor(body) {
   // Build prompt and call Claude
   const measurement = measurementId ? getMeasurement(measurementId) : null;
   const prompt = buildPickerPrompt(checklist, measurement, clientName);
-  const ai = callClaude(prompt);
+  const ai = callAI(prompt);
 
   // Update lead row with AI response
   updateLeadAI(id, ai);
@@ -459,7 +460,7 @@ function updateLeadAI(leadId, ai) {
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] === leadId) {
       const props = PropertiesService.getScriptProperties();
-      const model = props.getProperty("ANTHROPIC_MODEL") || "claude-haiku-4-5-20251001";
+      const model = props.getProperty("GIGACHAT_MODEL") || "GigaChat-Pro";
       s.getRange(i + 1, 8).setValue(JSON.stringify(ai.json || ai.text || ""));
       s.getRange(i + 1, 9).setValue(model);
       s.getRange(i + 1, 10).setValue(ai.tokens || 0);
@@ -544,26 +545,82 @@ function buildPickerPrompt(checklist, measurement, clientName) {
   return "Подбери технику для следующего клиента:\n\n" + JSON.stringify(payload, null, 2);
 }
 
-function callClaude(userPrompt) {
+// =================================================================
+// GigaChat (Sber) — primary AI provider
+// =================================================================
+
+/**
+ * Получает access_token GigaChat. Кеширует в CacheService на 25 минут
+ * (токен живёт 30 минут — оставляем 5 минут запаса).
+ */
+function getGigaChatToken() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get("gigachat_token");
+  if (cached) return cached;
+
   const props = PropertiesService.getScriptProperties();
-  const apiKey = props.getProperty("ANTHROPIC_API_KEY");
-  if (!apiKey) throw new Error("ANTHROPIC_API_KEY not in Script Properties");
-  // Стабильное имя без даты — Anthropic сам резолвит до свежего снапшота
-  const model = props.getProperty("ANTHROPIC_MODEL") || "claude-haiku-4-5";
+  const authKey = props.getProperty("GIGACHAT_AUTH_KEY");
+  if (!authKey) throw new Error("GIGACHAT_AUTH_KEY not in Script Properties");
+  const scope = props.getProperty("GIGACHAT_SCOPE") || "GIGACHAT_API_PERS";
+
+  const res = UrlFetchApp.fetch("https://ngw.devices.sberbank.ru:9443/api/v2/oauth", {
+    method: "post",
+    headers: {
+      "Authorization": "Basic " + authKey,
+      "RqUID": Utilities.getUuid(),
+      "Accept": "application/json",
+    },
+    contentType: "application/x-www-form-urlencoded",
+    payload: "scope=" + encodeURIComponent(scope),
+    muteHttpExceptions: true,
+  });
+
+  const status = res.getResponseCode();
+  const text = res.getContentText();
+  if (status >= 400) {
+    log("gigachat_auth_error", null, { status, text: text.slice(0, 400) });
+    throw new Error("GigaChat auth HTTP " + status + ": " + text.slice(0, 300));
+  }
+  const data = JSON.parse(text);
+  const token = data.access_token || data.tok;
+  if (!token) throw new Error("No access_token in GigaChat response: " + text.slice(0, 300));
+
+  cache.put("gigachat_token", token, 1500); // 25 минут
+  return token;
+}
+
+/**
+ * Вызов AI (GigaChat Chat Completions). Возвращает { json, text, tokens, error? }.
+ */
+function callAI(userPrompt) {
+  const props = PropertiesService.getScriptProperties();
+  const model = props.getProperty("GIGACHAT_MODEL") || "GigaChat-Pro";
   const temperature = parseFloat(getSetting("AI_TEMPERATURE") || "0.3");
+
+  let token;
+  try {
+    token = getGigaChatToken();
+  } catch (e) {
+    return { json: null, text: "AI auth: " + e.message, tokens: 0, error: true };
+  }
 
   const payload = {
     model,
-    max_tokens: 4000,
     temperature,
-    system: SYSTEM_PROMPT_PICKER,
-    messages: [{ role: "user", content: userPrompt }],
+    max_tokens: 4000,
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT_PICKER },
+      { role: "user",   content: userPrompt },
+    ],
   };
 
-  const res = UrlFetchApp.fetch("https://api.anthropic.com/v1/messages", {
+  const res = UrlFetchApp.fetch("https://gigachat.devices.sberbank.ru/api/v1/chat/completions", {
     method: "post",
+    headers: {
+      "Authorization": "Bearer " + token,
+      "Accept": "application/json",
+    },
     contentType: "application/json",
-    headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
     payload: JSON.stringify(payload),
     muteHttpExceptions: true,
   });
@@ -571,20 +628,27 @@ function callClaude(userPrompt) {
   const status = res.getResponseCode();
   const text = res.getContentText();
   if (status >= 400) {
-    log("claude_error", null, { status, model, text: text.slice(0, 500) });
-    // Surface the actual Anthropic error so we can debug from /api/test_claude
+    log("gigachat_error", null, { status, model, text: text.slice(0, 500) });
     let errMsg = text.slice(0, 300);
     try {
       const j = JSON.parse(text);
-      errMsg = (j.error && j.error.message) || errMsg;
+      errMsg = (j.message) || (j.error && j.error.message) || errMsg;
     } catch (e) {}
     return { json: null, text: "AI ошибка HTTP " + status + " (" + model + "): " + errMsg, tokens: 0, error: true };
   }
+
   const data = JSON.parse(text);
-  const responseText = (data.content || []).map(c => c.text || "").join("");
-  const tokens = (data.usage && (data.usage.input_tokens + data.usage.output_tokens)) || 0;
+  const choice = (data.choices && data.choices[0]) || {};
+  const responseText = (choice.message && choice.message.content) || "";
+  const tokens = (data.usage && data.usage.total_tokens) || 0;
+
+  // Иногда модель оборачивает JSON в ```json ... ```
   let json = null;
-  try { json = JSON.parse(responseText); } catch (e) {}
+  try { json = JSON.parse(responseText); } catch (e) {
+    const stripped = responseText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
+    try { json = JSON.parse(stripped); } catch (e2) {}
+  }
+
   return { json, text: responseText, tokens };
 }
 
@@ -702,9 +766,12 @@ function seedAdminAsManager() {
 }
 
 /** Тестовый прогон Claude API: проверяет что ключ работает. */
-function testClaude() {
-  const ai = callClaude("Скажи одной фразой: что за фабрика ЗОВ?");
-  return { ok: !ai.error, response_text: (ai.text || "").slice(0, 500), tokens: ai.tokens, model: PropertiesService.getScriptProperties().getProperty("ANTHROPIC_MODEL") || "claude-haiku-4-5-20251001" };
+function testClaude() { return testAI(); }   // legacy alias
+
+function testAI() {
+  const ai = callAI("Скажи одной фразой: что за фабрика ЗОВ?");
+  const model = PropertiesService.getScriptProperties().getProperty("GIGACHAT_MODEL") || "GigaChat-Pro";
+  return { ok: !ai.error, provider: "GigaChat", model, response_text: (ai.text || "").slice(0, 500), tokens: ai.tokens };
 }
 
 /** Тест отправки сообщения через бота — пришлёт админу «привет». */
