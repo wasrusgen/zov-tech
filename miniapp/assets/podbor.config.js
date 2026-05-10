@@ -42,42 +42,86 @@ const PODBOR_PRIORITIES = [
   { key: "service",  label: "Сервис и гарантия" },
 ];
 
-/* Параметры по категориям: Главное (всегда видно) + Подробнее (свёрнуто) */
+/* Параметры по категориям.
+   ----------------------------------------------------------
+   Новая схема (иерархический wizard):
+     steps: [
+       {
+         key: "install",
+         title: "Тип установки",
+         type: "single" | "multi",
+         options: [ { key, label, hint, star?, pict? } ]
+         // ИЛИ если опции зависят от предыдущего шага:
+         optionsBy: { dependsOn: "<prevStepKey>", map: { <prevVal>: [options] } }
+       },
+       ...
+     ]
+
+   Старая схема (legacy, без wizard):
+     primary: [...], features: [...]
+   ---------------------------------------------------------- */
 const PODBOR_PARAMS = {
   fridge: {
-    primary: [
-      { key: "type", label: "Тип", options: [
-        { key: "two_chamber", label: "Двухкамерный" },
-        { key: "sbs",         label: "Side-by-side" },
-        { key: "french",      label: "French Door" },
-        { key: "column",      label: "Колонна (встр.)" },
-        { key: "combi",       label: "Комбинированный" },
-      ]},
-      { key: "width", label: "Ширина, см", options: [
-        { key: "54", label: "54" }, { key: "60", label: "60" },
-        { key: "70", label: "70" }, { key: "75", label: "75" }, { key: "91", label: "91" },
-      ]},
-      { key: "volume", label: "Объём, л", options: [
-        { key: "to300",   label: "до 300" },
-        { key: "300-450", label: "300–450" },
-        { key: "450-600", label: "450–600" },
-        { key: "600+",    label: "600+" },
-      ]},
-      { key: "color", label: "Цвет", options: [
-        { key: "white", label: "Белый" },
-        { key: "inox",  label: "Нерж. сталь" },
-        { key: "black", label: "Чёрный" },
-        { key: "anthracite", label: "Антрацит" },
-        { key: "builtin", label: "Под фасад" },
-      ]},
-    ],
-    features: [
-      { key: "nofrost",  label: "NoFrost",        hint: "не нужно размораживать вручную" },
-      { key: "inverter", label: "Инвертор",       hint: "тише и экономичнее на ~30%" },
-      { key: "freshzone", label: "Зона свежести",  hint: "овощи и зелень дольше хрустящие" },
-      { key: "silent",   label: "≤40 дБ",         hint: "почти не слышно ночью" },
-      { key: "smart",    label: "Smart / Wi-Fi",  hint: "управление с телефона" },
-      { key: "ice",      label: "Лёдогенератор",  hint: "автоматически делает кубики" },
+    steps: [
+      {
+        key: "install",
+        title: "Тип установки",
+        type: "single",
+        options: [
+          { key: "built_in",     label: "Встроенный",     hint: "под фасад",   pict: "fridge_install_builtin" },
+          { key: "freestanding", label: "Отдельностоящий", hint: "соло на полу", pict: "fridge_install_freestanding" },
+        ],
+      },
+      {
+        key: "chamber",
+        title: "Тип камеры",
+        type: "single",
+        optionsBy: {
+          dependsOn: "install",
+          map: {
+            built_in: [
+              { key: "single",     label: "Однокамерный",        hint: "только холод",          pict: "fridge_bi_single" },
+              { key: "two_chamber", label: "Двухкамерный",       hint: "холод + мороз",         pict: "fridge_bi_two" },
+              { key: "col_cold",   label: "Холодильная колонна", hint: "только холод · высокая", pict: "fridge_bi_colcold" },
+              { key: "col_freeze", label: "Морозильная колонна", hint: "только мороз · высокая", pict: "fridge_bi_colfreeze" },
+              { key: "col_pair",   label: "Пара колонн",         hint: "холод + мороз · рядом",  pict: "fridge_bi_colpair" },
+            ],
+            freestanding: [
+              { key: "single",      label: "Однокамерный",       hint: "мини · бар",            pict: "fridge_fs_single" },
+              { key: "two_chamber", label: "Двухкамерный",       hint: "морозилка снизу",       pict: "fridge_fs_two" },
+              { key: "sbs",         label: "Side-by-Side",       hint: "распашной · 2 двери",   pict: "fridge_fs_sbs" },
+              { key: "french",      label: "French Door",        hint: "2 двери · ящик мороза", pict: "fridge_fs_french" },
+              { key: "freezer",     label: "Морозильная камера", hint: "отдельный морозильник", pict: "fridge_fs_freezer" },
+            ],
+          },
+        },
+      },
+      {
+        key: "size",
+        title: "Размер",
+        type: "single",
+        options: [
+          { key: "narrow",   label: "Узкий",    hint: "W 45–55 см" },
+          { key: "standard", label: "Стандарт", hint: "W 55–60 см", star: true },
+          { key: "wide",     label: "Широкий",  hint: "W 60–75 см" },
+          { key: "xl",       label: "XL",       hint: "W 80–100 см · SbS / French Door" },
+        ],
+      },
+      {
+        key: "features",
+        title: "Особенности",
+        type: "multi",
+        options: [
+          { key: "nofrost",   label: "No Frost",            hint: "не нужно размораживать" },
+          { key: "inverter",  label: "Inverter",            hint: "тише и экономичнее" },
+          { key: "freshzone", label: "Зона свежести",       hint: "BioFresh / овощи дольше" },
+          { key: "silent",    label: "≤40 дБ",              hint: "почти не слышно ночью" },
+          { key: "smart",     label: "Wi-Fi",               hint: "управление с телефона" },
+          { key: "ice",       label: "Лёдогенератор",       hint: "кубики автоматически" },
+          { key: "wine",      label: "Винная зона",         hint: "" },
+          { key: "dispenser", label: "Диспенсер воды",      hint: "холодная вода / лёд через дверь" },
+        ],
+      },
     ],
   },
   hob: {

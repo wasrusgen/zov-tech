@@ -192,10 +192,22 @@ const Podbor = (function () {
   /* ===================== Step: detail — menu + per-category sub-screen ===================== */
 
   function isCategoryFilled(catKey) {
-    const cat = state.per_cat[catKey];
-    if (!cat || !cat.params) return false;
-    const params = PODBOR_PARAMS[catKey]?.primary || [];
-    return params.every(p => cat.params[p.key]);
+    const cs = state.per_cat[catKey];
+    if (!cs) return false;
+    const config = PODBOR_PARAMS[catKey];
+    if (!config) return false;
+    // Новая схема: все single-шаги должны иметь ответ. Multi (features) — необязательно.
+    if (config.steps) {
+      const ans = cs.answers || {};
+      return config.steps.every(step => {
+        if (step.type === "multi") return true; // multi необязателен
+        return !!ans[step.key];
+      });
+    }
+    // Старая схема
+    if (!cs.params) return false;
+    const params = config.primary || [];
+    return params.every(p => cs.params[p.key]);
   }
 
   function renderDetail() {
@@ -211,6 +223,9 @@ const Podbor = (function () {
     }
     if (detailView !== "menu" && detailView.startsWith("cat:")) {
       const catKey = detailView.slice(4);
+      const config = PODBOR_PARAMS[catKey];
+      // Новая иерархическая схема → wizard. Старая → legacy-форма.
+      if (config?.steps) return renderCategoryWizard(catKey);
       return renderCategoryDetail(catKey);
     }
     return renderDetailMenu();
@@ -255,16 +270,274 @@ const Podbor = (function () {
   }
 
   function buildPerCatSummary(catKey) {
-    const cat = state.per_cat[catKey];
-    if (!cat || !cat.params) return "—";
-    const params = PODBOR_PARAMS[catKey]?.primary || [];
+    const cs = state.per_cat[catKey];
+    if (!cs) return "—";
+    const config = PODBOR_PARAMS[catKey];
+    // Новая схема
+    if (config?.steps) {
+      const ans = cs.answers || {};
+      const labels = [];
+      for (const step of config.steps) {
+        if (step.type === "multi") continue;
+        const val = ans[step.key];
+        if (!val) continue;
+        const opts = resolveStepOptions(step, ans);
+        const opt = opts.find(o => o.key === val);
+        if (opt) labels.push(opt.label);
+      }
+      return labels.join(" · ") || "—";
+    }
+    // Старая схема
+    if (!cs.params) return "—";
+    const params = config?.primary || [];
     const labels = params
       .map(p => {
-        const opt = p.options.find(o => o.key === cat.params[p.key]);
+        const opt = p.options.find(o => o.key === cs.params[p.key]);
         return opt ? opt.label : null;
       })
       .filter(Boolean);
     return labels.join(" · ") || "—";
+  }
+
+  /* Возвращает реальный options[] для шага с учётом optionsBy */
+  function resolveStepOptions(step, answers) {
+    if (step.options) return step.options;
+    if (step.optionsBy) {
+      const depVal = answers[step.optionsBy.dependsOn];
+      return (step.optionsBy.map && step.optionsBy.map[depVal]) || [];
+    }
+    return [];
+  }
+
+  /* ===================== Иерархический wizard внутри категории ===================== */
+
+  function getCatState(catKey) {
+    const cs = state.per_cat[catKey];
+    if (cs && cs.answers) return cs; // уже в новой форме
+    // Миграция / инициализация
+    return { answers: {}, notes: cs?.notes || "", _step: 0 };
+  }
+
+  function setCatState(catKey, patch) {
+    const prev = getCatState(catKey);
+    const next = { ...prev, ...patch };
+    update({ per_cat: { ...state.per_cat, [catKey]: next } });
+  }
+
+  function renderCategoryWizard(catKey) {
+    const cat = PODBOR_CATEGORIES.find(x => x.key === catKey);
+    const config = PODBOR_PARAMS[catKey];
+    const cs = getCatState(catKey);
+    const stepIdx = Math.max(0, Math.min(cs._step || 0, config.steps.length));
+
+    // Финальный экран категории — обзор + заметки + кнопка "Готово"
+    if (stepIdx >= config.steps.length) {
+      return renderCategoryReview(catKey);
+    }
+
+    const step = config.steps[stepIdx];
+    const options = resolveStepOptions(step, cs.answers);
+    const isMulti = step.type === "multi";
+    const currentVal = cs.answers[step.key];
+    const currentArr = isMulti ? (Array.isArray(currentVal) ? currentVal : []) : null;
+
+    // Чипы прошлых ответов (single-шаги)
+    const prevChips = config.steps.slice(0, stepIdx)
+      .filter(s => s.type !== "multi")
+      .map(s => {
+        const v = cs.answers[s.key];
+        if (!v) return "";
+        const opts = resolveStepOptions(s, cs.answers);
+        const o = opts.find(x => x.key === v);
+        return o ? `<span class="wiz-chip" data-jump="${s.key}">${o.label}</span>` : "";
+      }).join("");
+
+    const cardsHtml = options.map(o => {
+      const isOn = isMulti ? currentArr.includes(o.key) : currentVal === o.key;
+      const pict = o.pict && PODBOR_PICTS[o.pict];
+      return `
+        <button class="wiz-card${isOn ? " on" : ""}${o.star ? " star" : ""}" data-val="${o.key}">
+          ${pict ? `<div class="wiz-pict">${pict}</div>` : `<div class="wiz-pict wiz-pict-placeholder"></div>`}
+          <div class="wiz-label">${o.label}</div>
+          ${o.hint ? `<div class="wiz-hint">${o.hint}</div>` : ""}
+          ${isOn ? `<div class="wiz-tick">${ICONS.check}</div>` : ""}
+        </button>
+      `;
+    }).join("");
+
+    const stepNum = stepIdx + 1;
+    const stepTotal = config.steps.length;
+
+    const node = el(`
+      <section class="podbor-step podbor-wizard">
+        <header class="wiz-header">
+          <button class="podbor-back" aria-label="Назад">${ICONS.arrow_left}</button>
+          <div class="wiz-header-meta">
+            <div class="wiz-cat">${cat.label}</div>
+            <div class="wiz-progress">Шаг ${stepNum} из ${stepTotal}</div>
+          </div>
+          <div class="wiz-cat-icon">${ICONS[cat.icon] || ""}</div>
+        </header>
+
+        ${prevChips ? `<div class="wiz-chips">${prevChips}</div>` : ""}
+
+        <h3 class="wiz-title">${step.title}${isMulti ? ' <span class="wiz-multi">· можно несколько</span>' : ""}</h3>
+
+        <div class="wiz-grid">${cardsHtml}</div>
+
+        <div class="podbor-cta-row">
+          ${stepIdx > 0
+            ? `<button class="btn-secondary" id="wizPrev">Назад</button>`
+            : `<button class="btn-secondary" id="wizMenu">К списку</button>`
+          }
+          ${isMulti
+            ? `<button class="btn-primary" id="wizNext">Дальше</button>`
+            : (currentVal ? `<button class="btn-primary" id="wizNext">Дальше</button>` : "")
+          }
+        </div>
+      </section>
+    `);
+
+    // Клик по карточке
+    node.querySelectorAll(".wiz-card").forEach(card => {
+      card.addEventListener("click", () => {
+        const val = card.dataset.val;
+        const cs2 = getCatState(catKey);
+        const newAns = { ...cs2.answers };
+        if (isMulti) {
+          const arr = Array.isArray(newAns[step.key]) ? newAns[step.key] : [];
+          newAns[step.key] = arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val];
+        } else {
+          newAns[step.key] = val;
+          // Если меняем answer для шага, от которого зависит следующий — сбросим все последующие answers
+          for (let i = stepIdx + 1; i < config.steps.length; i++) {
+            const s = config.steps[i];
+            if (s.optionsBy && s.optionsBy.dependsOn === step.key) {
+              delete newAns[s.key];
+            }
+          }
+        }
+        setCatState(catKey, { answers: newAns });
+        // Single-select: автопереход на следующий шаг
+        if (!isMulti) {
+          setCatState(catKey, { _step: stepIdx + 1 });
+          haptic && haptic("impact");
+        }
+        render();
+      });
+    });
+
+    // Чипы — клик возвращает к шагу
+    node.querySelectorAll(".wiz-chip[data-jump]").forEach(chip => {
+      chip.addEventListener("click", () => {
+        const targetKey = chip.dataset.jump;
+        const targetIdx = config.steps.findIndex(s => s.key === targetKey);
+        if (targetIdx >= 0) {
+          setCatState(catKey, { _step: targetIdx });
+          render();
+        }
+      });
+    });
+
+    // Кнопки
+    const wizPrev = node.querySelector("#wizPrev");
+    if (wizPrev) wizPrev.addEventListener("click", () => {
+      setCatState(catKey, { _step: Math.max(0, stepIdx - 1) });
+      render();
+    });
+    const wizMenu = node.querySelector("#wizMenu");
+    if (wizMenu) wizMenu.addEventListener("click", () => { detailView = "menu"; render(); });
+    const wizNext = node.querySelector("#wizNext");
+    if (wizNext) wizNext.addEventListener("click", () => {
+      setCatState(catKey, { _step: stepIdx + 1 });
+      haptic && haptic("impact");
+      render();
+    });
+    // Header back — на предыдущий шаг или к меню
+    node.querySelector(".podbor-back").addEventListener("click", () => {
+      if (stepIdx > 0) {
+        setCatState(catKey, { _step: stepIdx - 1 });
+        render();
+      } else {
+        detailView = "menu";
+        render();
+      }
+    });
+
+    return node;
+  }
+
+  function renderCategoryReview(catKey) {
+    const cat = PODBOR_CATEGORIES.find(x => x.key === catKey);
+    const config = PODBOR_PARAMS[catKey];
+    const cs = getCatState(catKey);
+
+    const rows = config.steps.map(step => {
+      const v = cs.answers[step.key];
+      const opts = resolveStepOptions(step, cs.answers);
+      if (step.type === "multi") {
+        const arr = Array.isArray(v) ? v : [];
+        const labels = arr.map(k => opts.find(o => o.key === k)?.label).filter(Boolean);
+        return `
+          <div class="rev-row">
+            <div class="rev-label">${step.title}</div>
+            <div class="rev-val">${labels.length ? labels.join(" · ") : '<span class="muted">не выбрано</span>'}</div>
+          </div>
+        `;
+      }
+      const opt = opts.find(o => o.key === v);
+      return `
+        <div class="rev-row">
+          <div class="rev-label">${step.title}</div>
+          <div class="rev-val">${opt ? opt.label : '<span class="muted">—</span>'}</div>
+        </div>
+      `;
+    }).join("");
+
+    const node = el(`
+      <section class="podbor-step podbor-wizard">
+        <header class="wiz-header">
+          <button class="podbor-back" aria-label="Назад">${ICONS.arrow_left}</button>
+          <div class="wiz-header-meta">
+            <div class="wiz-cat">${cat.label}</div>
+            <div class="wiz-progress">Готово</div>
+          </div>
+          <div class="wiz-cat-icon">${ICONS[cat.icon] || ""}</div>
+        </header>
+
+        <h3 class="wiz-title">Проверьте ответы</h3>
+
+        <div class="rev-list">${rows}</div>
+
+        <label class="field">
+          <span class="field-label">Заметки по категории</span>
+          <textarea data-bind="cat_notes" rows="2" placeholder="Особые пожелания клиента?">${cs.notes || ""}</textarea>
+        </label>
+
+        <div class="podbor-cta-row">
+          <button class="btn-secondary" id="wizEdit">Изменить</button>
+          <button class="btn-primary" id="wizDone">К списку категорий</button>
+        </div>
+      </section>
+    `);
+    node.querySelector("#wizEdit").addEventListener("click", () => {
+      setCatState(catKey, { _step: 0 });
+      render();
+    });
+    node.querySelector("#wizDone").addEventListener("click", () => {
+      detailView = "menu";
+      haptic && haptic("success");
+      render();
+    });
+    node.querySelector(".podbor-back").addEventListener("click", () => {
+      setCatState(catKey, { _step: config.steps.length - 1 });
+      render();
+    });
+    const ta = node.querySelector("textarea[data-bind='cat_notes']");
+    if (ta) ta.addEventListener("input", e => {
+      setCatState(catKey, { notes: e.target.value });
+    });
+    return node;
   }
 
   function renderCategoryDetail(catKey) {
