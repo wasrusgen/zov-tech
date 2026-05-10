@@ -548,7 +548,8 @@ function callClaude(userPrompt) {
   const props = PropertiesService.getScriptProperties();
   const apiKey = props.getProperty("ANTHROPIC_API_KEY");
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY not in Script Properties");
-  const model = props.getProperty("ANTHROPIC_MODEL") || "claude-haiku-4-5-20251001";
+  // Стабильное имя без даты — Anthropic сам резолвит до свежего снапшота
+  const model = props.getProperty("ANTHROPIC_MODEL") || "claude-haiku-4-5";
   const temperature = parseFloat(getSetting("AI_TEMPERATURE") || "0.3");
 
   const payload = {
@@ -570,8 +571,14 @@ function callClaude(userPrompt) {
   const status = res.getResponseCode();
   const text = res.getContentText();
   if (status >= 400) {
-    log("claude_error", null, { status, text: text.slice(0, 500) });
-    return { json: null, text: "AI ошибка: HTTP " + status, tokens: 0, error: true };
+    log("claude_error", null, { status, model, text: text.slice(0, 500) });
+    // Surface the actual Anthropic error so we can debug from /api/test_claude
+    let errMsg = text.slice(0, 300);
+    try {
+      const j = JSON.parse(text);
+      errMsg = (j.error && j.error.message) || errMsg;
+    } catch (e) {}
+    return { json: null, text: "AI ошибка HTTP " + status + " (" + model + "): " + errMsg, tokens: 0, error: true };
   }
   const data = JSON.parse(text);
   const responseText = (data.content || []).map(c => c.text || "").join("");
