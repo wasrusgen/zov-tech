@@ -59,7 +59,7 @@ async function fetchMe() {
   const urlParams = new URLSearchParams(window.location.search);
   const explicitRole = urlParams.get("role");
 
-  const res = await fetch(`${BACKEND_URL}?path=me`, {
+  const res = await fetch(`${BACKEND_URL}/api/me`, {
     method: "POST",
     body: JSON.stringify({
       initData: tg?.initData || "",
