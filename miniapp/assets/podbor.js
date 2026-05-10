@@ -69,6 +69,8 @@ const Podbor = (function () {
     root.innerHTML = "";
     root.appendChild(renderHeader());
     root.appendChild(renderProgress());
+    const strip = renderCategoryStrip();
+    if (strip) root.appendChild(strip);
     const screen = el(`<div class="podbor-screen"></div>`);
     root.appendChild(screen);
 
@@ -105,6 +107,41 @@ const Podbor = (function () {
       }
     });
     return h;
+  }
+
+  /* Лента выбранных категорий — видна на шагах после "categories" */
+  function renderCategoryStrip() {
+    if (!state.categories.length) return null;
+    if (currentStep === "intro" || currentStep === "categories") return null;
+    // Активная категория — если внутри wizard'а одной из них
+    let activeCat = null;
+    if (currentStep === "detail" && detailView.startsWith("cat:")) {
+      activeCat = detailView.slice(4);
+    }
+    const chips = state.categories.map(catKey => {
+      const cat = PODBOR_CATEGORIES.find(c => c.key === catKey);
+      const filled = isCategoryFilled(catKey);
+      const isActive = catKey === activeCat;
+      return `
+        <button class="cat-strip-chip${isActive ? " active" : ""}${filled ? " filled" : ""}" data-cat="${catKey}">
+          <span class="cat-strip-icon">${ICONS[cat.icon] || ""}</span>
+          <span class="cat-strip-label">${cat.label}</span>
+          ${filled ? `<span class="cat-strip-tick">${ICONS.check}</span>` : ""}
+        </button>
+      `;
+    }).join("");
+    const node = el(`<div class="cat-strip">${chips}</div>`);
+    node.querySelectorAll(".cat-strip-chip").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const cat = btn.dataset.cat;
+        currentStep = "detail";
+        detailView = "cat:" + cat;
+        render();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        haptic && haptic("impact");
+      });
+    });
+    return node;
   }
 
   function renderProgress() {

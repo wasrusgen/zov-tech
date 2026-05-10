@@ -63,6 +63,61 @@
 
 .podbor-progress-meta .num { color: var(--ink); }
 
+/* ----- Лента категорий ----- */
+.cat-strip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  margin: 0 -20px var(--s4);
+  padding: 0 20px 4px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.cat-strip::-webkit-scrollbar { display: none; }
+.cat-strip-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px 6px 8px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--muted);
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.12s;
+}
+.cat-strip-chip:active { transform: scale(0.96); }
+.cat-strip-chip.active {
+  border-color: var(--accent-2);
+  background: var(--warm);
+  color: var(--ink);
+  box-shadow: 0 0 0 1px var(--accent-2) inset;
+}
+.cat-strip-chip.filled { color: var(--ink); }
+.cat-strip-icon {
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  color: var(--accent-2);
+}
+.cat-strip-icon svg { width: 16px; height: 16px; }
+.cat-strip-tick {
+  width: 12px;
+  height: 12px;
+  display: grid;
+  place-items: center;
+  color: var(--accent-2);
+  margin-left: 2px;
+}
+.cat-strip-tick svg { width: 11px; height: 11px; stroke-width: 2.5; }
+
 /* ----- Step container ----- */
 .podbor-screen { animation: fadeIn 0.2s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
