@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#FBF7F0">
+  <title>Превью · Стили пиктограмм холодильников</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Newsreader:ital,wght@0,400..600;1,400..600&family=JetBrains+Mono:wght@400;500&display=swap">
+  <style>
+    :root{
+      --paper:#FBF7F0;
+      --ink:#1F1A14;
+      --muted:#8B8275;
+      --line:rgba(31,26,20,0.18);
+      --walnut:#6B4A2B;
+      --walnut-soft:#A07A52;
+      --warm:#F5EDDC;
+      --warm-2:#EFE3CC;
+      --warm-3:#E8DCC0;
+      --terracotta:#B85A2D;
+      --r:14px;
+    }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+    html,body{margin:0;padding:0;}
+    body{
+      font-family:"Geist",system-ui,sans-serif;
+      background:var(--paper);
+      color:var(--ink);
+      font-size:15px;
+      line-height:1.45;
+      letter-spacing:-0.01em;
+      -webkit-font-smoothing:antialiased;
+    }
+    .wrap{max-width:780px;margin:0 auto;padding:24px 18px 80px;}
+    .kicker{
+      font-family:"JetBrains Mono",monospace;
+      font-size:10px;
+      font-weight:500;
+      letter-spacing:0.14em;
+      text-transform:uppercase;
+      color:var(--muted);
+      margin-bottom:4px;
+    }
+    h1{
+      font-family:"Newsreader",Georgia,serif;
+      font-style:italic;
+      font-weight:400;
+      font-size:34px;
+      line-height:1.05;
+      letter-spacing:-0.02em;
+      margin:0 0 8px;
+    }
+    .lede{color:var(--muted);margin:0 0 28px;font-size:14px;}
+
+    .style-block{
+      margin:34px 0 0;
+      padding:18px 14px 22px;
+      border:1px solid var(--line);
+      border-radius:var(--r);
+      background:#FFFCF6;
+    }
+    .style-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:0 4px;}
+    .style-title{
+      font-family:"Newsreader",Georgia,serif;
+      font-style:italic;
+      font-size:22px;
+      letter-spacing:-0.01em;
+    }
+    .style-tag{
+      font-family:"JetBrains Mono",monospace;
+      font-size:10px;
+      letter-spacing:0.12em;
+      text-transform:uppercase;
+      color:var(--walnut);
+      background:var(--warm);
+      padding:2px 8px;
+      border-radius:999px;
+    }
+    .style-note{color:var(--muted);font-size:13px;margin-top:2px;}
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:10px;
+    }
+    @media(min-width:560px){
+      .grid{grid-template-columns:repeat(4,1fr);}
+    }
+    .card{
+      background:var(--paper);
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:10px 8px 12px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:8px;
+    }
+    .card svg{display:block;width:88px;height:104px;}
+    .card .label{
+      font-size:11px;
+      text-align:center;
+      color:var(--ink);
+      line-height:1.2;
+      letter-spacing:-0.01em;
+    }
+    .card .sub{
+      font-family:"JetBrains Mono",monospace;
+      font-size:9px;
+      letter-spacing:0.12em;
+      text-transform:uppercase;
+      color:var(--muted);
+    }
+
+    .vote{
+      margin:38px 0 0;
+      padding:18px 16px;
+      border:1px dashed var(--walnut);
+      border-radius:var(--r);
+      background:var(--warm);
+      color:var(--walnut);
+      font-size:14px;
+    }
+    .vote b{font-weight:600;}
+    .vote-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+    .vote-row span{
+      font-family:"JetBrains Mono",monospace;
+      font-size:11px;
+      letter-spacing:0.1em;
+      text-transform:uppercase;
+      background:#FFFCF6;
+      border:1px solid var(--walnut);
+      padding:6px 10px;
+      border-radius:999px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="kicker">Style preview · v1</div>
+    <h1>Стили пиктограмм</h1>
+    <p class="lede">Один и тот же набор из 4 холодильников отрисован в четырёх стилях. Цель — выбрать визуальный язык для всех 8 категорий техники.</p>
+
+    <!-- ============================== STYLE A ============================== -->
+    <section class="style-block">
+      <div class="style-head">
+        <span class="style-tag">A</span>
+        <span class="style-title">2D · линия</span>
+      </div>
+      <div class="style-note">Текущий стиль. Тонкий ореховый контур 1.6, без заливки, полки штрихом.</div>
+      <div class="grid">
+
+        <div class="card">
+          <svg viewBox="0 0 120 140">
+            <rect x="8" y="6" width="104" height="128" rx="3" fill="none" stroke="#6B4A2B" stroke-width="1.2" stroke-dasharray="3 3" opacity="0.4"/>
+            <rect x="22" y="14" width="76" height="112" rx="3" fill="none" stroke="#6B4A2B" stroke-width="1.6"/>
+            <line x1="30" y1="32" x2="90" y2="32" stroke="#6B4A2B" stroke-width="1.2" stroke-dasharray="2 3" opacity="0.5"/>
+            <line x1="30" y1="50" x2="90" y2="50" stroke="#6B4A2B" stroke-width="1.2" stroke-dasharray="2 3" opacity="0.5"/>
+            <line x1="30" y1="68" x2="90" y2="68" stroke="#6B4A2B" stroke-width="1.2" stroke-dasharray="2 3" opacity="0.5"/>
+            <line x1="30" y1="86" x2="90" y2="86" stroke="#6B4A2B" stroke-width="1.2" stroke-dasharray="2 3" opacity="0.5"/>
+            <line x1="30" y1="104" x2="90" y2="104" stroke="#6B4A2B" stroke-width="1.2" stroke-dasharray="2 3" opacity="0.5"/>
+            <line x1="90" y1="20" x2="90" y2="60" stroke="#6B4A2B" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          <div class="label">Однокамерный</div>
+          <div class="sub">встр.</div>
+        </div>
+
+        <div class="card">
+          <svg viewBox="0 0 120 140">
+            <rect x="8" y="6" width="104" height="128" rx="3" fill="none" stroke="#6B4A2B" stroke-width="1.2" stroke-dasharray="3 3" opacity="0.4"/>
+            <rect x="22" y="14" width="76" height="112" rx="3" fill="none" stroke="#6B4A2B" stroke-width="1.6"/>
+            <line x1="22" y1="78" x2="98" y2="78" stroke="#6B4A2B" stroke-width="1.6"/>
+            <line x1="30" y1="32" x2="90" y2="32" stroke="#6B4A2B" stroke-width="1.2" stroke-dasharray="2 3" opacity="0.5"/>
+            <line x1="30" y1="48" x2="90" y2="48" stroke="#6B4A2B" stroke-width="1.2" stroke-dasharray="2 3" opacity="0.5"/>
+            <line x1="30" y1="64" x2="90" y2="64" stroke="#6B4A2B" stroke-width="1.2" stroke-dasharray="2 3" opacity="0.5"/>
+            <line x1="30" y1="92" x2="90" y2="92" stroke="#6B4A2B" stroke-width="1.2"/>
+            <line x1="30" y1="106" x2="90" y2="106" stroke="#6B4A2B" stroke-width="1.2"/>
+            <line x1="30" y1="120" x2="90" y2="120" stroke="#6B4A2B" stroke-width="1.2"/>
+            <line x1="90" y1="20" x2="90" y2="32" stroke="#6B4A2B" stroke-width="1.6" stroke-linecap="round"/>
+            <line x1="90" y1="84" x2="90" y2="100" stroke="#6B4A2B" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          <div class="label">Двухкамерный</div>
+          <div class="sub">встр.</div>
+        </div>
+
+        <div class="card">
+          <svg viewBox="0 0 120 140">
+            <rect x="22" y="14" width="36" height="112" rx="3" fill="none" stroke="#6B4A2B" stroke-width="1.6"/>
+            <rect x="62" y="14" width="36" height="112" rx="3" fill="none" stroke="#6B4A2B" stroke-width="1.6"/>
+            <line x1="28" y1="30" x2="52" y2="30" stroke="#6B4A2B" stroke-width="1" stroke-dasharray="2 3" opacity="0.5"/>
+            <line x1="28" y1="50" x2="52" y2="50" stroke="#6B4A2B" stroke-width="1" stroke-dasharray="2 3" opacity="0.5"/>
+            <line x1="28" y1="70" x2="52" y2="70" stroke="#6B4A2B" stroke-width="1" stroke-dasharray="2 3" opacity="0.5"/>
+            <line x1="28" y1="90" x2="52" y2="90" stroke="#6B4A2B" stroke-width="1" stroke-dasharray="2 3" opacity="0.5"/>
+            <line x1="28" y1="110" x2="52" y2="110" stroke="#6B4A2B" stroke-width="1" stroke-dasharray="2 3" opacity="0.5"/>
+            <line x1="68" y1="34" x2="92" y2="34" stroke="#6B4A2B" stroke-width="1.2"/>
+            <line x1="68" y1="50" x2="92" y2="50" stroke="#6B4A2B" stroke-width="1.2"/>
+            <line x1="68" y1="66" x2="92" y2="66" stroke="#6B4A2B" stroke-width="1.2"/>
+            <line x1="68" y1="82" x2="92" y2="82" stroke="#6B4A2B" stroke-width="1.2"/>
+            <line x1="68" y1="98" x2="92" y2="98" stroke="#6B4A2B" stroke-width="1.2"/>
+            <line x1="68" y1="114" x2="92" y2="114" stroke="#6B4A2B" stroke-width="1.2"/>
+            <text x="80" y="22" font-family="JetBrains Mono" font-size="6" fill="#6B4A2B" text-anchor="middle">❄</text>
+          </svg>
+          <div class="label">Side-by-Side</div>
+          <div class="sub">отд.</div>
+        </div>
+
+        <div class="card">
+          <svg viewBox="0 0 120 140">
+            <rect x="8" y="6" width="104" height="128" rx="3" fill="none" stroke="#6B4A2B" stroke-width="1.2" stroke-dasharray="3 3" opacity="0.4"/>
+            <rect x="36" y="14" width="48" height="112" rx="3" fill="none" stroke="#6B4A2B" stroke-width="1.6"/>
+            <line x1="42" y1="34" x2="78" y2="34" stroke="#6B4A2B" stroke-width="1.2"/>
+            <line x1="42" y1="50" x2="78" y2="50" stroke="#6B4A2B" stroke-width="1.2"/>
+            <line x1="42" y1="66" x2="78" y2="66" stroke="#6B4A2B" stroke-width="1.2"/>
+            <line x1="42" y1="82" x2="78" y2="82" stroke="#6B4A2B" stroke-width="1.2"/>
+            <line x1="42" y1="98" x2="78" y2="98" stroke="#6B4A2B" stroke-width="1.2"/>
+            <line x1="42" y1="114" x2="78" y2="114" stroke="#6B4A2B" stroke-width="1.2"/>
+            <text x="60" y="22" font-family="JetBrains Mono" font-size="8" fill="#6B4A2B" text-anchor="middle">❄</text>
+            <line x1="78" y1="20" x2="78" y2="34" stroke="#6B4A2B" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          <div class="label">Морозильная<br>колонна</div>
+          <div class="sub">встр.</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== STYLE B ============================== -->
+    <section class="style-block">
+      <div class="style-head">
+        <span class="style-tag">B</span>
+        <span class="style-title">2D · плоский с заливкой</span>
+      </div>
+      <div class="style-note">Корпус залит, морозильная зона тёплым оттенком, ящики обведены. Больше «бумажной» весомости.</div>
+      <div class="grid">
+
+        <div class="card">
+          <svg viewBox="0 0 120 140">
+            <rect x="8" y="6" width="104" height="128" rx="3" fill="none" stroke="#6B4A2B" stroke-width="1.2" stroke-dasharray="3 3" opacity="0.4"/>
+            <rect x="22" y="14" width="76" height="112" rx="3" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.6"/>
+            <line x1="30" y1="32" x2="90" y2="32" stroke="#6B4A2B" stroke-width="1.2" opacity="0.5"/>
+            <line x1="30" y1="52" x2="90" y2="52" stroke="#6B4A2B" stroke-width="1.2" opacity="0.5"/>
+            <line x1="30" y1="72" x2="90" y2="72" stroke="#6B4A2B" stroke-width="1.2" opacity="0.5"/>
+            <line x1="30" y1="92" x2="90" y2="92" stroke="#6B4A2B" stroke-width="1.2" opacity="0.5"/>
+            <line x1="30" y1="112" x2="90" y2="112" stroke="#6B4A2B" stroke-width="1.2" opacity="0.5"/>
+            <rect x="88" y="20" width="3" height="44" rx="1.5" fill="#6B4A2B"/>
+          </svg>
+          <div class="label">Однокамерный</div>
+          <div class="sub">встр.</div>
+        </div>
+
+        <div class="card">
+          <svg viewBox="0 0 120 140">
+            <rect x="8" y="6" width="104" height="128" rx="3" fill="none" stroke="#6B4A2B" stroke-width="1.2" stroke-dasharray="3 3" opacity="0.4"/>
+            <rect x="22" y="14" width="76" height="112" rx="3" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.6"/>
+            <rect x="22" y="80" width="76" height="46" fill="#EFE3CC"/>
+            <rect x="22" y="14" width="76" height="112" rx="3" fill="none" stroke="#6B4A2B" stroke-width="1.6"/>
+            <line x1="22" y1="78" x2="98" y2="78" stroke="#6B4A2B" stroke-width="1.6"/>
+            <line x1="30" y1="32" x2="90" y2="32" stroke="#6B4A2B" stroke-width="1.2" opacity="0.5"/>
+            <line x1="30" y1="48" x2="90" y2="48" stroke="#6B4A2B" stroke-width="1.2" opacity="0.5"/>
+            <line x1="30" y1="64" x2="90" y2="64" stroke="#6B4A2B" stroke-width="1.2" opacity="0.5"/>
+            <rect x="28" y="86" width="64" height="10" rx="1.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.2"/>
+            <rect x="28" y="100" width="64" height="10" rx="1.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.2"/>
+            <rect x="28" y="114" width="64" height="10" rx="1.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.2"/>
+            <rect x="88" y="20" width="3" height="50" rx="1.5" fill="#6B4A2B"/>
+            <rect x="88" y="86" width="3" height="36" rx="1.5" fill="#6B4A2B"/>
+          </svg>
+          <div class="label">Двухкамерный</div>
+          <div class="sub">встр.</div>
+        </div>
+
+        <div class="card">
+          <svg viewBox="0 0 120 140">
+            <rect x="22" y="14" width="36" height="112" rx="3" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.6"/>
+            <rect x="62" y="14" width="36" height="112" rx="3" fill="#EFE3CC" stroke="#6B4A2B" stroke-width="1.6"/>
+            <line x1="28" y1="32" x2="52" y2="32" stroke="#6B4A2B" stroke-width="1" opacity="0.5"/>
+            <line x1="28" y1="52" x2="52" y2="52" stroke="#6B4A2B" stroke-width="1" opacity="0.5"/>
+            <line x1="28" y1="72" x2="52" y2="72" stroke="#6B4A2B" stroke-width="1" opacity="0.5"/>
+            <line x1="28" y1="92" x2="52" y2="92" stroke="#6B4A2B" stroke-width="1" opacity="0.5"/>
+            <line x1="28" y1="112" x2="52" y2="112" stroke="#6B4A2B" stroke-width="1" opacity="0.5"/>
+            <rect x="66" y="32" width="28" height="14" rx="1.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.2"/>
+            <rect x="66" y="50" width="28" height="14" rx="1.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.2"/>
+            <rect x="66" y="68" width="28" height="14" rx="1.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.2"/>
+            <rect x="66" y="86" width="28" height="14" rx="1.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.2"/>
+            <rect x="66" y="104" width="28" height="14" rx="1.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.2"/>
+            <rect x="54" y="20" width="2.5" height="40" rx="1" fill="#6B4A2B"/>
+            <rect x="63.5" y="20" width="2.5" height="40" rx="1" fill="#6B4A2B"/>
+            <text x="80" y="24" font-family="JetBrains Mono" font-size="6" fill="#6B4A2B" text-anchor="middle">❄</text>
+          </svg>
+          <div class="label">Side-by-Side</div>
+          <div class="sub">отд.</div>
+        </div>
+
+        <div class="card">
+          <svg viewBox="0 0 120 140">
+            <rect x="8" y="6" width="104" height="128" rx="3" fill="none" stroke="#6B4A2B" stroke-width="1.2" stroke-dasharray="3 3" opacity="0.4"/>
+            <rect x="36" y="14" width="48" height="112" rx="3" fill="#EFE3CC" stroke="#6B4A2B" stroke-width="1.6"/>
+            <rect x="42" y="32" width="36" height="14" rx="1.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.2"/>
+            <rect x="42" y="50" width="36" height="14" rx="1.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.2"/>
+            <rect x="42" y="68" width="36" height="14" rx="1.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.2"/>
+            <rect x="42" y="86" width="36" height="14" rx="1.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.2"/>
+            <rect x="42" y="104" width="36" height="14" rx="1.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.2"/>
+            <text x="60" y="24" font-family="JetBrains Mono" font-size="8" fill="#6B4A2B" text-anchor="middle">❄</text>
+            <rect x="76" y="20" width="2.5" height="40" rx="1" fill="#6B4A2B"/>
+          </svg>
+          <div class="label">Морозильная<br>колонна</div>
+          <div class="sub">встр.</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== STYLE C ============================== -->
+    <section class="style-block">
+      <div class="style-head">
+        <span class="style-tag">C</span>
+        <span class="style-title">3D · изометрия</span>
+      </div>
+      <div class="style-note">Аксонометрия ~30°. Видны верх, фасад и правый бок. Архитектурный «технический» язык.</div>
+      <div class="grid">
+
+        <div class="card">
+          <svg viewBox="0 0 120 140">
+            <polygon points="74,30 88,16 88,116 74,130" fill="#E8DCC0" stroke="#6B4A2B" stroke-width="1.4"/>
+            <polygon points="14,30 28,16 88,16 74,30" fill="#F5EDDC" stroke="#6B4A2B" stroke-width="1.4"/>
+            <rect x="14" y="30" width="60" height="100" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.6"/>
+            <line x1="22" y1="46" x2="66" y2="46" stroke="#6B4A2B" stroke-width="1" opacity="0.5" stroke-dasharray="2 2"/>
+            <line x1="22" y1="60" x2="66" y2="60" stroke="#6B4A2B" stroke-width="1" opacity="0.5" stroke-dasharray="2 2"/>
+            <line x1="22" y1="74" x2="66" y2="74" stroke="#6B4A2B" stroke-width="1" opacity="0.5" stroke-dasharray="2 2"/>
+            <line x1="22" y1="88" x2="66" y2="88" stroke="#6B4A2B" stroke-width="1" opacity="0.5" stroke-dasharray="2 2"/>
+            <line x1="22" y1="102" x2="66" y2="102" stroke="#6B4A2B" stroke-width="1" opacity="0.5" stroke-dasharray="2 2"/>
+            <line x1="22" y1="116" x2="66" y2="116" stroke="#6B4A2B" stroke-width="1" opacity="0.5" stroke-dasharray="2 2"/>
+            <rect x="64" y="38" width="2" height="44" fill="#6B4A2B"/>
+          </svg>
+          <div class="label">Однокамерный</div>
+          <div class="sub">встр.</div>
+        </div>
+
+        <div class="card">
+          <svg viewBox="0 0 120 140">
+            <polygon points="74,30 88,16 88,116 74,130" fill="#E8DCC0" stroke="#6B4A2B" stroke-width="1.4"/>
+            <polygon points="14,30 28,16 88,16 74,30" fill="#F5EDDC" stroke="#6B4A2B" stroke-width="1.4"/>
+            <rect x="14" y="30" width="60" height="100" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.6"/>
+            <rect x="14" y="84" width="60" height="46" fill="#EFE3CC"/>
+            <rect x="14" y="30" width="60" height="100" fill="none" stroke="#6B4A2B" stroke-width="1.6"/>
+            <line x1="14" y1="82" x2="74" y2="82" stroke="#6B4A2B" stroke-width="1.6"/>
+            <line x1="22" y1="46" x2="66" y2="46" stroke="#6B4A2B" stroke-width="1" opacity="0.5" stroke-dasharray="2 2"/>
+            <line x1="22" y1="60" x2="66" y2="60" stroke="#6B4A2B" stroke-width="1" opacity="0.5" stroke-dasharray="2 2"/>
+            <line x1="22" y1="74" x2="66" y2="74" stroke="#6B4A2B" stroke-width="1" opacity="0.5" stroke-dasharray="2 2"/>
+            <rect x="20" y="92" width="48" height="10" rx="1" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1"/>
+            <rect x="20" y="106" width="48" height="10" rx="1" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1"/>
+            <rect x="20" y="120" width="48" height="8" rx="1" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1"/>
+            <rect x="64" y="38" width="2" height="38" fill="#6B4A2B"/>
+            <rect x="64" y="90" width="2" height="34" fill="#6B4A2B"/>
+          </svg>
+          <div class="label">Двухкамерный</div>
+          <div class="sub">встр.</div>
+        </div>
+
+        <div class="card">
+          <svg viewBox="0 0 120 140">
+            <polygon points="92,32 102,22 102,118 92,128" fill="#E8DCC0" stroke="#6B4A2B" stroke-width="1.2"/>
+            <polygon points="14,32 24,22 102,22 92,32" fill="#F5EDDC" stroke="#6B4A2B" stroke-width="1.2"/>
+            <rect x="14" y="32" width="38" height="96" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.4"/>
+            <rect x="54" y="32" width="38" height="96" fill="#EFE3CC" stroke="#6B4A2B" stroke-width="1.4"/>
+            <line x1="20" y1="46" x2="46" y2="46" stroke="#6B4A2B" stroke-width="0.9" opacity="0.5" stroke-dasharray="2 2"/>
+            <line x1="20" y1="62" x2="46" y2="62" stroke="#6B4A2B" stroke-width="0.9" opacity="0.5" stroke-dasharray="2 2"/>
+            <line x1="20" y1="78" x2="46" y2="78" stroke="#6B4A2B" stroke-width="0.9" opacity="0.5" stroke-dasharray="2 2"/>
+            <line x1="20" y1="94" x2="46" y2="94" stroke="#6B4A2B" stroke-width="0.9" opacity="0.5" stroke-dasharray="2 2"/>
+            <line x1="20" y1="110" x2="46" y2="110" stroke="#6B4A2B" stroke-width="0.9" opacity="0.5" stroke-dasharray="2 2"/>
+            <rect x="58" y="42" width="30" height="12" rx="1" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1"/>
+            <rect x="58" y="58" width="30" height="12" rx="1" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1"/>
+            <rect x="58" y="74" width="30" height="12" rx="1" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1"/>
+            <rect x="58" y="90" width="30" height="12" rx="1" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1"/>
+            <rect x="58" y="106" width="30" height="12" rx="1" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1"/>
+            <rect x="46" y="38" width="2" height="32" fill="#6B4A2B"/>
+            <rect x="55" y="38" width="2" height="32" fill="#6B4A2B"/>
+            <text x="72" y="38" font-family="JetBrains Mono" font-size="6" fill="#6B4A2B" text-anchor="middle">❄</text>
+          </svg>
+          <div class="label">Side-by-Side</div>
+          <div class="sub">отд.</div>
+        </div>
+
+        <div class="card">
+          <svg viewBox="0 0 120 140">
+            <polygon points="78,30 90,18 90,118 78,130" fill="#D8C9A8" stroke="#6B4A2B" stroke-width="1.4"/>
+            <polygon points="36,30 48,18 90,18 78,30" fill="#E8DCC0" stroke="#6B4A2B" stroke-width="1.4"/>
+            <rect x="36" y="30" width="42" height="100" fill="#EFE3CC" stroke="#6B4A2B" stroke-width="1.6"/>
+            <rect x="42" y="44" width="30" height="12" rx="1" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.2"/>
+            <rect x="42" y="60" width="30" height="12" rx="1" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.2"/>
+            <rect x="42" y="76" width="30" height="12" rx="1" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.2"/>
+            <rect x="42" y="92" width="30" height="12" rx="1" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.2"/>
+            <rect x="42" y="108" width="30" height="12" rx="1" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.2"/>
+            <text x="57" y="40" font-family="JetBrains Mono" font-size="8" fill="#6B4A2B" text-anchor="middle">❄</text>
+            <rect x="68" y="38" width="2" height="40" fill="#6B4A2B"/>
+          </svg>
+          <div class="label">Морозильная<br>колонна</div>
+          <div class="sub">встр.</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== STYLE D ============================== -->
+    <section class="style-block">
+      <div class="style-head">
+        <span class="style-tag">D</span>
+        <span class="style-title">3D · перспектива с тенью</span>
+      </div>
+      <div class="style-note">Фронтальный вид с мягкой тенью и градиентом-бликом. Современный «приложенческий» язык.</div>
+      <div class="grid">
+
+        <div class="card">
+          <svg viewBox="0 0 120 140">
+            <defs>
+              <linearGradient id="gradA1" x1="0" x2="1" y1="0" y2="0">
+                <stop offset="0" stop-color="#FFFCF6"/>
+                <stop offset="0.45" stop-color="#FFFFFF"/>
+                <stop offset="1" stop-color="#EFE3CC"/>
+              </linearGradient>
+            </defs>
+            <rect x="26" y="20" width="76" height="112" rx="4" fill="#6B4A2B" opacity="0.1"/>
+            <rect x="22" y="16" width="76" height="112" rx="4" fill="url(#gradA1)" stroke="#6B4A2B" stroke-width="1.6"/>
+            <line x1="30" y1="34" x2="90" y2="34" stroke="#6B4A2B" stroke-width="1" opacity="0.4" stroke-dasharray="2 3"/>
+            <line x1="30" y1="54" x2="90" y2="54" stroke="#6B4A2B" stroke-width="1" opacity="0.4" stroke-dasharray="2 3"/>
+            <line x1="30" y1="74" x2="90" y2="74" stroke="#6B4A2B" stroke-width="1" opacity="0.4" stroke-dasharray="2 3"/>
+            <line x1="30" y1="94" x2="90" y2="94" stroke="#6B4A2B" stroke-width="1" opacity="0.4" stroke-dasharray="2 3"/>
+            <line x1="30" y1="114" x2="90" y2="114" stroke="#6B4A2B" stroke-width="1" opacity="0.4" stroke-dasharray="2 3"/>
+            <rect x="88" y="24" width="3" height="50" rx="1.5" fill="#6B4A2B"/>
+          </svg>
+          <div class="label">Однокамерный</div>
+          <div class="sub">встр.</div>
+        </div>
+
+        <div class="card">
+          <svg viewBox="0 0 120 140">
+            <defs>
+              <linearGradient id="gradB1" x1="0" x2="1" y1="0" y2="0">
+                <stop offset="0" stop-color="#FFFCF6"/>
+                <stop offset="0.45" stop-color="#FFFFFF"/>
+                <stop offset="1" stop-color="#EFE3CC"/>
+              </linearGradient>
+              <linearGradient id="gradB2" x1="0" x2="1" y1="0" y2="0">
+                <stop offset="0" stop-color="#EFE3CC"/>
+                <stop offset="0.5" stop-color="#F5EDDC"/>
+                <stop offset="1" stop-color="#D8C9A8"/>
+              </linearGradient>
+            </defs>
+            <rect x="26" y="20" width="76" height="112" rx="4" fill="#6B4A2B" opacity="0.1"/>
+            <rect x="22" y="16" width="76" height="64" rx="4" fill="url(#gradB1)" stroke="#6B4A2B" stroke-width="1.6"/>
+            <rect x="22" y="80" width="76" height="48" rx="4" fill="url(#gradB2)" stroke="#6B4A2B" stroke-width="1.6"/>
+            <line x1="30" y1="34" x2="90" y2="34" stroke="#6B4A2B" stroke-width="1" opacity="0.4" stroke-dasharray="2 3"/>
+            <line x1="30" y1="50" x2="90" y2="50" stroke="#6B4A2B" stroke-width="1" opacity="0.4" stroke-dasharray="2 3"/>
+            <line x1="30" y1="66" x2="90" y2="66" stroke="#6B4A2B" stroke-width="1" opacity="0.4" stroke-dasharray="2 3"/>
+            <rect x="28" y="88" width="64" height="10" rx="1.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.1"/>
+            <rect x="28" y="102" width="64" height="10" rx="1.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.1"/>
+            <rect x="28" y="116" width="64" height="10" rx="1.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.1"/>
+            <rect x="88" y="24" width="3" height="44" rx="1.5" fill="#6B4A2B"/>
+            <rect x="88" y="86" width="3" height="36" rx="1.5" fill="#6B4A2B"/>
+          </svg>
+          <div class="label">Двухкамерный</div>
+          <div class="sub">встр.</div>
+        </div>
+
+        <div class="card">
+          <svg viewBox="0 0 120 140">
+            <defs>
+              <linearGradient id="gradC1" x1="0" x2="1" y1="0" y2="0">
+                <stop offset="0" stop-color="#FFFCF6"/>
+                <stop offset="0.5" stop-color="#FFFFFF"/>
+                <stop offset="1" stop-color="#EFE3CC"/>
+              </linearGradient>
+              <linearGradient id="gradC2" x1="0" x2="1" y1="0" y2="0">
+                <stop offset="0" stop-color="#EFE3CC"/>
+                <stop offset="0.5" stop-color="#F5EDDC"/>
+                <stop offset="1" stop-color="#D8C9A8"/>
+              </linearGradient>
+            </defs>
+            <rect x="26" y="20" width="76" height="108" rx="4" fill="#6B4A2B" opacity="0.1"/>
+            <rect x="22" y="16" width="36" height="108" rx="4" fill="url(#gradC1)" stroke="#6B4A2B" stroke-width="1.6"/>
+            <rect x="62" y="16" width="36" height="108" rx="4" fill="url(#gradC2)" stroke="#6B4A2B" stroke-width="1.6"/>
+            <line x1="28" y1="34" x2="52" y2="34" stroke="#6B4A2B" stroke-width="1" opacity="0.4" stroke-dasharray="2 2"/>
+            <line x1="28" y1="52" x2="52" y2="52" stroke="#6B4A2B" stroke-width="1" opacity="0.4" stroke-dasharray="2 2"/>
+            <line x1="28" y1="70" x2="52" y2="70" stroke="#6B4A2B" stroke-width="1" opacity="0.4" stroke-dasharray="2 2"/>
+            <line x1="28" y1="88" x2="52" y2="88" stroke="#6B4A2B" stroke-width="1" opacity="0.4" stroke-dasharray="2 2"/>
+            <line x1="28" y1="106" x2="52" y2="106" stroke="#6B4A2B" stroke-width="1" opacity="0.4" stroke-dasharray="2 2"/>
+            <rect x="66" y="30" width="28" height="14" rx="1.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.1"/>
+            <rect x="66" y="48" width="28" height="14" rx="1.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.1"/>
+            <rect x="66" y="66" width="28" height="14" rx="1.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.1"/>
+            <rect x="66" y="84" width="28" height="14" rx="1.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.1"/>
+            <rect x="66" y="102" width="28" height="14" rx="1.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.1"/>
+            <rect x="54.5" y="22" width="2" height="42" rx="1" fill="#6B4A2B"/>
+            <rect x="63.5" y="22" width="2" height="42" rx="1" fill="#6B4A2B"/>
+            <text x="80" y="26" font-family="JetBrains Mono" font-size="6" fill="#6B4A2B" text-anchor="middle">❄</text>
+          </svg>
+          <div class="label">Side-by-Side</div>
+          <div class="sub">отд.</div>
+        </div>
+
+        <div class="card">
+          <svg viewBox="0 0 120 140">
+            <defs>
+              <linearGradient id="gradD1" x1="0" x2="1" y1="0" y2="0">
+                <stop offset="0" stop-color="#E8DCC0"/>
+                <stop offset="0.5" stop-color="#F5EDDC"/>
+                <stop offset="1" stop-color="#D8C9A8"/>
+              </linearGradient>
+            </defs>
+            <rect x="8" y="6" width="104" height="128" rx="3" fill="none" stroke="#6B4A2B" stroke-width="1.2" stroke-dasharray="3 3" opacity="0.4"/>
+            <rect x="40" y="20" width="48" height="112" rx="4" fill="#6B4A2B" opacity="0.1"/>
+            <rect x="36" y="16" width="48" height="112" rx="4" fill="url(#gradD1)" stroke="#6B4A2B" stroke-width="1.6"/>
+            <rect x="42" y="34" width="36" height="14" rx="1.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.1"/>
+            <rect x="42" y="52" width="36" height="14" rx="1.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.1"/>
+            <rect x="42" y="70" width="36" height="14" rx="1.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.1"/>
+            <rect x="42" y="88" width="36" height="14" rx="1.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.1"/>
+            <rect x="42" y="106" width="36" height="14" rx="1.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.1"/>
+            <text x="60" y="28" font-family="JetBrains Mono" font-size="8" fill="#6B4A2B" text-anchor="middle">❄</text>
+            <rect x="78" y="22" width="2.5" height="42" rx="1" fill="#6B4A2B"/>
+          </svg>
+          <div class="label">Морозильная<br>колонна</div>
+          <div class="sub">встр.</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== VOTE ============================== -->
+    <div class="vote">
+      <b>Какой стиль берём за основу для всех 8 категорий?</b><br>
+      Пиши «A», «B», «C» или «D». Можно гибрид — например «A + ящики из B».
+      <div class="vote-row">
+        <span>A · линия</span>
+        <span>B · плоский</span>
+        <span>C · изометрия</span>
+        <span>D · перспектива</span>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
