@@ -1,0 +1,46 @@
+services:
+  backend:
+    build:
+      context: ../backend-py
+      dockerfile: Dockerfile
+    image: zov-tech-backend:latest
+    container_name: zov-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./credentials.json:/app/credentials.json:ro
+    networks:
+      - web   # внешняя сеть от deploy-стека (Caddy там)
+      - internal
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; r=urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3); sys.exit(0 if r.status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  bot:
+    build:
+      context: ../bot
+      dockerfile: Dockerfile
+    image: zov-tech-bot:latest
+    container_name: zov-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    networks:
+      - internal
+    depends_on:
+      backend:
+        condition: service_healthy
+
+networks:
+  # Использует уже существующую сеть от furniture-deploy stack — там Caddy
+  web:
+    name: deploy_web
+    external: true
+  internal:
+    driver: bridge

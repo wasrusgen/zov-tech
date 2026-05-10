@@ -1,0 +1,20 @@
+# Snippet добавляется в /opt/furniture/deploy/Caddyfile.
+# Caddy автоматически получает SSL для api.wasrusgen1.pro через Let's Encrypt.
+
+api.wasrusgen1.pro {
+    reverse_proxy zov-backend:8000
+
+    encode zstd gzip
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+    log {
+        output file /data/zov-access.log {
+            roll_size 10mb
+            roll_keep 5
+        }
+    }
+}
