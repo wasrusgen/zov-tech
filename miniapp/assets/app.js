@@ -3,7 +3,9 @@
 // Ходим на backend → получаем профиль (роль, статус) → рендерим меню.
 
 const tg = window.Telegram?.WebApp;
-const BACKEND_URL = "https://script.google.com/macros/s/AKfycbyxSwfD4hi5Y176nKV3tmnQq21kCQM3BBm34WGgObgAuybsAW7WPEuxlrPZ1a16viK3/exec";
+// Cloudflare Quick Tunnel → VPS FastAPI backend (GigaChat).
+// Временный URL — пока wasrusgen1.pro в verification-hold; затем переключим на https://api.wasrusgen1.pro
+const BACKEND_URL = "https://prepared-alfred-story-dale.trycloudflare.com";
 
 const app = document.getElementById("app");
 

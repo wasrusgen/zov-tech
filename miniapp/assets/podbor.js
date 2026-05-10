@@ -640,7 +640,7 @@ const Podbor = (function () {
     }
 
     try {
-      const res = await fetch(`${BACKEND_URL}?path=podbor`, {
+      const res = await fetch(`${BACKEND_URL}/api/podbor`, {
         method: "POST",
         body: JSON.stringify({
           initData: tg?.initData || "",
