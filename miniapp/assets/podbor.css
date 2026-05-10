@@ -883,14 +883,21 @@
   color: var(--muted);
 }
 
-/* Сетка карточек */
-.wiz-grid {
+/* Сетка карточек (cards-режим — с пиктограммами) */
+.wiz-grid { gap: 10px; }
+.wiz-grid--cards {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
 }
 @media (min-width: 540px) {
-  .wiz-grid { grid-template-columns: repeat(3, 1fr); }
+  .wiz-grid--cards { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* Пин-режим (без пиктограмм, компактные таблетки) */
+.wiz-grid--pins {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .wiz-card {
@@ -969,6 +976,41 @@
   place-items: center;
 }
 .wiz-tick svg { width: 11px; height: 11px; stroke-width: 2.5; }
+
+/* Пин-карточка (компактная таблетка, без пиктограммы) */
+.wiz-card--pin {
+  display: inline-flex;
+  align-items: center;
+  flex-direction: row;
+  gap: 8px;
+  padding: 9px 14px 9px 14px;
+  border-radius: var(--r-pill);
+  width: auto;
+  text-align: left;
+}
+.wiz-card--pin .wiz-pict,
+.wiz-card--pin .wiz-pict-placeholder { display: none; }
+.wiz-card--pin .wiz-label {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+.wiz-card--pin .wiz-hint {
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  font-family: var(--font-sans);
+  font-weight: 400;
+  color: var(--muted);
+}
+.wiz-card--pin .wiz-tick {
+  position: static;
+  width: 14px;
+  height: 14px;
+}
+.wiz-card--pin .wiz-tick svg { width: 9px; height: 9px; }
+.wiz-card--pin.star { padding-left: 26px; }
+.wiz-card--pin.star::before { top: 50%; transform: translateY(-50%); }
 
 /* Review-экран */
 .rev-list {

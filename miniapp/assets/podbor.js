@@ -352,15 +352,31 @@ const Podbor = (function () {
         return o ? `<span class="wiz-chip" data-jump="${s.key}">${o.label}</span>` : "";
       }).join("");
 
+    // Определяем layout: если ни у одной опции нет pict — компактные пин-кнопки,
+    // иначе — крупные карточки с пиктограммами.
+    const hasPicts = options.some(o => o.pict && PODBOR_PICTS[o.pict]);
+    const gridMode = hasPicts ? "cards" : "pins";
+
     const cardsHtml = options.map(o => {
       const isOn = isMulti ? currentArr.includes(o.key) : currentVal === o.key;
       const pict = o.pict && PODBOR_PICTS[o.pict];
+      const cardCls = "wiz-card" + (hasPicts ? "" : " wiz-card--pin") + (isOn ? " on" : "") + (o.star ? " star" : "");
+      if (hasPicts) {
+        return `
+          <button class="${cardCls}" data-val="${o.key}">
+            ${pict ? `<div class="wiz-pict">${pict}</div>` : `<div class="wiz-pict wiz-pict-placeholder"></div>`}
+            <div class="wiz-label">${o.label}</div>
+            ${o.hint ? `<div class="wiz-hint">${o.hint}</div>` : ""}
+            ${isOn ? `<div class="wiz-tick">${ICONS.check}</div>` : ""}
+          </button>
+        `;
+      }
+      // Пин-режим: компактная inline-кнопка с label, опц. hint мелкий справа
       return `
-        <button class="wiz-card${isOn ? " on" : ""}${o.star ? " star" : ""}" data-val="${o.key}">
-          ${pict ? `<div class="wiz-pict">${pict}</div>` : `<div class="wiz-pict wiz-pict-placeholder"></div>`}
-          <div class="wiz-label">${o.label}</div>
-          ${o.hint ? `<div class="wiz-hint">${o.hint}</div>` : ""}
-          ${isOn ? `<div class="wiz-tick">${ICONS.check}</div>` : ""}
+        <button class="${cardCls}" data-val="${o.key}">
+          <span class="wiz-label">${o.label}</span>
+          ${o.hint ? `<span class="wiz-hint">${o.hint}</span>` : ""}
+          ${isOn ? `<span class="wiz-tick">${ICONS.check}</span>` : ""}
         </button>
       `;
     }).join("");
@@ -383,7 +399,7 @@ const Podbor = (function () {
 
         <h3 class="wiz-title">${step.title}${isMulti ? ' <span class="wiz-multi">· можно несколько</span>' : ""}</h3>
 
-        <div class="wiz-grid">${cardsHtml}</div>
+        <div class="wiz-grid wiz-grid--${gridMode}">${cardsHtml}</div>
 
         <div class="podbor-cta-row">
           ${stepIdx > 0
