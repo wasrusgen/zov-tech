@@ -37,6 +37,19 @@ services:
       backend:
         condition: service_healthy
 
+  # Cloudflare Quick Tunnel — публичный HTTPS-URL без своего домена.
+  # Используется временно пока wasrusgen1.pro в verification-hold.
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: zov-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - internal
+
 networks:
   # Использует уже существующую сеть от furniture-deploy stack — там Caddy
   web:
