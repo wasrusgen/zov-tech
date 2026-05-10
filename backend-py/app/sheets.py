@@ -17,11 +17,19 @@ _book: gspread.Spreadsheet | None = None
 def _client_book() -> tuple[gspread.Client, gspread.Spreadsheet]:
     global _client, _book
     with _lock:
-        if _client is None:
-            cfg = get_config()
-            creds = Credentials.from_service_account_file(cfg.google_credentials_path, scopes=_SCOPES)
-            _client = gspread.authorize(creds)
-            _book = _client.open_by_key(cfg.sheet_id)
+        # Если предыдущая попытка частично инициализировалась (auth прошёл, open_by_key упал) —
+        # _client есть, _book нет. Нужно повторить open_by_key.
+        if _client is None or _book is None:
+            try:
+                cfg = get_config()
+                if _client is None:
+                    creds = Credentials.from_service_account_file(cfg.google_credentials_path, scopes=_SCOPES)
+                    _client = gspread.authorize(creds)
+                _book = _client.open_by_key(cfg.sheet_id)
+            except Exception:
+                _client = None
+                _book = None
+                raise
         return _client, _book  # type: ignore
 
 
