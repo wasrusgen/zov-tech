@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#FBF7F0">
+  <title>Превью пиктограмм · Холодильники</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Newsreader:ital,wght@0,400..600;1,400..600&family=JetBrains+Mono:wght@400;500&display=swap">
+  <style>
+    :root {
+      --paper:  #FBF7F0;
+      --ink:    #1F1A14;
+      --muted:  #8B8275;
+      --line:   rgba(31, 26, 20, 0.18);
+      --walnut: #6B4A2B;
+      --terracotta: #B85A2D;
+      --warm:   #F5EDDC;
+      --r:      16px;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: "Geist", system-ui, sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+      font-size: 15px;
+      line-height: 1.45;
+      letter-spacing: -0.01em;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    .wrap {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 24px 20px 80px;
+    }
+    h1 {
+      font-family: "Newsreader", Georgia, serif;
+      font-style: italic;
+      font-weight: 400;
+      font-size: 36px;
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+      margin: 0 0 8px;
+      color: var(--ink);
+    }
+    .kicker {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .lede {
+      color: var(--muted);
+      margin: 0 0 32px;
+      font-size: 14px;
+    }
+    .section-label {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 32px 0 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .section-label::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--line);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (min-width: 540px) {
+      .grid { grid-template-columns: 1fr 1fr 1fr; }
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: var(--r);
+      padding: 16px 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .card:active { background: var(--warm); transform: scale(0.98); }
+    .card.active { border-color: var(--walnut); background: var(--warm); }
+
+    .pict {
+      width: 96px;
+      height: 128px;
+      color: var(--walnut);
+    }
+    .pict svg { width: 100%; height: 100%; display: block; }
+
+    .name {
+      font-family: "Geist", sans-serif;
+      font-size: 13.5px;
+      font-weight: 600;
+      text-align: center;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+    }
+    .hint {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 9.5px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .footer-note {
+      margin-top: 40px;
+      padding: 16px;
+      background: var(--warm);
+      border: 1px solid var(--line);
+      border-radius: var(--r);
+      font-size: 13.5px;
+      color: var(--ink);
+    }
+    .footer-note .title {
+      font-family: "Newsreader", Georgia, serif;
+      font-style: italic;
+      font-size: 18px;
+      margin-bottom: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="kicker">Превью · Editorial Calm</div>
+    <h1>Холодильники.<br><em style="color: var(--walnut)">Подбор по типу</em></h1>
+    <p class="lede">Семь силуэтных пиктограмм для wizard-выбора в MiniApp. Стиль: line-art, обводка walnut, без заливки. Размер ~96×128 px на карточке.</p>
+
+    <!-- Шаг 1 — главный выбор -->
+    <div class="section-label">Шаг 1 · тип установки</div>
+    <div class="grid">
+
+      <button class="card">
+        <div class="pict">
+          <!-- Встроенный — без видимой ручки, пунктирная линия по периметру (намёк на нишу) -->
+          <svg viewBox="0 0 96 128" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+            <rect x="14" y="8" width="68" height="112" rx="3"/>
+            <line x1="14" y1="46" x2="82" y2="46"/>
+            <!-- ручки спрятаны под фасад: тонкие риски -->
+            <line x1="78" y1="22" x2="78" y2="34"/>
+            <line x1="78" y1="58" x2="78" y2="106"/>
+            <!-- внешняя пунктирная рамка — стенки ниши -->
+            <rect x="6" y="4" width="84" height="120" rx="5" stroke-dasharray="3 3" stroke-width="1" opacity="0.55"/>
+          </svg>
+        </div>
+        <div class="name">Встроенный</div>
+        <div class="hint">под фасад</div>
+      </button>
+
+      <button class="card">
+        <div class="pict">
+          <!-- Отдельностоящий — рамка с явной ручкой -->
+          <svg viewBox="0 0 96 128" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+            <rect x="14" y="8" width="68" height="112" rx="6"/>
+            <line x1="14" y1="46" x2="82" y2="46"/>
+            <!-- видимые ручки -->
+            <rect x="69" y="18" width="3" height="20" rx="1.5" fill="currentColor" opacity="0.85"/>
+            <rect x="69" y="56" width="3" height="50" rx="1.5" fill="currentColor" opacity="0.85"/>
+            <!-- ножки -->
+            <line x1="22" y1="120" x2="22" y2="126"/>
+            <line x1="74" y1="120" x2="74" y2="126"/>
+          </svg>
+        </div>
+        <div class="name">Отдельностоящий</div>
+        <div class="hint">соло на полу</div>
+      </button>
+    </div>
+
+    <!-- Если выбран встроенный, что показываем дальше -->
+    <div class="section-label">Если встроенный · камеры</div>
+    <div class="grid">
+
+      <button class="card">
+        <div class="pict">
+          <!-- Однокамерный встроенный -->
+          <svg viewBox="0 0 96 128" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+            <rect x="14" y="8" width="68" height="112" rx="3"/>
+            <line x1="78" y1="22" x2="78" y2="106"/>
+            <rect x="6" y="4" width="84" height="120" rx="5" stroke-dasharray="3 3" stroke-width="1" opacity="0.55"/>
+            <!-- внутреннее полое пространство — намёк на одну камеру -->
+            <line x1="22" y1="20" x2="22" y2="108" stroke-dasharray="2 4" stroke-width="0.8" opacity="0.5"/>
+          </svg>
+        </div>
+        <div class="name">Однокамерный</div>
+        <div class="hint">одна дверь</div>
+      </button>
+
+      <button class="card">
+        <div class="pict">
+          <!-- Двухкамерный встроенный — горизонтальное деление -->
+          <svg viewBox="0 0 96 128" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+            <rect x="14" y="8" width="68" height="112" rx="3"/>
+            <line x1="14" y1="42" x2="82" y2="42"/>
+            <line x1="78" y1="18" x2="78" y2="34"/>
+            <line x1="78" y1="50" x2="78" y2="110"/>
+            <rect x="6" y="4" width="84" height="120" rx="5" stroke-dasharray="3 3" stroke-width="1" opacity="0.55"/>
+            <!-- маркер морозилки сверху -->
+            <text x="48" y="28" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="500" fill="currentColor" stroke="none" opacity="0.7">❄</text>
+          </svg>
+        </div>
+        <div class="name">Двухкамерный</div>
+        <div class="hint">морозилка сверху или снизу</div>
+      </button>
+    </div>
+
+    <!-- Если выбран отдельностоящий, что показываем дальше -->
+    <div class="section-label">Если отдельностоящий · тип</div>
+    <div class="grid">
+
+      <button class="card">
+        <div class="pict">
+          <!-- Однокамерный отдельностоящий -->
+          <svg viewBox="0 0 96 128" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+            <rect x="14" y="8" width="68" height="112" rx="6"/>
+            <rect x="69" y="20" width="3" height="86" rx="1.5" fill="currentColor" opacity="0.85"/>
+            <line x1="22" y1="120" x2="22" y2="126"/>
+            <line x1="74" y1="120" x2="74" y2="126"/>
+          </svg>
+        </div>
+        <div class="name">Однокамерный</div>
+        <div class="hint">мини · бар · кабинет</div>
+      </button>
+
+      <button class="card">
+        <div class="pict">
+          <!-- Двухкамерный отдельностоящий -->
+          <svg viewBox="0 0 96 128" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+            <rect x="14" y="8" width="68" height="112" rx="6"/>
+            <line x1="14" y1="78" x2="82" y2="78"/>
+            <rect x="69" y="18" width="3" height="48" rx="1.5" fill="currentColor" opacity="0.85"/>
+            <rect x="69" y="88" width="3" height="22" rx="1.5" fill="currentColor" opacity="0.85"/>
+            <line x1="22" y1="120" x2="22" y2="126"/>
+            <line x1="74" y1="120" x2="74" y2="126"/>
+            <text x="48" y="103" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="currentColor" stroke="none" opacity="0.7">❄</text>
+          </svg>
+        </div>
+        <div class="name">Двухкамерный</div>
+        <div class="hint">классика · морозилка снизу</div>
+      </button>
+
+      <button class="card">
+        <div class="pict">
+          <!-- Морозильная камера — несколько ящиков-полос -->
+          <svg viewBox="0 0 96 128" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+            <rect x="14" y="8" width="68" height="112" rx="6"/>
+            <line x1="14" y1="40" x2="82" y2="40"/>
+            <line x1="14" y1="68" x2="82" y2="68"/>
+            <line x1="14" y1="96" x2="82" y2="96"/>
+            <!-- горизонтальные ручки ящиков -->
+            <line x1="40" y1="28" x2="56" y2="28"/>
+            <line x1="40" y1="56" x2="56" y2="56"/>
+            <line x1="40" y1="84" x2="56" y2="84"/>
+            <line x1="40" y1="112" x2="56" y2="112"/>
+            <line x1="22" y1="120" x2="22" y2="126"/>
+            <line x1="74" y1="120" x2="74" y2="126"/>
+            <text x="48" y="22" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="currentColor" stroke="none" opacity="0.7">❄</text>
+          </svg>
+        </div>
+        <div class="name">Морозильная камера</div>
+        <div class="hint">только заморозка</div>
+      </button>
+
+      <button class="card">
+        <div class="pict">
+          <!-- Side-by-Side — две вертикальные половины -->
+          <svg viewBox="0 0 96 128" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+            <rect x="10" y="8" width="76" height="112" rx="6"/>
+            <line x1="48" y1="8" x2="48" y2="120"/>
+            <!-- ручки слева и справа от линии разделения -->
+            <rect x="42" y="18" width="3" height="94" rx="1.5" fill="currentColor" opacity="0.85"/>
+            <rect x="51" y="18" width="3" height="94" rx="1.5" fill="currentColor" opacity="0.85"/>
+            <line x1="20" y1="120" x2="20" y2="126"/>
+            <line x1="76" y1="120" x2="76" y2="126"/>
+            <text x="28" y="22" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="currentColor" stroke="none" opacity="0.7">❄</text>
+          </svg>
+        </div>
+        <div class="name">Side-by-Side</div>
+        <div class="hint">распашной · 2 двери</div>
+      </button>
+
+      <button class="card">
+        <div class="pict">
+          <!-- French Door — две верхние дверки + одна нижняя -->
+          <svg viewBox="0 0 96 128" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+            <rect x="10" y="8" width="76" height="112" rx="6"/>
+            <line x1="10" y1="74" x2="86" y2="74"/>
+            <line x1="48" y1="8" x2="48" y2="74"/>
+            <!-- верхние ручки (французские) -->
+            <rect x="42" y="20" width="3" height="44" rx="1.5" fill="currentColor" opacity="0.85"/>
+            <rect x="51" y="20" width="3" height="44" rx="1.5" fill="currentColor" opacity="0.85"/>
+            <!-- нижняя ручка (морозилка-ящик) -->
+            <line x1="36" y1="96" x2="60" y2="96"/>
+            <line x1="20" y1="120" x2="20" y2="126"/>
+            <line x1="76" y1="120" x2="76" y2="126"/>
+            <text x="48" y="116" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="currentColor" stroke="none" opacity="0.7">❄</text>
+          </svg>
+        </div>
+        <div class="name">French Door</div>
+        <div class="hint">2 двери · морозилка-ящик</div>
+      </button>
+
+      <button class="card">
+        <div class="pict">
+          <!-- Колонна — узкий высокий -->
+          <svg viewBox="0 0 96 128" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+            <rect x="24" y="4" width="48" height="120" rx="4"/>
+            <rect x="60" y="14" width="3" height="100" rx="1.5" fill="currentColor" opacity="0.85"/>
+            <!-- встройка показана пунктиром -->
+            <rect x="18" y="0" width="60" height="128" rx="6" stroke-dasharray="3 3" stroke-width="1" opacity="0.45"/>
+          </svg>
+        </div>
+        <div class="name">Колонна</div>
+        <div class="hint">высокий · узкий · встройка</div>
+      </button>
+    </div>
+
+    <div class="footer-note">
+      <div class="title">Что оцениваем</div>
+      <ul style="margin: 0 0 0 16px; padding: 0; line-height: 1.6;">
+        <li>Понятно ли где какой тип <em>с одного взгляда</em></li>
+        <li>Узнаваемы ли SbS / French Door / Колонна без подписей</li>
+        <li>Editorial-стиль (line-art, walnut, серый paper) — ОК или хочется фотореалистично</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>
