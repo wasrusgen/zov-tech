@@ -100,10 +100,10 @@ def get_or_create_user(tg_user: dict[str, Any], start_param: str | None,
     admin_id = cfg.admin_tg_id
 
     existing = find_user(tg_id)
-    now = _now()
+    now_str = _now_str()
 
     if existing:
-        update_cell_by_key("Users", "tg_id", tg_id, "last_seen_at", now)
+        update_cell_by_key("Users", "tg_id", tg_id, "last_seen_at", now_str)
         # Админ всегда manager
         if tg_id == admin_id and existing.get("role") != "manager":
             update_cell_by_key("Users", "tg_id", tg_id, "role", "manager")
@@ -131,8 +131,8 @@ def get_or_create_user(tg_user: dict[str, Any], start_param: str | None,
         tg_user.get("first_name", ""),
         tg_user.get("last_name", ""),
         role,
-        now,
-        now,
+        now_str,
+        now_str,
         invite_code,
     ])
     if tg_id == admin_id:
@@ -171,7 +171,9 @@ def get_manager_profile(tg_id: int) -> dict[str, Any] | None:
     elif last_order:
         active_until = last_order + timedelta(days=active_period)
         grace_until = active_until + timedelta(days=grace_period)
-        now = _now()
+        now = datetime.now(timezone.utc).astimezone()
+        if last_order.tzinfo is None:
+            now = now.replace(tzinfo=None)
         if now <= active_until:
             status = "active"
         elif now <= grace_until:
@@ -195,15 +197,16 @@ def log_event(event: str, tg_id: int | None, payload: dict[str, Any] | None = No
     import json
     try:
         append_row("Logs", [
-            _now(), event, tg_id or "",
+            _now_str(), event, tg_id or "",
             json.dumps(payload, ensure_ascii=False) if payload else "",
         ])
     except Exception:
         pass
 
 
-def _now() -> datetime:
-    return datetime.now(timezone.utc).astimezone()
+def _now_str() -> str:
+    """ISO-формат для записи в Sheet (gspread не принимает datetime)."""
+    return datetime.now(timezone.utc).astimezone().isoformat()
 
 
 def _parse_date(v: Any) -> datetime | None:
