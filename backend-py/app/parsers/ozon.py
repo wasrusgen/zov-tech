@@ -40,8 +40,9 @@ def search_ozon(query: str, limit: int = 3, timeout: float = 30.0,
     if not html:
         log.warning("OZON: no HTML for query=%r", query)
         return []
-    if "robotcheck" in html.lower() or "challenge" in html.lower()[:5000]:
-        log.warning("OZON: anti-bot challenge for query=%r", query)
+    # Реальный anti-bot — это редирект на /robotcheck/ или специальная страница
+    if "/robotcheck/" in html or "Доступ ограничен" in html[:5000]:
+        log.warning("OZON: anti-bot block for query=%r", query)
         return []
 
     return _parse_html(html, limit=limit)
