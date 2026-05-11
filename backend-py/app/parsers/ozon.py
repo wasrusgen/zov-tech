@@ -12,8 +12,10 @@ from typing import Any
 from urllib.parse import quote_plus
 
 import httpx
+from bs4 import BeautifulSoup
 
 from .. import proxy_pool
+from . import playwright_engine
 
 log = logging.getLogger("zov.parser.ozon")
 
@@ -34,38 +36,110 @@ _HEADERS = {
 _PRICE_RE = re.compile(r"([\d\s]+)\s*₽")
 
 
-def search_ozon(query: str, limit: int = 3, timeout: float = 15.0,
-                max_retries: int = 2) -> list[dict[str, Any]]:
-    """Поиск товара в OZON через composer-api."""
+def search_ozon(query: str, limit: int = 3, timeout: float = 30.0,
+                max_retries: int = 1, use_playwright: bool = True) -> list[dict[str, Any]]:
+    """Поиск товара в OZON.
+
+    Сначала пробуем composer-api JSON (быстро), при challenge — Playwright (медленно но точно).
+    """
+    # Путь 1: быстрый composer-api
     url_param = f"/search/?text={quote_plus(query)}&from_global=true"
     params = {"url": url_param}
-
     for attempt in range(max_retries + 1):
         try:
             with proxy_pool.proxied_client(timeout=timeout, headers=_HEADERS,
                                             follow_redirects=False) as client:
                 resp = client.get(_API_URL, params=params)
+            if resp.status_code == 200:
+                try:
+                    return _extract_products(resp.json(), limit=limit)
+                except Exception:
+                    pass
+            log.debug("OZON composer-api attempt %d: status=%s", attempt + 1, resp.status_code)
         except httpx.HTTPError as e:
-            log.warning("OZON request failed (attempt %d): %s", attempt + 1, e)
+            log.debug("OZON composer-api err: %s", e)
+
+    # Путь 2: Playwright (рендерим обычную HTML-страницу поиска)
+    if not use_playwright:
+        return []
+    log.info("OZON falling back to Playwright for query=%r", query)
+    page_url = f"{_BASE_URL}/search/?text={quote_plus(query)}"
+    html = playwright_engine.fetch_page(
+        page_url,
+        wait_selector="a[href*='/product/'], [data-widget='searchResultsV2']",
+        wait_ms=3500,
+        timeout_ms=int(timeout * 1000),
+    )
+    if not html:
+        return []
+    return _parse_html_via_dom(html, limit=limit)
+
+
+def _parse_html_via_dom(html: str, limit: int) -> list[dict[str, Any]]:
+    """Fallback: парсим товары из отрендеренного Chrome HTML."""
+    soup = BeautifulSoup(html, "html.parser")
+    seen = set()
+    results: list[dict[str, Any]] = []
+
+    for link in soup.select("a[href*='/product/']"):
+        if len(results) >= limit:
+            break
+        href = link.get("href") or ""
+        if href in seen:
+            continue
+        seen.add(href)
+
+        # Поднимаемся до карточки
+        card = link.find_parent("div") or link
+        title = link.get_text(strip=True) or (card.select_one("span") or {}).get_text(strip=True) if hasattr(card.select_one("span"), "get_text") else ""
+        if not title or len(title) < 5:
             continue
 
-        if resp.status_code in (301, 302, 307, 308):
-            log.info("OZON redirect %s, rotating proxy", resp.status_code)
-            continue
-        if resp.status_code != 200:
-            log.warning("OZON returned status=%s", resp.status_code)
-            continue
+        url = href if href.startswith("http") else f"{_BASE_URL}{href}"
+        url = url.split("?")[0]
 
-        try:
-            data = resp.json()
-        except Exception as e:
-            log.warning("OZON JSON parse failed: %s", e)
-            continue
+        # Цена в ближайшем родителе
+        price = None
+        price_card = link.find_parent("div", recursive=True)
+        if price_card:
+            txt = price_card.get_text(" ", strip=True)
+            m = _PRICE_RE.search(txt)
+            if m:
+                price = _try_int(m.group(1).replace(" ", ""))
 
-        return _extract_products(data, limit=limit)
+        # Картинка в карточке
+        img = None
+        img_el = card.find("img") if card else None
+        if img_el:
+            src = img_el.get("src") or ""
+            if src.startswith("//"):
+                src = "https:" + src
+            if src and "data:image" not in src:
+                img = src
 
-    log.warning("OZON gave up after %d attempts for query=%r", max_retries + 1, query)
-    return []
+        results.append({
+            "title": title[:200],
+            "url": url,
+            "image_url": img,
+            "price_min_rub": price,
+            "price_max_rub": None,
+            "rating": None,
+            "reviews_count": None,
+            "stores_count": None,
+            "specs": {},
+            "source": "ozon",
+        })
+
+    return results
+
+
+def _try_int(v: Any) -> int | None:
+    if v is None:
+        return None
+    try:
+        return int(float(str(v).replace(" ", "").replace(",", ".")))
+    except (ValueError, TypeError):
+        return None
 
 
 def _extract_products(data: dict, limit: int) -> list[dict[str, Any]]:

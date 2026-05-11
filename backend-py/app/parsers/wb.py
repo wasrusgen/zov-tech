@@ -40,38 +40,44 @@ _HEADERS = {
 
 def search_wb(query: str, limit: int = 3, timeout: float = 12.0,
               max_retries: int = 2) -> list[dict[str, Any]]:
+    """WB через прямой JSON API. Делает экспоненциальный backoff при 429."""
+    import time
     params = {**_DEFAULT_PARAMS, "query": query}
 
+    backoff = 2.0
     for attempt in range(max_retries + 1):
         try:
+            # Используем прямое подключение (без прокси) — WB лимитирует per-IP,
+            # но 1 запрос/несколько секунд проходит
             with proxy_pool.proxied_client(timeout=timeout, headers=_HEADERS) as client:
                 resp = client.get(_SEARCH_URL, params=params)
         except httpx.HTTPError as e:
             log.warning("WB request failed (attempt %d): %s", attempt + 1, e)
+            time.sleep(backoff)
+            backoff *= 2
             continue
 
         if resp.status_code == 429:
-            log.warning("WB rate-limited on attempt %d, rotating proxy", attempt + 1)
+            log.warning("WB rate-limited on attempt %d, sleeping %.1fs", attempt + 1, backoff)
+            time.sleep(backoff)
+            backoff *= 2
             continue
         if resp.status_code != 200:
             log.warning("WB returned status=%s", resp.status_code)
-            continue
+            return []
 
         try:
             data = resp.json()
         except Exception as e:
             log.warning("WB JSON parse failed: %s", e)
-            continue
+            return []
 
         products = (data.get("data") or {}).get("products") or []
         if not products:
             log.info("WB no products for query=%r", query)
             return []
 
-        results: list[dict[str, Any]] = []
-        for p in products[:limit]:
-            results.append(_build_item(p))
-        return results
+        return [_build_item(p) for p in products[:limit]]
 
     log.warning("WB gave up after %d attempts for query=%r", max_retries + 1, query)
     return []
