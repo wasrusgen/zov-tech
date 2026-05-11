@@ -92,16 +92,16 @@ def _generate_query_variants(query: str) -> list[str]:
 
 
 def _search_wb_one(query: str, limit: int, timeout: float, max_retries: int) -> list[dict[str, Any]]:
-    """Один запрос к WB API."""
+    """Один запрос к WB API. БЕЗ прокси (residential IP уже исчерпали лимит)."""
     import time
     params = {**_DEFAULT_PARAMS, "query": query}
 
     backoff = 2.0
     for attempt in range(max_retries + 1):
         try:
-            # Используем прямое подключение (без прокси) — WB лимитирует per-IP,
-            # но 1 запрос/несколько секунд проходит
-            with proxy_pool.proxied_client(timeout=timeout, headers=_HEADERS) as client:
+            # WB лимитирует per-IP, но прямой VPS-IP не использовался для WB активно,
+            # поэтому ходим напрямую (без прокси-пула).
+            with httpx.Client(timeout=timeout, headers=_HEADERS) as client:
                 resp = client.get(_SEARCH_URL, params=params)
         except httpx.HTTPError as e:
             log.warning("WB request failed (attempt %d): %s", attempt + 1, e)
