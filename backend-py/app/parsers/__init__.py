@@ -32,14 +32,22 @@ from .dns import search_dns
 from .wb import search_wb
 from .ozon import search_ozon
 from .yamarket import search_yamarket
+from .citilink import search_citilink
 
 log = logging.getLogger("zov.parser")
 
-__all__ = ["search_dns", "search_wb", "search_ozon", "search_yamarket",
+__all__ = ["search_dns", "search_wb", "search_ozon", "search_yamarket", "search_citilink",
            "enrich_one", "enrich_models"]
 
+# Источники по умолчанию (работают с DC-IP без прокси):
+# - ozon, citilink: Playwright
+# - wb: прямой JSON API (с задержкой)
+# Опциональные (требуют residential proxy):
+# - yamarket, dns
+DEFAULT_SOURCES = ("ozon", "citilink", "wb")
 
-def enrich_one(query: str, sources: tuple = ("wb", "yamarket", "ozon", "dns")) -> dict[str, Any]:
+
+def enrich_one(query: str, sources: tuple = DEFAULT_SOURCES) -> dict[str, Any]:
     """Спрашивает все указанные источники и объединяет лучшее в единый отчёт.
 
     Возвращает:
@@ -59,8 +67,9 @@ def enrich_one(query: str, sources: tuple = ("wb", "yamarket", "ozon", "dns")) -
     """
     fetchers = {
         "wb":       lambda: _safe_first(search_wb, query),
-        "yamarket": lambda: _safe_first(search_yamarket, query),
         "ozon":     lambda: _safe_first(search_ozon, query),
+        "citilink": lambda: _safe_first(search_citilink, query),
+        "yamarket": lambda: _safe_first(search_yamarket, query),
         "dns":      lambda: _safe_first(search_dns, query),
     }
 
@@ -87,8 +96,8 @@ def enrich_one(query: str, sources: tuple = ("wb", "yamarket", "ozon", "dns")) -
         stores = items["yamarket"]["stores_count"]
 
     best_url = None
-    # Приоритет: yamarket (агрегатор) → wb → ozon → dns
-    for src in ("yamarket", "wb", "ozon", "dns"):
+    # Приоритет: ozon → citilink → wb → yamarket → dns
+    for src in ("ozon", "citilink", "wb", "yamarket", "dns"):
         i = items.get(src)
         if i and i.get("url"):
             best_url = i["url"]
@@ -107,7 +116,7 @@ def enrich_one(query: str, sources: tuple = ("wb", "yamarket", "ozon", "dns")) -
 
 
 def enrich_models(models: list[dict[str, Any]], delay_sec: float = 0.5,
-                  sources: tuple = ("wb", "yamarket", "ozon", "dns")) -> list[dict[str, Any]]:
+                  sources: tuple = DEFAULT_SOURCES) -> list[dict[str, Any]]:
     """Обогащает список моделей от AI данными со всех источников."""
     enriched: list[dict[str, Any]] = []
     for i, m in enumerate(models):

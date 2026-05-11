@@ -13,7 +13,7 @@ from .config import get_config
 from .auth import verify_init_data
 from . import sheets, ai, telegram as tg, proxy_pool
 from . import parsers
-from .parsers import dns as parser_dns, wb as parser_wb, ozon as parser_ozon, yamarket as parser_ym
+from .parsers import dns as parser_dns, wb as parser_wb, ozon as parser_ozon, yamarket as parser_ym, citilink as parser_cl
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 log = logging.getLogger("zov.backend")
@@ -190,6 +190,17 @@ def api_parse_yamarket(q: str = "", limit: int = 3):
         return {"error": "missing_query"}
     try:
         results = parser_ym.search_yamarket(q, limit=min(max(1, limit), 10))
+        return {"ok": True, "query": q, "count": len(results), "results": results}
+    except Exception as e:
+        return {"ok": False, "error": str(e), "query": q}
+
+
+@app.get("/api/parse_citilink")
+def api_parse_citilink(q: str = "", limit: int = 3):
+    if not q:
+        return {"error": "missing_query"}
+    try:
+        results = parser_cl.search_citilink(q, limit=min(max(1, limit), 10))
         return {"ok": True, "query": q, "count": len(results), "results": results}
     except Exception as e:
         return {"ok": False, "error": str(e), "query": q}
