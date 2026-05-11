@@ -40,9 +40,12 @@ def search_ozon(query: str, limit: int = 3, timeout: float = 30.0,
     if not html:
         log.warning("OZON: no HTML for query=%r", query)
         return []
-    # Реальный anti-bot — это редирект на /robotcheck/ или специальная страница
-    if "/robotcheck/" in html or "Доступ ограничен" in html[:5000]:
-        log.warning("OZON: anti-bot block for query=%r", query)
+    # OZON показывает "Доступ ограничен" как <title>, либо редирект на /antibot/
+    import re as _re
+    title_m = _re.search(r"<title>(.*?)</title>", html, _re.IGNORECASE)
+    page_title = title_m.group(1) if title_m else ""
+    if "доступ ограничен" in page_title.lower() or "/antibot/" in html[:5000]:
+        log.warning("OZON: anti-bot page (title=%r)", page_title)
         return []
 
     return _parse_html(html, limit=limit)

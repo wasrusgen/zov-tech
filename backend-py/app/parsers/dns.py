@@ -17,6 +17,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from .. import proxy_pool
+from . import playwright_engine
 
 log = logging.getLogger("zov.parser.dns")
 
@@ -44,41 +45,35 @@ _HEADERS = {
 _PRICE_RE = re.compile(r"(\d[\d\s]*)\s*₽")
 
 
-def search_dns(query: str, limit: int = 1, timeout: float = 12.0,
-               max_retries: int = 2) -> list[dict[str, Any]]:
-    """Поиск товара на DNS по строке запроса.
+def search_dns(query: str, limit: int = 1, timeout: float = 30.0,
+               max_retries: int = 1) -> list[dict[str, Any]]:
+    """Поиск на DNS через Playwright + residential proxy.
 
-    Использует Proxy6-пул если PROXY6_TOKEN задан, иначе ходит напрямую.
-    DNS защищён Qrator — без прокси скорее всего 401.
-
-    Возвращает список результатов (топ-N) или пустой при ошибке.
+    DNS защищён Qrator (JS challenge) — обычный HTTP не пройдёт даже с прокси.
+    Playwright решает challenge автоматически (как реальный браузер).
     """
     url = f"{_SEARCH_URL}?q={quote_plus(query)}"
     log.info("DNS search: %s", url)
 
-    last_err = None
+    html = None
     for attempt in range(max_retries + 1):
-        try:
-            with proxy_pool.proxied_client(timeout=timeout, headers=_HEADERS,
-                                            follow_redirects=True) as client:
-                resp = client.get(url)
-        except httpx.HTTPError as e:
-            last_err = e
-            log.warning("DNS request failed (attempt %d): %s", attempt + 1, e)
-            continue
+        html = playwright_engine.fetch_page(
+            url,
+            wait_selector="a[href*='/product/']",
+            wait_ms=5000,
+            timeout_ms=int(timeout * 1000),
+        )
+        if html:
+            break
 
-        if resp.status_code == 200:
-            text = resp.text
-            if "qrator" in text.lower() or "challenge" in text.lower() or "captcha" in text.lower():
-                log.warning("DNS Qrator/captcha on attempt %d, rotating proxy", attempt + 1)
-                continue
-            return _parse_search_html(text, limit=limit)
+    if not html:
+        log.warning("DNS: no HTML for query=%r", query)
+        return []
+    if "qrator" in html.lower()[:5000]:
+        log.warning("DNS: Qrator block for query=%r", query)
+        return []
 
-        log.warning("DNS returned status=%s on attempt %d", resp.status_code, attempt + 1)
-
-    log.warning("DNS gave up after %d attempts for query=%r (last_err=%s)",
-                max_retries + 1, query, last_err)
-    return []
+    return _parse_search_html(html, limit=limit)
 
 
 def _parse_search_html(html: str, limit: int) -> list[dict[str, Any]]:
