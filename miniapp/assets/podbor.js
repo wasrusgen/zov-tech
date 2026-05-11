@@ -3,8 +3,9 @@
    ============================================================ */
 
 const Podbor = (function () {
-  const STORAGE_KEY = "zov-podbor-v3";
-  const STEPS = ["intro", "categories", "detail", "pricing", "infra", "priorities", "brands", "summary"];
+  const STORAGE_KEY = "zov-podbor-v4";
+  const STEPS = ["intro", "categories", "detail", "brand", "budget", "strategy", "infra", "summary"];
+  const STEP_LABELS = ["Старт", "Категории", "Параметры", "Бренд", "Бюджет", "Стратегия", "Инфра", "Итог"];
 
   // Внутренний sub-state для шага «detail»: 'menu' | 'cat:<key>'
   let detailView = "menu";
@@ -16,7 +17,11 @@ const Podbor = (function () {
   function loadState() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        // Мерж с дефолтами для совместимости с новыми полями
+        return { ...defaultState(), ...parsed };
+      }
     } catch (e) {}
     return defaultState();
   }
@@ -27,11 +32,14 @@ const Podbor = (function () {
       client_phone: "",
       address: "",
       categories: [],          // ['fridge','hob',...]
-      per_cat: {},             // { fridge: { params: {type:'sbs',...}, features: ['nofrost'], notes: '' }, ... }
-      price_ranges: {},        // { fridge: { from: 50000, to: 120000 }, ... }
+      per_cat: {},             // { fridge: { answers: {install:'built_in',...}, notes: '', _step: 0 } }
+      brand_strategy: "",      // 'ai' | 'single' | 'different'
+      single_brand: "",        // key из PODBOR_SINGLE_BRAND_OPTIONS, если brand_strategy === 'single'
+      brands: {},              // если brand_strategy === 'different' — { fridge: {Bosch:'preferred'|'acceptable'|'avoid'} }
+      budget_preset: "",       // 'luxe'|'premium'|'middle'|'budget'|'exact'
+      price_ranges: {},        // только если budget_preset === 'exact'
+      pick_strategies: [],     // ['reviews','balance','tech',...] — multi
       infra: { stove: "", vent: "" },
-      priorities: [],          // ['balance','reviews',...]
-      brands: {},              // { fridge: {Bosch:'preferred',...}, ... }
       notes: "",
     };
   }
@@ -78,10 +86,10 @@ const Podbor = (function () {
       case "intro":      screen.appendChild(renderIntro()); break;
       case "categories": screen.appendChild(renderCategories()); break;
       case "detail":     screen.appendChild(renderDetail()); break;
-      case "pricing":    screen.appendChild(renderPricing()); break;
+      case "brand":      screen.appendChild(renderBrand()); break;
+      case "budget":     screen.appendChild(renderBudget()); break;
+      case "strategy":   screen.appendChild(renderStrategy()); break;
       case "infra":      screen.appendChild(renderInfra()); break;
-      case "priorities": screen.appendChild(renderPriorities()); break;
-      case "brands":     screen.appendChild(renderBrands()); break;
       case "summary":    screen.appendChild(renderSummary()); break;
     }
   }
@@ -148,12 +156,11 @@ const Podbor = (function () {
     const idx = STEPS.indexOf(currentStep);
     const total = STEPS.length;
     const pct = Math.round(((idx + 1) / total) * 100);
-    const labels = ["Старт", "Категории", "Параметры", "Цена", "Инфра", "Приоритеты", "Бренды", "Подбор"];
     return el(`
       <div class="podbor-progress">
         <div class="podbor-progress-bar"><div class="bar" style="width:${pct}%"></div></div>
         <div class="podbor-progress-meta">
-          <span>${labels[idx]}</span><span class="num">${idx + 1}/${total}</span>
+          <span>${STEP_LABELS[idx] || ""}</span><span class="num">${idx + 1}/${total}</span>
         </div>
       </div>
     `);
@@ -292,7 +299,7 @@ const Podbor = (function () {
         <div class="detail-list">${cards}</div>
         <div class="podbor-cta-row">
           <button class="btn-secondary" data-go="categories">Назад</button>
-          <button class="btn-primary" data-go="pricing">Дальше</button>
+          <button class="btn-primary" data-go="brand">Дальше</button>
         </div>
       </section>
     `);
@@ -700,77 +707,263 @@ const Podbor = (function () {
     return node;
   }
 
-  /* ===================== Step: pricing (ценовой коридор по категориям) ===================== */
+  function formatRub(n) {
+    if (!n) return "—";
+    return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  }
 
-  function renderPricing() {
-    if (!state.categories.length) {
-      return el(`
-        <section class="podbor-step">
-          <div class="empty">Сначала выберите категории.</div>
-          <div class="podbor-cta-row">
-            <button class="btn-secondary" data-go="detail">Назад</button>
-          </div>
-        </section>
-      `);
-    }
-    // Подсчёт суммы коридоров
-    let totalFrom = 0, totalTo = 0;
-    state.categories.forEach(c => {
-      const r = state.price_ranges[c] || {};
-      if (r.from) totalFrom += parseInt(r.from, 10) || 0;
-      if (r.to)   totalTo   += parseInt(r.to,   10) || 0;
-    });
-
-    const rows = state.categories.map(c => {
-      const cat = PODBOR_CATEGORIES.find(x => x.key === c);
-      const r = state.price_ranges[c] || {};
+  /* Универсальный рендер пин-карточек (label + hint, single или multi) */
+  function renderPinCards(items, getStatus, onClick, opts = {}) {
+    const html = items.map(o => {
+      const status = getStatus(o); // 'on' | 'on-star' | ''
+      const isOn = status === "on" || status === "on-star";
+      const cls = "wiz-card wiz-card--pin" + (isOn ? " on" : "") + (o.recommended ? " star" : "");
       return `
-        <div class="price-row">
-          <div class="price-label">${cat.label}</div>
-          <div class="price-inputs">
-            <input type="number" inputmode="numeric" data-price="${c}.from" value="${r.from || ""}" placeholder="от">
-            <span class="dash">—</span>
-            <input type="number" inputmode="numeric" data-price="${c}.to"   value="${r.to   || ""}" placeholder="до">
-            <span class="rub">₽</span>
-          </div>
-        </div>
+        <button class="${cls}" data-key="${o.key}">
+          <span class="wiz-label">${o.label}</span>
+          ${o.hint ? `<span class="wiz-hint">${o.hint}</span>` : ""}
+          ${isOn ? `<span class="wiz-tick">${ICONS.check}</span>` : ""}
+        </button>
       `;
     }).join("");
+    const wrap = el(`<div class="wiz-grid wiz-grid--pins">${html}</div>`);
+    wrap.querySelectorAll(".wiz-card").forEach(btn => {
+      btn.addEventListener("click", () => {
+        onClick(btn.dataset.key);
+      });
+    });
+    return wrap;
+  }
 
-    const totalLine = (totalFrom || totalTo)
-      ? `<div class="price-total">Итого: <strong>${formatRub(totalFrom)} — ${formatRub(totalTo)} ₽</strong></div>`
-      : `<div class="price-total muted">Сумма посчитается автоматически</div>`;
+  /* ===================== Step: brand (бренд-стратегия + выбор) ===================== */
+
+  function renderBrand() {
+    const bs = state.brand_strategy || "";
+    const strategyGrid = renderPinCards(
+      PODBOR_BRAND_STRATEGY,
+      o => (bs === o.key ? "on" : ""),
+      key => { update({ brand_strategy: key }); render(); }
+    );
+
+    // Подблок зависит от выбранной стратегии
+    let subBlock = "";
+    if (bs === "single") {
+      const sb = state.single_brand || "";
+      const cardsHtml = PODBOR_SINGLE_BRAND_OPTIONS.map(o => {
+        const on = sb === o.key;
+        return `
+          <button class="wiz-card wiz-card--pin${on ? " on" : ""}${o.recommended ? " star" : ""}" data-sb="${o.key}">
+            <span class="wiz-label">${o.label}</span>
+            ${o.tier ? `<span class="wiz-hint">${tierLabel(o.tier)}</span>` : ""}
+            ${on ? `<span class="wiz-tick">${ICONS.check}</span>` : ""}
+          </button>
+        `;
+      }).join("");
+      subBlock = `
+        <div class="block">
+          <div class="block-head">Какая марка</div>
+          <div class="wiz-grid wiz-grid--pins">${cardsHtml}</div>
+        </div>
+      `;
+    } else if (bs === "different") {
+      // Чипы по категориям с 4-state статусами (none → preferred → acceptable → avoid → none)
+      const blocks = state.categories.map(catKey => {
+        const cat = PODBOR_CATEGORIES.find(x => x.key === catKey);
+        const brands = PODBOR_BRANDS[catKey] || { premium: [], middle: [], budget: [] };
+        const catState = state.brands[catKey] || {};
+        const tierGroup = (tier) => `
+          <div class="brand-chips brand-tier-${tier}">
+            ${(brands[tier] || []).map(b => {
+              const status = catState[b] || "none";
+              return `<button class="chip tier-${tier} status-${status}" data-cat="${catKey}" data-brand="${b}">${b}</button>`;
+            }).join("")}
+          </div>
+        `;
+        return `
+          <div class="block">
+            <div class="block-head">${cat.label}</div>
+            ${tierGroup("premium")}${tierGroup("middle")}${tierGroup("budget")}
+          </div>
+        `;
+      }).join("");
+      subBlock = `
+        <div class="hint">Тап — ★ хочу · повторно — ✓ согласен · третий — ✗ не хочу · четвёртый — снять</div>
+        ${blocks}
+      `;
+    } else if (bs === "ai") {
+      subBlock = `
+        <div class="block">
+          <div class="hint">AI подберёт оптимальный микс брендов под выбранный бюджет и стратегию. Можно ничего больше не указывать.</div>
+        </div>
+      `;
+    }
 
     const node = el(`
       <section class="podbor-step">
-        <h2 class="display-title">Ценовой<br><span class="accent">коридор</span></h2>
-        <p class="lede">«От — До» по каждой категории. AI подберёт варианты, которые попадают в коридор и совокупно укладываются в общий бюджет клиента.</p>
-        <div class="block">
-          <div class="block-head">По категориям, ₽</div>
-          <div class="price-list">${rows}</div>
-          ${totalLine}
-        </div>
-        <div class="podbor-cta-row">
-          <button class="btn-secondary" data-go="detail">Назад</button>
-          <button class="btn-primary" data-go="infra">Дальше</button>
-        </div>
+        <h2 class="display-title">Бренд<br><span class="accent">стратегия</span></h2>
+        <p class="lede">Хочет ли клиент всю технику от одной марки, или собираем оптимальный микс?</p>
       </section>
     `);
-    node.querySelectorAll("[data-price]").forEach(inp => {
-      inp.addEventListener("input", e => {
-        const [cat, key] = e.target.dataset.price.split(".");
-        const next = { ...state.price_ranges, [cat]: { ...(state.price_ranges[cat] || {}), [key]: e.target.value } };
-        update({ price_ranges: next });
-        render();
+    node.appendChild(strategyGrid);
+    if (subBlock) {
+      const sub = el(`<div>${subBlock}</div>`);
+      node.appendChild(sub);
+      // Single-brand chips
+      sub.querySelectorAll("[data-sb]").forEach(b => {
+        b.addEventListener("click", () => {
+          update({ single_brand: b.dataset.sb });
+          render();
+        });
       });
-    });
+      // Different-brand 4-state cycle
+      sub.querySelectorAll(".chip[data-brand]").forEach(c => {
+        c.addEventListener("click", () => {
+          const catKey = c.dataset.cat, brand = c.dataset.brand;
+          const cur = (state.brands[catKey] || {})[brand] || "none";
+          const nextStatus = cur === "none" ? "preferred"
+                          : cur === "preferred" ? "acceptable"
+                          : cur === "acceptable" ? "avoid"
+                          : "none";
+          const catBrands = { ...(state.brands[catKey] || {}) };
+          if (nextStatus === "none") delete catBrands[brand];
+          else catBrands[brand] = nextStatus;
+          update({ brands: { ...state.brands, [catKey]: catBrands } });
+          render();
+        });
+      });
+    }
+    const cta = el(`
+      <div class="podbor-cta-row">
+        <button class="btn-secondary" data-go="detail">Назад</button>
+        <button class="btn-primary" data-go="budget"${bs ? "" : " disabled"}>Дальше</button>
+      </div>
+    `);
+    node.appendChild(cta);
     bindNav(node);
     return node;
   }
 
-  function formatRub(n) {
-    if (!n) return "—";
-    return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  function tierLabel(tier) {
+    return tier === "premium" ? "премиум" : tier === "middle" ? "средний" : tier === "budget" ? "бюджет" : "";
+  }
+
+  /* ===================== Step: budget (пресет или точные цифры) ===================== */
+
+  function renderBudget() {
+    const bp = state.budget_preset || "";
+    const presetGrid = renderPinCards(
+      PODBOR_BUDGET_PRESETS,
+      o => (bp === o.key ? "on" : ""),
+      key => { update({ budget_preset: key }); render(); }
+    );
+
+    // Если "exact" — показываем поля от-до по категориям
+    let exactBlock = null;
+    if (bp === "exact") {
+      let totalFrom = 0, totalTo = 0;
+      state.categories.forEach(c => {
+        const r = state.price_ranges[c] || {};
+        if (r.from) totalFrom += parseInt(r.from, 10) || 0;
+        if (r.to)   totalTo   += parseInt(r.to,   10) || 0;
+      });
+      const rows = state.categories.map(c => {
+        const cat = PODBOR_CATEGORIES.find(x => x.key === c);
+        const r = state.price_ranges[c] || {};
+        return `
+          <div class="price-row">
+            <div class="price-label">${cat.label}</div>
+            <div class="price-inputs">
+              <input type="number" inputmode="numeric" data-price="${c}.from" value="${r.from || ""}" placeholder="от">
+              <span class="dash">—</span>
+              <input type="number" inputmode="numeric" data-price="${c}.to"   value="${r.to   || ""}" placeholder="до">
+              <span class="rub">₽</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+      exactBlock = el(`
+        <div class="block">
+          <div class="block-head">По категориям, ₽</div>
+          <div class="price-list">${rows}</div>
+          <div class="price-total" id="priceTotalLine">${
+            (totalFrom || totalTo)
+              ? `Итого: <strong>${formatRub(totalFrom)} — ${formatRub(totalTo)} ₽</strong>`
+              : `<span class="muted">Сумма посчитается автоматически</span>`
+          }</div>
+        </div>
+      `);
+      // Внимание: НЕ вызываем render() на input — иначе клавиатура слетает
+      exactBlock.querySelectorAll("[data-price]").forEach(inp => {
+        inp.addEventListener("input", e => {
+          const [cat, key] = e.target.dataset.price.split(".");
+          const next = { ...state.price_ranges, [cat]: { ...(state.price_ranges[cat] || {}), [key]: e.target.value } };
+          update({ price_ranges: next });
+          // Локально пересчитываем сумму
+          let tf = 0, tt = 0;
+          state.categories.forEach(c => {
+            const r = state.price_ranges[c] || {};
+            if (r.from) tf += parseInt(r.from, 10) || 0;
+            if (r.to)   tt += parseInt(r.to, 10) || 0;
+          });
+          const line = exactBlock.querySelector("#priceTotalLine");
+          if (line) {
+            line.innerHTML = (tf || tt)
+              ? `Итого: <strong>${formatRub(tf)} — ${formatRub(tt)} ₽</strong>`
+              : `<span class="muted">Сумма посчитается автоматически</span>`;
+          }
+        });
+      });
+    }
+
+    const node = el(`
+      <section class="podbor-step">
+        <h2 class="display-title">Бюджет<br><span class="accent">на технику</span></h2>
+        <p class="lede">Выбери диапазон. AI сам распределит бюджет по категориям (холодильник ~25%, варочная ~15%, духовка ~15% и т.д.).</p>
+      </section>
+    `);
+    node.appendChild(presetGrid);
+    if (exactBlock) node.appendChild(exactBlock);
+    const cta = el(`
+      <div class="podbor-cta-row">
+        <button class="btn-secondary" data-go="brand">Назад</button>
+        <button class="btn-primary" data-go="strategy"${bp ? "" : " disabled"}>Дальше</button>
+      </div>
+    `);
+    node.appendChild(cta);
+    bindNav(node);
+    return node;
+  }
+
+  /* ===================== Step: strategy (что важно при подборе — multi) ===================== */
+
+  function renderStrategy() {
+    const cur = state.pick_strategies || [];
+    const grid = renderPinCards(
+      PODBOR_PICK_STRATEGIES,
+      o => (cur.includes(o.key) ? "on" : ""),
+      key => {
+        const next = cur.includes(key) ? cur.filter(x => x !== key) : [...cur, key];
+        update({ pick_strategies: next });
+        render();
+      }
+    );
+
+    const node = el(`
+      <section class="podbor-step">
+        <h2 class="display-title">Стратегия<br><span class="accent">подбора</span></h2>
+        <p class="lede">Что для клиента важно при выборе? Можно несколько — AI учтёт всё.</p>
+      </section>
+    `);
+    node.appendChild(grid);
+    const cta = el(`
+      <div class="podbor-cta-row">
+        <button class="btn-secondary" data-go="budget">Назад</button>
+        <button class="btn-primary" data-go="infra">Дальше</button>
+      </div>
+    `);
+    node.appendChild(cta);
+    bindNav(node);
+    return node;
   }
 
   /* ===================== Step: infra ===================== */
@@ -779,7 +972,7 @@ const Podbor = (function () {
     const node = el(`
       <section class="podbor-step">
         <h2 class="display-title">Инфраструктура<br><span class="accent">кухни</span></h2>
-        <p class="lede">Газ или электрика — определит тип варочной (индукция / стеклокерамика / газ). Подключение вытяжки — нужны ли выводы или угольный фильтр.</p>
+        <p class="lede">Газ или электрика — определит тип варочной. Подключение вытяжки — нужны ли выводы или угольный фильтр.</p>
         <div class="block">
           <div class="block-head">Подключение варочной</div>
           <div class="opt-list">
@@ -798,8 +991,8 @@ const Podbor = (function () {
           <div class="hint">Если «Нет» — менеджер закладывает угольный фильтр. Если «Да» — заранее планируем выводы.</div>
         </div>
         <div class="podbor-cta-row">
-          <button class="btn-secondary" data-go="pricing">Назад</button>
-          <button class="btn-primary" data-go="priorities">Дальше</button>
+          <button class="btn-secondary" data-go="strategy">Назад</button>
+          <button class="btn-primary" data-go="summary">Дальше</button>
         </div>
       </section>
     `);
@@ -813,110 +1006,40 @@ const Podbor = (function () {
     return node;
   }
 
-  /* ===================== Step: priorities (что важно при выборе) ===================== */
-
-  function renderPriorities() {
-    const node = el(`
-      <section class="podbor-step">
-        <h2 class="display-title">Что важно<br><span class="accent">при выборе?</span></h2>
-        <p class="lede">Бюджет уже задал коридор. Здесь — что AI должен использовать как тай-брейк, когда варианты примерно равны по цене.</p>
-        <div class="block">
-          <div class="block-head">Приоритеты</div>
-          <div class="opt-list">
-            ${PODBOR_PRIORITIES.map(o => `
-              <button class="opt${(state.priorities || []).includes(o.key) ? " on" : ""}" data-pri="${o.key}">${o.label}</button>
-            `).join("")}
-          </div>
-          <div class="hint">Можно несколько · в порядке выбора</div>
-        </div>
-        <div class="podbor-cta-row">
-          <button class="btn-secondary" data-go="infra">Назад</button>
-          <button class="btn-primary" data-go="brands">Дальше</button>
-        </div>
-      </section>
-    `);
-    node.querySelectorAll("[data-pri]").forEach(b => {
-      b.addEventListener("click", () => {
-        const cur = state.priorities || [];
-        const key = b.dataset.pri;
-        const next = cur.includes(key) ? cur.filter(x => x !== key) : [...cur, key];
-        update({ priorities: next });
-        render();
-      });
-    });
-    bindNav(node);
-    return node;
-  }
-
-  /* ===================== Step: brands ===================== */
-
-  function renderBrands() {
-    if (!state.categories.length) {
-      return el(`<section class="podbor-step"><div class="empty">Сначала выберите категории.</div></section>`);
-    }
-    const blocks = state.categories.map(catKey => {
-      const cat = PODBOR_CATEGORIES.find(x => x.key === catKey);
-      const brands = PODBOR_BRANDS[catKey] || { premium: [], middle: [], budget: [] };
-      const catState = state.brands[catKey] || {};
-      // Тиры остаются в данных (для аналитики «температуры» клиента),
-      // но визуально просто разный цветовой оттенок чипа — без явного ярлыка.
-      const tierGroup = (tier) => `
-        <div class="brand-chips brand-tier-${tier}">
-          ${(brands[tier] || []).map(b => {
-            const status = catState[b] || "none";
-            return `<button class="chip tier-${tier} status-${status}" data-cat="${catKey}" data-brand="${b}" data-tier="${tier}">${b}</button>`;
-          }).join("")}
-        </div>
-      `;
-      return `
-        <div class="block">
-          <div class="block-head">${cat.label}</div>
-          ${tierGroup("premium")}${tierGroup("middle")}${tierGroup("budget")}
-        </div>
-      `;
-    }).join("");
-
-    const node = el(`
-      <section class="podbor-step">
-        <h2 class="display-title">Бренды<br><span class="accent">по категориям</span></h2>
-        <p class="lede">Тап — ★ предпочтительно. Дабл — ✓ допустимо. Третий — снять. AI сначала пробует ★, потом ✓.</p>
-        ${blocks}
-        <div class="podbor-cta-row">
-          <button class="btn-secondary" data-go="priorities">Назад</button>
-          <button class="btn-primary" data-go="summary">Дальше</button>
-        </div>
-      </section>
-    `);
-    node.querySelectorAll(".chip[data-brand]").forEach(c => {
-      c.addEventListener("click", () => {
-        const catKey = c.dataset.cat, brand = c.dataset.brand;
-        const cur = (state.brands[catKey] || {})[brand] || "none";
-        const nextStatus = cur === "none" ? "preferred" : cur === "preferred" ? "acceptable" : "none";
-        const catBrands = { ...(state.brands[catKey] || {}) };
-        if (nextStatus === "none") delete catBrands[brand];
-        else catBrands[brand] = nextStatus;
-        update({ brands: { ...state.brands, [catKey]: catBrands } });
-        render();
-      });
-    });
-    bindNav(node);
-    return node;
-  }
-
   /* ===================== Step: summary + submit ===================== */
 
   function renderSummary() {
-    let totalFrom = 0, totalTo = 0;
-    state.categories.forEach(c => {
-      const r = state.price_ranges[c] || {};
-      totalFrom += parseInt(r.from || "0", 10) || 0;
-      totalTo   += parseInt(r.to   || "0", 10) || 0;
-    });
-    const totalRange = (totalFrom || totalTo)
-      ? `${formatRub(totalFrom)} — ${formatRub(totalTo)} ₽`
-      : "—";
-    const priorityLabels = (state.priorities || [])
-      .map(k => PODBOR_PRIORITIES.find(p => p.key === k)?.label)
+    // Бренд-стратегия
+    const bs = state.brand_strategy;
+    const bsLabel = PODBOR_BRAND_STRATEGY.find(s => s.key === bs)?.label || "—";
+    let brandDetail = "";
+    if (bs === "single") {
+      const sb = PODBOR_SINGLE_BRAND_OPTIONS.find(o => o.key === state.single_brand);
+      brandDetail = sb ? ` · ${sb.label}` : "";
+    } else if (bs === "different") {
+      const totalBrands = Object.values(state.brands || {}).reduce((s, c) => s + Object.keys(c || {}).length, 0);
+      brandDetail = totalBrands ? ` · ${totalBrands} отметок` : "";
+    }
+
+    // Бюджет
+    const bp = state.budget_preset;
+    const bpDef = PODBOR_BUDGET_PRESETS.find(p => p.key === bp);
+    let budgetLabel = bpDef?.label || "—";
+    if (bp === "exact") {
+      let totalFrom = 0, totalTo = 0;
+      state.categories.forEach(c => {
+        const r = state.price_ranges[c] || {};
+        totalFrom += parseInt(r.from || "0", 10) || 0;
+        totalTo   += parseInt(r.to   || "0", 10) || 0;
+      });
+      if (totalFrom || totalTo) budgetLabel = `${formatRub(totalFrom)} — ${formatRub(totalTo)} ₽`;
+    } else if (bpDef?.hint) {
+      budgetLabel = `${bpDef.label} · ${bpDef.hint}`;
+    }
+
+    // Стратегия подбора
+    const strategyLabels = (state.pick_strategies || [])
+      .map(k => PODBOR_PICK_STRATEGIES.find(s => s.key === k)?.label)
       .filter(Boolean).join(" · ");
 
     const node = el(`
@@ -926,10 +1049,11 @@ const Podbor = (function () {
         <div class="block summary-block">
           <div class="kv"><span>Клиент</span><strong>${state.client_name || "—"}</strong></div>
           <div class="kv"><span>Категорий</span><strong>${state.categories.length}</strong></div>
-          <div class="kv"><span>Ценовой коридор</span><strong>${totalRange}</strong></div>
+          <div class="kv"><span>Бренд</span><strong>${bsLabel}${brandDetail}</strong></div>
+          <div class="kv"><span>Бюджет</span><strong>${budgetLabel}</strong></div>
+          <div class="kv"><span>Стратегия</span><strong>${strategyLabels || "—"}</strong></div>
           <div class="kv"><span>Подключение</span><strong>${PODBOR_INFRA.stove.find(f => f.key === state.infra.stove)?.label || "—"}</strong></div>
           <div class="kv"><span>Вентиляция</span><strong>${PODBOR_INFRA.vent.find(f => f.key === state.infra.vent)?.label || "—"}</strong></div>
-          <div class="kv"><span>Приоритеты</span><strong>${priorityLabels || "—"}</strong></div>
         </div>
 
         <label class="field">
@@ -938,7 +1062,7 @@ const Podbor = (function () {
         </label>
 
         <div class="podbor-cta-row">
-          <button class="btn-secondary" data-go="brands">Назад</button>
+          <button class="btn-secondary" data-go="infra">Назад</button>
           <button class="btn-primary" id="submitBtn">Отправить · AI подберёт</button>
         </div>
 

@@ -42,6 +42,49 @@ const PODBOR_PRIORITIES = [
   { key: "service",  label: "Сервис и гарантия" },
 ];
 
+/* === Новая структура: бренд-стратегия / бюджет / стратегия подбора === */
+
+const PODBOR_BRAND_STRATEGY = [
+  { key: "ai",        label: "Пусть AI решит",               hint: "оптимально под бюджет и стратегию", recommended: true },
+  { key: "single",    label: "Одна марка на всю кухню",      hint: "моноблочный комплект, премиум-сценарий" },
+  { key: "different", label: "Разные марки по категориям",   hint: "соберём оптимальный микс" },
+];
+
+/* Бренды, у которых есть полная линейка кухонной техники (для single-mode) */
+const PODBOR_SINGLE_BRAND_OPTIONS = [
+  { key: "miele",      label: "Miele",      tier: "premium" },
+  { key: "gaggenau",   label: "Gaggenau",   tier: "premium" },
+  { key: "asko",       label: "Asko",       tier: "premium" },
+  { key: "v_zug",      label: "V-ZUG",      tier: "premium" },
+  { key: "neff",       label: "Neff",       tier: "middle"  },
+  { key: "bosch",      label: "Bosch",      tier: "middle"  },
+  { key: "siemens",    label: "Siemens",    tier: "middle"  },
+  { key: "electrolux", label: "Electrolux", tier: "middle"  },
+  { key: "aeg",        label: "AEG",        tier: "middle"  },
+  { key: "samsung",    label: "Samsung",    tier: "middle"  },
+  { key: "lg",         label: "LG",         tier: "middle"  },
+  { key: "hansa",      label: "Hansa",      tier: "budget"  },
+  { key: "beko",       label: "Beko",       tier: "budget"  },
+  { key: "ai_pick",    label: "Пусть AI выберет под бюджет", recommended: true },
+];
+
+const PODBOR_BUDGET_PRESETS = [
+  { key: "luxe",    label: "Люкс",          hint: "от 1.5М ₽ за весь комплект" },
+  { key: "premium", label: "Премиум",       hint: "700к – 1.5М ₽" },
+  { key: "middle",  label: "Средний",       hint: "350к – 700к ₽", recommended: true },
+  { key: "budget",  label: "Бюджет",        hint: "до 350к ₽" },
+  { key: "exact",   label: "Точные цифры",  hint: "ввести от-до по категориям" },
+];
+
+const PODBOR_PICK_STRATEGIES = [
+  { key: "reviews",       label: "Лучшее по отзывам",         hint: "топ по рейтингам пользователей" },
+  { key: "balance",       label: "Цена / качество",            hint: "оптимальный баланс",            recommended: true },
+  { key: "premium_brand", label: "Топ-бренды премиум",         hint: "Miele · Gaggenau · Sub-Zero" },
+  { key: "cheap",         label: "Самое доступное",            hint: "надёжный минимум" },
+  { key: "tech",          label: "Современные технологии",     hint: "Wi-Fi · инверторы · пар" },
+  { key: "style",         label: "Стилевая согласованность",   hint: "единый дизайн-язык всей техники" },
+];
+
 /* Параметры по категориям.
    ----------------------------------------------------------
    Новая схема (иерархический wizard):
