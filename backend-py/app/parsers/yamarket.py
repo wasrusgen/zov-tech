@@ -24,16 +24,20 @@ _PRICE_RE = re.compile(r"([\d\s]+)\s*₽")
 
 def search_yamarket(query: str, limit: int = 3, timeout: float = 30.0,
                     max_retries: int = 1) -> list[dict[str, Any]]:
-    """Поиск товара в Я.Маркете через headless Chromium."""
+    """Поиск товара в Я.Маркете через headless Chromium + residential proxy.
+
+    Я.Маркет (2025-2026) использует URL pattern `/card/{slug}/{productId}`.
+    Старые URL `/product--` больше не применяются.
+    """
     url = f"{_BASE_URL}/search?text={quote_plus(query)}"
 
     html = None
     for attempt in range(max_retries + 1):
         html = playwright_engine.fetch_page(
             url,
-            # Ждём появления товарных ссылок или контейнера выдачи
-            wait_selector="a[href*='/product--'], [data-auto='SerpItem'], [data-zone-name='snippet-card']",
-            wait_ms=3500,
+            # Ждём появления товарных ссылок /card/...
+            wait_selector="a[href*='/card/']",
+            wait_ms=5000,
             timeout_ms=int(timeout * 1000),
         )
         if html:
@@ -46,128 +50,135 @@ def search_yamarket(query: str, limit: int = 3, timeout: float = 30.0,
     if "showcaptcha" in html.lower() or "qrator" in html.lower()[:5000]:
         log.warning("YaMarket: Qrator/captcha for query=%r", query)
         return []
+    if "Похоже, вы&nbsp;используете" in html[:30000] or "используете VPN" in html[:30000]:
+        log.warning("YaMarket: VPN warning page for query=%r", query)
+        return []
 
     return _parse_html(html, limit=limit)
 
 
 def _parse_html(html: str, limit: int) -> list[dict[str, Any]]:
+    """Парсим товары через URL pattern /card/{slug}/{productId} (Я.Маркет 2026)."""
     soup = BeautifulSoup(html, "html.parser")
     results: list[dict[str, Any]] = []
+    seen_ids = set()
 
-    # Основной селектор — товарные карточки на странице поиска
-    candidates = (
-        soup.select("[data-auto='SerpItem']")
-        or soup.select("[data-zone-name='snippet-card']")
-        or soup.select("article[data-baobab-name='card']")
-        or soup.select("article:has(a[href*='/product--'])")
-    )
-
-    for card in candidates:
+    for link in soup.select("a[href*='/card/']"):
         if len(results) >= limit:
             break
-        item = _extract_card(card)
+        href = link.get("href") or ""
+        m_id = re.search(r"/card/[^/]+/(\d+)", href)
+        if not m_id:
+            continue
+        product_id = m_id.group(1)
+        if product_id in seen_ids:
+            continue
+        seen_ids.add(product_id)
+
+        full_url = href if href.startswith("http") else f"{_BASE_URL}{href}"
+        clean_url = full_url.split("?")[0]
+
+        # Карточка-родитель — article, div с data-zone-name или просто ближайший div
+        card = (
+            link.find_parent("article")
+            or link.find_parent("div", attrs={"data-zone-name": True})
+            or link.find_parent("div")
+        )
+        if not card:
+            continue
+        item = _extract_card(card, link, clean_url)
         if item:
             results.append(item)
-
-    # Резерв — собрать по найденным ссылкам product--
-    if not results:
-        seen = set()
-        for a in soup.select("a[href*='/product--']")[:limit * 2]:
-            href = a.get("href") or ""
-            if href in seen:
-                continue
-            seen.add(href)
-            # Берём родительский article как карточку
-            card = a.find_parent("article") or a.find_parent("div")
-            if card:
-                item = _extract_card(card)
-                if item:
-                    results.append(item)
-                    if len(results) >= limit:
-                        break
 
     return results
 
 
-def _extract_card(card) -> dict[str, Any] | None:
-    """Достаём заголовок, ссылку, цену, рейтинг, отзывы, фото, кол-во магазинов."""
-    link_el = (
-        card.select_one("a[href*='/product--']")
-        or card.select_one("a[data-baobab-name='title']")
-    )
-    if not link_el:
-        return None
-    href = link_el.get("href") or ""
-    url = href if href.startswith("http") else f"{_BASE_URL}{href}"
+def _extract_card(card, link_el, url: str) -> dict[str, Any] | None:
+    """Достаём title, price, image, rating, reviews, stores из карточки."""
+    full_text = card.get_text(" ", strip=True)
 
-    title_el = (
-        card.select_one("[data-zone-name='title'] span")
-        or card.select_one("h3 span")
-        or card.select_one("[data-auto='snippet-title']")
-        or link_el
-    )
-    title = title_el.get_text(strip=True) if title_el else (link_el.get_text(strip=True))
+    # Title — обычно в самой ссылке, либо в h3/h2/span внутри
+    title = (link_el.get("title") or link_el.get_text(strip=True) or "").strip()
+    if not title or len(title) < 5:
+        for sel in ["h3", "h2", "[data-auto='snippet-title']", "span[itemprop='name']"]:
+            el = card.select_one(sel)
+            if el:
+                t = (el.get("title") or el.get_text(strip=True)).strip()
+                if t and len(t) > 5:
+                    title = t
+                    break
     if not title:
+        # Резерв — длинный текст без цены/рейтинга
+        for s in card.find_all("span"):
+            t = s.get_text(strip=True)
+            if 15 < len(t) < 250 and "₽" not in t and "★" not in t and "отзыв" not in t.lower():
+                title = t
+                break
+    if not title or len(title) < 5:
         return None
 
-    # Цена
-    price_min = price_max = None
-    price_el = (
-        card.select_one("[data-auto='snippet-price-current']")
-        or card.select_one("[data-auto='price-value']")
-        or card.select_one("[class*='Price']")
-    )
-    if price_el:
-        m = _PRICE_RE.search(price_el.get_text(" ", strip=True))
-        if m:
-            price_min = _try_int(m.group(1).replace(" ", "").replace(" ", ""))
+    # Цена — минимальная в карточке
+    price_min = None
+    for m in _PRICE_RE.finditer(full_text):
+        raw = m.group(1).replace(" ", "").replace(" ", "").replace(" ", "")
+        try:
+            v = int(raw)
+            if 100 < v < 10_000_000:
+                if price_min is None or v < price_min:
+                    price_min = v
+        except ValueError:
+            pass
 
-    # Картинка
+    # Картинка (исключаем placeholder'ы)
     img_url = None
-    img_el = card.select_one("img[src], img[srcset]")
-    if img_el:
+    for img_el in card.find_all("img"):
         src = img_el.get("src") or img_el.get("data-src") or ""
-        # Иногда src — заглушка 1x1px, основное в srcset
-        if "data:image" in src or not src:
+        if not src or "data:image" in src:
             srcset = img_el.get("srcset") or ""
             if srcset:
                 src = srcset.split(",")[0].strip().split(" ")[0]
         if src.startswith("//"):
             src = "https:" + src
-        if src:
-            img_url = src
+        if not src or "yastatic" in src or "_next/static" in src:
+            continue
+        img_url = src
+        break
 
     # Рейтинг
     rating = None
-    rating_el = card.select_one("[data-auto='snippet-rating'], [class*='Rating'] span")
-    if rating_el:
-        rt = rating_el.get_text(strip=True)
-        m = re.search(r"\d[.,]\d", rt)
-        if m:
-            rating = _try_float(m.group(0))
+    m = re.search(r"(\d[.,]\d)(?:\s*★|\s*\(?\d+\s*оцен)", full_text)
+    if m:
+        try:
+            r = float(m.group(1).replace(",", "."))
+            if 0 < r <= 5.0:
+                rating = r
+        except ValueError:
+            pass
 
     # Отзывы
     reviews = None
-    reviews_el = card.select_one("[data-auto='snippet-feedback'], a[href*='/reviews']")
-    if reviews_el:
-        m = re.search(r"\d[\d\s]*", reviews_el.get_text(" ", strip=True))
-        if m:
-            reviews = _try_int(m.group(0).replace(" ", ""))
+    m = re.search(r"(\d[\d\s ]*)\s*(?:отзыв|оценок|review)", full_text, re.I)
+    if m:
+        try:
+            reviews = int(m.group(1).replace(" ", "").replace(" ", "").replace(" ", ""))
+        except ValueError:
+            pass
 
     # Кол-во магазинов / предложений
     stores = None
-    stores_el = card.select_one("[data-auto='offer-count'], a[href*='/offers']")
-    if stores_el:
-        m = re.search(r"\d+", stores_el.get_text(" ", strip=True))
-        if m:
-            stores = int(m.group(0))
+    m = re.search(r"(?:от|в)\s+(\d+)\s+(?:магазин|предложен)", full_text)
+    if m:
+        try:
+            stores = int(m.group(1))
+        except ValueError:
+            pass
 
     return {
-        "title": title,
+        "title": title[:250],
         "url": url,
         "image_url": img_url,
         "price_min_rub": price_min,
-        "price_max_rub": price_max if price_max and price_max != price_min else None,
+        "price_max_rub": None,
         "rating": rating,
         "reviews_count": reviews,
         "stores_count": stores,
