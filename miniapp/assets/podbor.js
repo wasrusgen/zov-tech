@@ -892,8 +892,26 @@ const Podbor = (function () {
 
   function renderBudget() {
     const bp = state.budget_preset || "";
+
+    // Считаем суммарную долю выбранных категорий от полного комплекта
+    const share = (state.categories || []).reduce(
+      (s, c) => s + (PODBOR_BUDGET_SHARES[c] || 0), 0
+    ) / 100;
+    const shareSafe = share > 0 ? share : 1;
+
+    // Подмешиваем hint с реальной вилкой для выбранных категорий
+    const presetsWithRange = PODBOR_BUDGET_PRESETS.map(o => {
+      if (o.key === "exact") return { ...o, hint: o.desc };
+      const r = PODBOR_BUDGET_RANGES[o.key];
+      if (!r) return { ...o, hint: o.desc };
+      const from = Math.round(r.from * shareSafe);
+      const to   = Math.round(r.to   * shareSafe);
+      const label = from >= 1000 ? `${(from/1000).toFixed(1)}–${(to/1000).toFixed(1)}М ₽` : `${from}–${to} тыс ₽`;
+      return { ...o, hint: `${label} · ${o.desc}` };
+    });
+
     const presetGrid = renderPinCards(
-      PODBOR_BUDGET_PRESETS,
+      presetsWithRange,
       o => (bp === o.key ? "on" : ""),
       key => { update({ budget_preset: key }); render(); }
     );
@@ -1010,27 +1028,58 @@ const Podbor = (function () {
   /* ===================== Step: infra ===================== */
 
   function renderInfra() {
+    const cats = state.categories || [];
+    const askStove = cats.includes("hob");
+    const askVent  = cats.includes("hood");
+
+    // Если ни одна из релевантных категорий не выбрана — пропускаем шаг
+    if (!askStove && !askVent) {
+      // Автопереход на summary через микропаузу (чтобы пользователь увидел)
+      setTimeout(() => { go("summary"); }, 50);
+      return el(`
+        <section class="podbor-step">
+          <p class="lede" style="text-align:center;padding:30px;">
+            Инфраструктурные вопросы для выбранных категорий не требуются — переходим к итогу...
+          </p>
+        </section>
+      `);
+    }
+
+    const stoveBlock = askStove ? `
+      <div class="block">
+        <div class="block-head">Подключение варочной</div>
+        <div class="opt-list">
+          ${PODBOR_INFRA.stove.map(o => `
+            <button class="opt${state.infra.stove === o.key ? " on" : ""}" data-infra="stove" data-val="${o.key}">${o.label}</button>
+          `).join("")}
+        </div>
+      </div>
+    ` : "";
+
+    const ventBlock = askVent ? `
+      <div class="block">
+        <div class="block-head">Вытяжка → внутридомовая вентиляция?</div>
+        <div class="opt-list">
+          ${PODBOR_INFRA.vent.map(o => `
+            <button class="opt${state.infra.vent === o.key ? " on" : ""}" data-infra="vent" data-val="${o.key}">${o.label}</button>
+          `).join("")}
+        </div>
+        <div class="hint">Если «Нет» — менеджер закладывает угольный фильтр. Если «Да» — заранее планируем выводы.</div>
+      </div>
+    ` : "";
+
+    const lede = (askStove && askVent)
+      ? "Газ или электрика — определит тип варочной. Подключение вытяжки — нужны ли выводы или угольный фильтр."
+      : askStove
+      ? "Газ или электрика — определит тип варочной (индукция / стеклокерамика / газ)."
+      : "Подключение вытяжки — нужны ли выводы в вентшахту или угольный фильтр.";
+
     const node = el(`
       <section class="podbor-step">
         <h2 class="display-title">Инфраструктура<br><span class="accent">кухни</span></h2>
-        <p class="lede">Газ или электрика — определит тип варочной. Подключение вытяжки — нужны ли выводы или угольный фильтр.</p>
-        <div class="block">
-          <div class="block-head">Подключение варочной</div>
-          <div class="opt-list">
-            ${PODBOR_INFRA.stove.map(o => `
-              <button class="opt${state.infra.stove === o.key ? " on" : ""}" data-infra="stove" data-val="${o.key}">${o.label}</button>
-            `).join("")}
-          </div>
-        </div>
-        <div class="block">
-          <div class="block-head">Вытяжка → внутридомовая вентиляция?</div>
-          <div class="opt-list">
-            ${PODBOR_INFRA.vent.map(o => `
-              <button class="opt${state.infra.vent === o.key ? " on" : ""}" data-infra="vent" data-val="${o.key}">${o.label}</button>
-            `).join("")}
-          </div>
-          <div class="hint">Если «Нет» — менеджер закладывает угольный фильтр. Если «Да» — заранее планируем выводы.</div>
-        </div>
+        <p class="lede">${lede}</p>
+        ${stoveBlock}
+        ${ventBlock}
         <div class="podbor-cta-row">
           <button class="btn-secondary" data-go="strategy">Назад</button>
           <button class="btn-primary" data-go="summary">Дальше</button>
@@ -1103,7 +1152,7 @@ const Podbor = (function () {
         </label>
 
         <div class="podbor-cta-row">
-          <button class="btn-secondary" data-go="infra">Назад</button>
+          <button class="btn-secondary" id="summaryBack">Назад</button>
           <button class="btn-primary" id="submitBtn">Отправить · AI подберёт</button>
         </div>
 
@@ -1112,6 +1161,12 @@ const Podbor = (function () {
     `);
     bindInputs(node);
     bindNav(node);
+    // Кнопка "Назад" — обходим infra если она авто-пропускается
+    node.querySelector("#summaryBack").addEventListener("click", () => {
+      const cats = state.categories || [];
+      const goTo = (cats.includes("hob") || cats.includes("hood")) ? "infra" : "strategy";
+      go(goTo);
+    });
     node.querySelector("#submitBtn").addEventListener("click", () => onSubmit(node));
     return node;
   }
@@ -1131,6 +1186,11 @@ const Podbor = (function () {
     }
 
     try {
+      // Финальная нормализация телефона перед отправкой
+      const normPhone = normalizePhone(state.client_phone || "");
+      if (normPhone && normPhone !== state.client_phone) {
+        update({ client_phone: normPhone });
+      }
       const res = await fetch(`${BACKEND_URL}/api/podbor`, {
         method: "POST",
         body: JSON.stringify({
@@ -1335,7 +1395,29 @@ const Podbor = (function () {
       inp.addEventListener("input", e => {
         update({ [e.target.dataset.bind]: e.target.value });
       });
+      // Нормализация телефона на blur
+      if (inp.dataset.bind === "client_phone") {
+        inp.addEventListener("blur", e => {
+          const normalized = normalizePhone(e.target.value);
+          if (normalized && normalized !== e.target.value) {
+            e.target.value = normalized;
+            update({ client_phone: normalized });
+          }
+        });
+      }
     });
+  }
+
+  /* Приводим телефон к единому формату +7 XXX XXX-XX-XX.
+     Принимает: 8XXXXXXXXXX, 7XXXXXXXXXX, +7XXXXXXXXXX, 9XXXXXXXXX (без префикса). */
+  function normalizePhone(raw) {
+    if (!raw) return "";
+    const digits = raw.replace(/\D/g, "");
+    let d = digits;
+    if (d.length === 11 && d.startsWith("8")) d = "7" + d.slice(1);
+    if (d.length === 10 && d.startsWith("9")) d = "7" + d; // мобильный без префикса
+    if (d.length !== 11 || !d.startsWith("7")) return raw.trim(); // не похоже на РФ-номер — не трогаем
+    return `+7 ${d.slice(1, 4)} ${d.slice(4, 7)}-${d.slice(7, 9)}-${d.slice(9, 11)}`;
   }
 
   function bindNav(node) {

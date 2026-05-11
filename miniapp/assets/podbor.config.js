@@ -50,30 +50,56 @@ const PODBOR_BRAND_STRATEGY = [
   { key: "different", label: "Разные марки по категориям",   hint: "соберём оптимальный микс" },
 ];
 
-/* Бренды, у которых есть полная линейка кухонной техники (для single-mode) */
+/* Бренды, у которых есть полная линейка кухонной техники, реально доступные в РФ (2026).
+   tier: premium / middle / budget · note: "available" | "parallel" (параллельный импорт). */
 const PODBOR_SINGLE_BRAND_OPTIONS = [
-  { key: "miele",      label: "Miele",      tier: "premium" },
-  { key: "gaggenau",   label: "Gaggenau",   tier: "premium" },
-  { key: "asko",       label: "Asko",       tier: "premium" },
-  { key: "v_zug",      label: "V-ZUG",      tier: "premium" },
-  { key: "neff",       label: "Neff",       tier: "middle"  },
-  { key: "bosch",      label: "Bosch",      tier: "middle"  },
-  { key: "siemens",    label: "Siemens",    tier: "middle"  },
-  { key: "electrolux", label: "Electrolux", tier: "middle"  },
-  { key: "aeg",        label: "AEG",        tier: "middle"  },
-  { key: "samsung",    label: "Samsung",    tier: "middle"  },
-  { key: "lg",         label: "LG",         tier: "middle"  },
-  { key: "hansa",      label: "Hansa",      tier: "budget"  },
-  { key: "beko",       label: "Beko",       tier: "budget"  },
-  { key: "ai_pick",    label: "Пусть AI выберет под бюджет", recommended: true },
+  // Премиум — официально или через параллельный импорт
+  { key: "miele",   label: "Miele",   tier: "premium", note: "parallel"  },
+  { key: "asko",    label: "Asko",    tier: "premium", note: "available" },
+  { key: "smeg",    label: "Smeg",    tier: "premium", note: "parallel"  },
+  { key: "gorenje", label: "Gorenje", tier: "premium", note: "available" },
+
+  // Средний — реально работающие бренды
+  { key: "haier",   label: "Haier",   tier: "middle",  note: "available" },
+  { key: "samsung", label: "Samsung", tier: "middle",  note: "available" },
+  { key: "lg",      label: "LG",      tier: "middle",  note: "available" },
+  { key: "korting", label: "Körting", tier: "middle",  note: "available" },
+  { key: "midea",   label: "Midea",   tier: "middle",  note: "available" },
+  { key: "bosch",   label: "Bosch ⚠",   tier: "middle", note: "parallel" },
+  { key: "siemens", label: "Siemens ⚠", tier: "middle", note: "parallel" },
+
+  // Бюджет — российские/китайские
+  { key: "biryusa",   label: "Бирюса",  tier: "budget", note: "available" },
+  { key: "atlant",    label: "Атлант",  tier: "budget", note: "available" },
+  { key: "pozis",     label: "Pozis",   tier: "budget", note: "available" },
+  { key: "hisense",   label: "Hisense", tier: "budget", note: "available" },
+  { key: "hansa",     label: "Hansa",   tier: "budget", note: "available" },
+  { key: "dexp",      label: "DEXP",    tier: "budget", note: "available" },
+
+  { key: "ai_pick",   label: "Пусть AI выберет под бюджет", recommended: true },
 ];
 
+/* Доля бюджета каждой категории от полного комплекта (для адаптивных вилок). */
+const PODBOR_BUDGET_SHARES = {
+  fridge: 25, hob: 12, oven: 15, dw: 10,
+  hood: 8, microwave: 5, coffee: 15, washer: 10,
+};
+
+/* Базовые вилки для ПОЛНОГО комплекта 8 категорий (в тыс. ₽).
+   Адаптируются по выбранным категориям через PODBOR_BUDGET_SHARES. */
+const PODBOR_BUDGET_RANGES = {
+  luxe:    { from: 1500, to: 3000 },  // от 1.5М
+  premium: { from: 700,  to: 1500 },
+  middle:  { from: 350,  to: 700  },
+  budget:  { from: 100,  to: 350  },
+};
+
 const PODBOR_BUDGET_PRESETS = [
-  { key: "luxe",    label: "Люкс",          hint: "от 1.5М ₽ за весь комплект" },
-  { key: "premium", label: "Премиум",       hint: "700к – 1.5М ₽" },
-  { key: "middle",  label: "Средний",       hint: "350к – 700к ₽", recommended: true },
-  { key: "budget",  label: "Бюджет",        hint: "до 350к ₽" },
-  { key: "exact",   label: "Точные цифры",  hint: "ввести от-до по категориям" },
+  { key: "luxe",    label: "Люкс",         desc: "лучшее без оглядки на цену" },
+  { key: "premium", label: "Премиум",      desc: "топовые модели · все опции" },
+  { key: "middle",  label: "Средний",      desc: "оптимальный баланс · цена/функции", recommended: true },
+  { key: "budget",  label: "Бюджет",       desc: "только нужное" },
+  { key: "exact",   label: "Точные цифры", desc: "вилки от-до по каждой категории" },
 ];
 
 const PODBOR_PICK_STRATEGIES = [
@@ -635,47 +661,47 @@ const PODBOR_PARAMS = {
   },
 };
 
-/* Бренды для каждой категории — для чипов с тирами.
-   Сокращённый набор; полный список можно расширить из исходного HTML. */
+/* Бренды по категориям (актуально на 2026, РФ).
+   ⚠ — параллельный импорт, остальные — официально доступны. */
 const PODBOR_BRANDS = {
   fridge: {
-    premium: ["Liebherr", "Miele", "Sub-Zero", "V-ZUG"],
-    middle:  ["Bosch", "Siemens", "Samsung", "LG"],
-    budget:  ["Indesit", "Beko", "Hotpoint"],
+    premium: ["Miele ⚠", "Liebherr ⚠", "Asko", "Gorenje"],
+    middle:  ["Haier", "Samsung", "LG", "Korting", "Bosch ⚠", "Siemens ⚠"],
+    budget:  ["Бирюса", "Атлант", "Pozis", "Hisense", "Indesit", "Hansa"],
   },
   hob: {
-    premium: ["Miele", "Gaggenau", "AEG"],
-    middle:  ["Bosch", "Siemens", "Electrolux", "Hansa"],
-    budget:  ["Hotpoint", "Beko", "Indesit"],
+    premium: ["Miele ⚠", "Asko", "Gorenje", "Smeg ⚠"],
+    middle:  ["Korting", "Haier", "Midea", "Bosch ⚠", "Siemens ⚠"],
+    budget:  ["Hansa", "Hisense", "DEXP", "Дарина"],
   },
   oven: {
-    premium: ["Miele", "Gaggenau", "Neff"],
-    middle:  ["Bosch", "Siemens", "Electrolux", "AEG"],
-    budget:  ["Hansa", "Beko", "Hotpoint"],
+    premium: ["Miele ⚠", "Asko", "Gorenje", "Smeg ⚠"],
+    middle:  ["Korting", "Haier", "Midea", "Samsung", "Bosch ⚠"],
+    budget:  ["Hansa", "Hisense", "DEXP", "Дарина"],
   },
   dw: {
-    premium: ["Miele", "Asko", "V-ZUG"],
-    middle:  ["Bosch", "Siemens", "Electrolux"],
-    budget:  ["Hansa", "Beko", "Indesit"],
+    premium: ["Miele ⚠", "Asko", "Gorenje"],
+    middle:  ["Haier", "Midea", "Korting", "Bosch ⚠"],
+    budget:  ["Hansa", "Hisense", "Indesit"],
   },
   hood: {
-    premium: ["Miele", "Falmec", "Faber"],
-    middle:  ["Bosch", "Siemens", "Elica"],
-    budget:  ["Hansa", "Hotpoint", "Maunfeld"],
+    premium: ["Miele ⚠", "Falmec ⚠", "Faber ⚠", "Gorenje"],
+    middle:  ["Korting", "Maunfeld", "Elikor", "Haier"],
+    budget:  ["Hansa", "Hisense", "DEXP", "Krona"],
   },
   microwave: {
-    premium: ["Miele", "Neff"],
-    middle:  ["Bosch", "Siemens", "Samsung", "LG"],
-    budget:  ["Whirlpool", "Hansa", "Beko"],
+    premium: ["Miele ⚠", "Asko"],
+    middle:  ["Samsung", "LG", "Haier", "Midea", "Bosch ⚠"],
+    budget:  ["Hansa", "Hisense", "DEXP", "Polaris"],
   },
   coffee: {
-    premium: ["Miele", "Jura", "De'Longhi PrimaDonna"],
-    middle:  ["De'Longhi", "Saeco", "Bosch"],
-    budget:  ["Krups", "Philips"],
+    premium: ["Miele ⚠", "Jura ⚠", "Saeco ⚠"],
+    middle:  ["De'Longhi ⚠", "Philips ⚠", "Polaris", "Bork ⚠"],
+    budget:  ["Polaris", "Redmond", "Kitfort"],
   },
   washer: {
-    premium: ["Miele", "Asko", "V-ZUG"],
-    middle:  ["Bosch", "Siemens", "Samsung", "LG"],
-    budget:  ["Indesit", "Hotpoint", "Beko"],
+    premium: ["Miele ⚠", "Asko", "Gorenje"],
+    middle:  ["Haier", "Samsung", "LG", "Korting", "Bosch ⚠"],
+    budget:  ["Атлант", "Indesit", "Hansa", "Hisense"],
   },
 };
