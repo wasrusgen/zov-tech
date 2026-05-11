@@ -46,34 +46,37 @@ _PRICE_RE = re.compile(r"(\d[\d\s]*)\s*₽")
 
 
 def search_dns(query: str, limit: int = 1, timeout: float = 30.0,
-               max_retries: int = 1) -> list[dict[str, Any]]:
-    """Поиск на DNS через Playwright + residential proxy.
+               max_retries: int = 4) -> list[dict[str, Any]]:
+    """Поиск на DNS через Playwright + ротация residential прокси.
 
-    DNS защищён Qrator (JS challenge) — обычный HTTP не пройдёт даже с прокси.
-    Playwright решает challenge автоматически (как реальный браузер).
+    DNS защищён Qrator. Многие residential IP уже в чёрных списках, поэтому
+    делаем несколько попыток — на каждой берём новый прокси из пула.
     """
     url = f"{_SEARCH_URL}?q={quote_plus(query)}"
     log.info("DNS search: %s", url)
 
-    html = None
     for attempt in range(max_retries + 1):
         html = playwright_engine.fetch_page(
             url,
             wait_selector="a[href*='/product/']",
-            wait_ms=5000,
+            wait_ms=4000,
             timeout_ms=int(timeout * 1000),
         )
-        if html:
-            break
+        if not html:
+            log.warning("DNS attempt %d: no HTML", attempt + 1)
+            continue
+        # 403 от Qrator = IP в их чёрном списке, пробуем другой
+        if "HTTP 403" in html[:500] or "qrator" in html.lower()[:5000]:
+            log.info("DNS attempt %d: Qrator block, retry with new proxy", attempt + 1)
+            continue
+        # Успех
+        results = _parse_search_html(html, limit=limit)
+        if results:
+            return results
+        log.info("DNS attempt %d: 0 results, retry", attempt + 1)
 
-    if not html:
-        log.warning("DNS: no HTML for query=%r", query)
-        return []
-    if "qrator" in html.lower()[:5000]:
-        log.warning("DNS: Qrator block for query=%r", query)
-        return []
-
-    return _parse_search_html(html, limit=limit)
+    log.warning("DNS gave up after %d attempts for query=%r", max_retries + 1, query)
+    return []
 
 
 def _parse_search_html(html: str, limit: int) -> list[dict[str, Any]]:

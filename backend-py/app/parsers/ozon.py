@@ -22,11 +22,11 @@ _PRICE_RE = re.compile(r"(\d[\d\s  ]+)\s*₽")
 
 
 def search_ozon(query: str, limit: int = 3, timeout: float = 30.0,
-                max_retries: int = 1) -> list[dict[str, Any]]:
-    """Поиск товара в OZON через Playwright."""
+                max_retries: int = 4) -> list[dict[str, Any]]:
+    """Поиск товара в OZON через Playwright + ротация residential прокси."""
     url = f"{_BASE_URL}/search/?text={quote_plus(query)}"
 
-    html = None
+    import re as _re
     for attempt in range(max_retries + 1):
         html = playwright_engine.fetch_page(
             url,
@@ -34,21 +34,21 @@ def search_ozon(query: str, limit: int = 3, timeout: float = 30.0,
             wait_ms=4000,
             timeout_ms=int(timeout * 1000),
         )
-        if html:
-            break
+        if not html:
+            log.warning("OZON attempt %d: no HTML", attempt + 1)
+            continue
+        title_m = _re.search(r"<title>(.*?)</title>", html, _re.IGNORECASE)
+        page_title = title_m.group(1) if title_m else ""
+        if "доступ ограничен" in page_title.lower() or "/antibot/" in html[:5000]:
+            log.info("OZON attempt %d: anti-bot, retry with new proxy", attempt + 1)
+            continue
+        results = _parse_html(html, limit=limit)
+        if results:
+            return results
+        log.info("OZON attempt %d: 0 results, retry", attempt + 1)
 
-    if not html:
-        log.warning("OZON: no HTML for query=%r", query)
-        return []
-    # OZON показывает "Доступ ограничен" как <title>, либо редирект на /antibot/
-    import re as _re
-    title_m = _re.search(r"<title>(.*?)</title>", html, _re.IGNORECASE)
-    page_title = title_m.group(1) if title_m else ""
-    if "доступ ограничен" in page_title.lower() or "/antibot/" in html[:5000]:
-        log.warning("OZON: anti-bot page (title=%r)", page_title)
-        return []
-
-    return _parse_html(html, limit=limit)
+    log.warning("OZON gave up after %d attempts", max_retries + 1)
+    return []
 
 
 def _parse_html(html: str, limit: int) -> list[dict[str, Any]]:
