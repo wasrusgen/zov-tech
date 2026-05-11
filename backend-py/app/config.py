@@ -19,6 +19,8 @@ class Config:
     active_period_days: int
     grace_period_days: int
 
+    proxy6_token: str  # пусто = без прокси (прямой HTTP)
+
 
 def _required(name: str) -> str:
     val = os.getenv(name)
@@ -39,4 +41,5 @@ def get_config() -> Config:
         gigachat_scope=os.getenv("GIGACHAT_SCOPE", "GIGACHAT_API_PERS"),
         active_period_days=int(os.getenv("ACTIVE_PERIOD_DAYS", "90")),
         grace_period_days=int(os.getenv("GRACE_PERIOD_DAYS", "14")),
+        proxy6_token=os.getenv("PROXY6_TOKEN", ""),
     )

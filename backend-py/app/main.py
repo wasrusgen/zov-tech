@@ -11,8 +11,9 @@ from fastapi.responses import JSONResponse
 
 from .config import get_config
 from .auth import verify_init_data
-from . import sheets, ai, telegram as tg
-from .parsers import dns as parser_dns
+from . import sheets, ai, telegram as tg, proxy_pool
+from . import parsers
+from .parsers import dns as parser_dns, wb as parser_wb, ozon as parser_ozon, yamarket as parser_ym
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 log = logging.getLogger("zov.backend")
@@ -143,7 +144,7 @@ async def api_seed_admin():
 
 @app.get("/api/parse_dns")
 async def api_parse_dns(q: str = "", limit: int = 1):
-    """Тестовый эндпоинт парсера DNS. Пример: /api/parse_dns?q=Bosch+KGN39&limit=3"""
+    """Тест парсера DNS."""
     if not q:
         return {"error": "missing_query", "hint": "use ?q=<search>"}
     try:
@@ -151,6 +152,57 @@ async def api_parse_dns(q: str = "", limit: int = 1):
         return {"ok": True, "query": q, "count": len(results), "results": results}
     except Exception as e:
         return {"ok": False, "error": str(e), "query": q}
+
+
+@app.get("/api/parse_wb")
+async def api_parse_wb(q: str = "", limit: int = 3):
+    if not q:
+        return {"error": "missing_query"}
+    try:
+        results = parser_wb.search_wb(q, limit=min(max(1, limit), 10))
+        return {"ok": True, "query": q, "count": len(results), "results": results}
+    except Exception as e:
+        return {"ok": False, "error": str(e), "query": q}
+
+
+@app.get("/api/parse_ozon")
+async def api_parse_ozon(q: str = "", limit: int = 3):
+    if not q:
+        return {"error": "missing_query"}
+    try:
+        results = parser_ozon.search_ozon(q, limit=min(max(1, limit), 10))
+        return {"ok": True, "query": q, "count": len(results), "results": results}
+    except Exception as e:
+        return {"ok": False, "error": str(e), "query": q}
+
+
+@app.get("/api/parse_yamarket")
+async def api_parse_yamarket(q: str = "", limit: int = 3):
+    if not q:
+        return {"error": "missing_query"}
+    try:
+        results = parser_ym.search_yamarket(q, limit=min(max(1, limit), 10))
+        return {"ok": True, "query": q, "count": len(results), "results": results}
+    except Exception as e:
+        return {"ok": False, "error": str(e), "query": q}
+
+
+@app.get("/api/parse_all")
+async def api_parse_all(q: str = ""):
+    """Спрашивает все источники и возвращает агрегированный результат."""
+    if not q:
+        return {"error": "missing_query"}
+    try:
+        data = parsers.enrich_one(q)
+        return {"ok": True, "query": q, "data": data}
+    except Exception as e:
+        return {"ok": False, "error": str(e), "query": q}
+
+
+@app.get("/api/proxy_status")
+async def api_proxy_status():
+    """Диагностика: показывает текущее состояние proxy-пула."""
+    return proxy_pool.pool_status()
 
 
 # =================================================================
@@ -289,13 +341,13 @@ def _handle_podbor(body: dict[str, Any]) -> dict[str, Any]:
     )
     ai_result = ai.call_ai(user_prompt)
 
-    # Обогащение моделей DNS-парсингом
-    enrich_dns = body.get("enrich", True)
-    if enrich_dns:
+    # Обогащение моделей данными с маркетплейсов (WB / Я.Маркет / OZON / DNS)
+    enrich_enabled = body.get("enrich", True)
+    if enrich_enabled:
         try:
-            _enrich_ai_with_dns(ai_result)
+            _enrich_ai_marketplaces(ai_result)
         except Exception as e:
-            log.warning("DNS enrich failed: %s", e)
+            log.warning("Marketplace enrich failed: %s", e)
 
     # Update lead row with AI response
     sheets.update_cell_by_key("Leads", "id", lead_id, "ai_response",
@@ -311,8 +363,10 @@ def _handle_podbor(body: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True, "id": lead_id, "summary": summary_text, "ai": ai_result.get("json")}
 
 
-def _enrich_ai_with_dns(ai_result: dict[str, Any]) -> None:
-    """Берёт ai_result['json']['by_category'][cat]['models'] и обогащает каждую DNS-данными."""
+def _enrich_ai_marketplaces(ai_result: dict[str, Any]) -> None:
+    """Обогащает каждую модель из ai_result['json']['by_category'] данными
+    с маркетплейсов (WB / Я.Маркет / OZON / DNS). Если PROXY6_TOKEN не задан —
+    скорее всего вернёт пустые данные (Qrator блокирует прямые HTTP)."""
     j = ai_result.get("json")
     if not j or not isinstance(j, dict):
         return
@@ -321,7 +375,7 @@ def _enrich_ai_with_dns(ai_result: dict[str, Any]) -> None:
         if not isinstance(cat_data, dict):
             continue
         models = cat_data.get("models") or []
-        cat_data["models"] = parser_dns.enrich_models(models, delay_sec=0.4)
+        cat_data["models"] = parsers.enrich_models(models, delay_sec=0.4)
 
 
 def _handle_test_ai() -> dict[str, Any]:

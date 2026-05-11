@@ -16,6 +16,8 @@ from urllib.parse import quote_plus
 import httpx
 from bs4 import BeautifulSoup
 
+from .. import proxy_pool
+
 log = logging.getLogger("zov.parser.dns")
 
 _BASE_URL = "https://www.dns-shop.ru"
@@ -42,31 +44,41 @@ _HEADERS = {
 _PRICE_RE = re.compile(r"(\d[\d\s]*)\s*₽")
 
 
-def search_dns(query: str, limit: int = 1, timeout: float = 12.0) -> list[dict[str, Any]]:
+def search_dns(query: str, limit: int = 1, timeout: float = 12.0,
+               max_retries: int = 2) -> list[dict[str, Any]]:
     """Поиск товара на DNS по строке запроса.
 
-    Возвращает список результатов (топ-N). Каждый элемент — унифицированный
-    формат (см. parsers/__init__.py). Пустой список при ошибке.
+    Использует Proxy6-пул если PROXY6_TOKEN задан, иначе ходит напрямую.
+    DNS защищён Qrator — без прокси скорее всего 401.
+
+    Возвращает список результатов (топ-N) или пустой при ошибке.
     """
     url = f"{_SEARCH_URL}?q={quote_plus(query)}"
     log.info("DNS search: %s", url)
 
-    try:
-        with httpx.Client(headers=_HEADERS, timeout=timeout, follow_redirects=True) as client:
-            resp = client.get(url)
-    except httpx.HTTPError as e:
-        log.warning("DNS request failed: %s", e)
-        return []
+    last_err = None
+    for attempt in range(max_retries + 1):
+        try:
+            with proxy_pool.proxied_client(timeout=timeout, headers=_HEADERS,
+                                            follow_redirects=True) as client:
+                resp = client.get(url)
+        except httpx.HTTPError as e:
+            last_err = e
+            log.warning("DNS request failed (attempt %d): %s", attempt + 1, e)
+            continue
 
-    if resp.status_code != 200:
-        log.warning("DNS returned %s for query=%r", resp.status_code, query)
-        return []
+        if resp.status_code == 200:
+            text = resp.text
+            if "qrator" in text.lower() or "challenge" in text.lower() or "captcha" in text.lower():
+                log.warning("DNS Qrator/captcha on attempt %d, rotating proxy", attempt + 1)
+                continue
+            return _parse_search_html(text, limit=limit)
 
-    if "challenge" in resp.text.lower() or "captcha" in resp.text.lower():
-        log.warning("DNS anti-bot challenge detected for query=%r", query)
-        return []
+        log.warning("DNS returned status=%s on attempt %d", resp.status_code, attempt + 1)
 
-    return _parse_search_html(resp.text, limit=limit)
+    log.warning("DNS gave up after %d attempts for query=%r (last_err=%s)",
+                max_retries + 1, query, last_err)
+    return []
 
 
 def _parse_search_html(html: str, limit: int) -> list[dict[str, Any]]:
