@@ -53,7 +53,7 @@ def _get_browser():
 
 def fetch_page(url: str, wait_selector: Optional[str] = None,
                wait_ms: int = 3000, timeout_ms: int = 25000,
-               user_agent: Optional[str] = None) -> Optional[str]:
+               user_agent: Optional[str] = None, use_proxy: bool = True) -> Optional[str]:
     """Открывает страницу через headless Chromium, ждёт пока JS отрендерит,
     возвращает текущий HTML.
 
@@ -62,25 +62,38 @@ def fetch_page(url: str, wait_selector: Optional[str] = None,
         wait_selector: если задан — ждём пока этот CSS-селектор появится
         wait_ms: фиксированная задержка после загрузки (для JS-hydration)
         timeout_ms: общий таймаут навигации
-        user_agent: переопределить UA (по умолчанию используется playwright-овский)
+        user_agent: переопределить UA
+        use_proxy: использовать residential proxy из proxy_pool (default True)
     """
     browser = _get_browser()
     if not browser:
         return None
 
+    # Достаём случайный прокси из пула — для каждого запроса свой IP
+    proxy_cfg = None
+    if use_proxy:
+        from .. import proxy_pool
+        proxy_url = proxy_pool.get_random_proxy()
+        if proxy_url:
+            proxy_cfg = _parse_proxy_url_for_playwright(proxy_url)
+
+    ctx_kwargs = {
+        "user_agent": user_agent or
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+        "viewport": {"width": 1280, "height": 800},
+        "locale": "ru-RU",
+        "extra_http_headers": {
+            "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
+        },
+    }
+    if proxy_cfg:
+        ctx_kwargs["proxy"] = proxy_cfg
+
     ctx = None
     page = None
     try:
-        ctx = browser.new_context(
-            user_agent=user_agent or
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                "(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-            viewport={"width": 1280, "height": 800},
-            locale="ru-RU",
-            extra_http_headers={
-                "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
-            },
-        )
+        ctx = browser.new_context(**ctx_kwargs)
         page = ctx.new_page()
 
         # Блокируем тяжёлые ресурсы — экономим время/память
@@ -113,6 +126,20 @@ def fetch_page(url: str, wait_selector: Optional[str] = None,
         if ctx:
             try: ctx.close()
             except: pass
+
+
+def _parse_proxy_url_for_playwright(url: str) -> dict | None:
+    """Конвертирует http://user:pass@host:port в формат для playwright.proxy."""
+    import re
+    m = re.match(r"^(https?|socks5)://(?:([^:]+):([^@]+)@)?([^:/]+):(\d+)/?$", url)
+    if not m:
+        return None
+    scheme, user, pwd, host, port = m.groups()
+    server = f"{scheme}://{host}:{port}"
+    cfg = {"server": server}
+    if user: cfg["username"] = user
+    if pwd:  cfg["password"] = pwd
+    return cfg
 
 
 def shutdown():
