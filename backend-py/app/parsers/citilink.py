@@ -52,10 +52,15 @@ def _parse_html(html: str, limit: int) -> list[dict[str, Any]]:
         if len(results) >= limit:
             break
         href = link.get("href") or ""
-        url_clean = href.split("?")[0]
-        if url_clean in seen_urls:
+        # Пропускаем подстраницы того же товара (/otzyvy/, /opisanie/ и т.п.)
+        if not re.search(r"/product/[^/]+/?$", href.split("?")[0]):
             continue
-        seen_urls.add(url_clean)
+        # Извлекаем product ID для надёжного дедупа
+        m = re.search(r"-(\d+)/?$", href.split("?")[0])
+        product_id = m.group(1) if m else href.split("?")[0]
+        if product_id in seen_urls:
+            continue
+        seen_urls.add(product_id)
 
         full_url = href if href.startswith("http") else f"{_BASE_URL}{href}"
 
@@ -126,15 +131,20 @@ def _extract_card(card, url: str) -> dict[str, Any] | None:
     if not title or len(title) < 10:
         return None
 
-    # Картинка
+    # Картинка — ищем реальное товарное фото (НЕ placeholder/SSR-иконку)
     img_url = None
-    img_el = card.find("img")
-    if img_el:
+    for img_el in card.find_all("img"):
         src = img_el.get("src") or img_el.get("data-src") or ""
-        if src and "data:image" not in src:
-            if src.startswith("//"):
-                src = "https:" + src
-            img_url = src
+        if not src or "data:image" in src:
+            continue
+        if src.startswith("//"):
+            src = "https:" + src
+        # Filter placeholders: rstatic.citilink.ru/_next/static/images/... всегда заглушка
+        if "_next/static/images" in src:
+            continue
+        # Реальные товарные фото — на c.citilink.ru или main.citilink.ru
+        img_url = src
+        break
 
     # Рейтинг
     rating = None
