@@ -29,20 +29,48 @@ _pool: list[str] = []  # ["http://user:pass@host:port", ...]
 _pool_loaded_at: float = 0.0
 
 
+def _normalize_proxy_entry(p: str) -> str | None:
+    """Принимает строку в любом из форматов:
+       - http://user:pass@host:port
+       - socks5://user:pass@host:port
+       - host:port:user:pass (формат Proxys.io)
+       - host:port
+       и возвращает unified URL.
+    """
+    p = p.strip()
+    if not p:
+        return None
+    if "://" in p:
+        return p
+    # host:port:user:pass или host:port
+    parts = p.split(":")
+    if len(parts) == 4:
+        host, port, user, pwd = parts
+        return f"http://{user}:{pwd}@{host}:{port}"
+    if len(parts) == 2:
+        return f"http://{parts[0]}:{parts[1]}"
+    return None
+
+
 def _parse_static_list(raw: str) -> list[str]:
     """Парсит PROXY_STATIC_LIST — строка с прокси через запятую/перевод строки."""
     if not raw:
         return []
-    parts = [p.strip() for p in raw.replace("\n", ",").split(",")]
-    proxies = []
-    for p in parts:
-        if not p:
-            continue
-        # Если протокол не указан — добавляем http://
-        if "://" not in p:
-            p = "http://" + p
-        proxies.append(p)
-    return proxies
+    parts = raw.replace("\n", ",").split(",")
+    return [u for u in (_normalize_proxy_entry(p) for p in parts) if u]
+
+
+def _load_from_file(path: str) -> list[str]:
+    """Загружает прокси из файла. Каждая строка — один прокси в любом формате."""
+    if not path:
+        return []
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+    except (OSError, IOError) as e:
+        log.warning("Failed to read PROXY_LIST_FILE=%s: %s", path, e)
+        return []
+    return [u for u in (_normalize_proxy_entry(line) for line in lines) if u]
 
 
 def _load_pool(force: bool = False) -> list[str]:
@@ -57,11 +85,19 @@ def _load_pool(force: bool = False) -> list[str]:
         cfg = get_config()
         proxies: list[str] = []
 
-        # 1) Статический список из ENV (приоритет, для одиночных IP без API)
+        # 1a) Из файла (для больших списков типа Proxys.io 999 IP)
+        file_proxies = _load_from_file(cfg.proxy_list_file)
+        if file_proxies:
+            proxies.extend(file_proxies)
+            log.info("Proxy file %s: %d entries", cfg.proxy_list_file, len(file_proxies))
+
+        # 1b) Статический список из ENV (для одиночных IP без файла)
         static = _parse_static_list(cfg.proxy_static_list)
         if static:
-            proxies.extend(static)
-            log.info("Static proxy list: %d entries", len(static))
+            # Дедуп
+            new_items = [s for s in static if s not in proxies]
+            proxies.extend(new_items)
+            log.info("Static proxy list: +%d entries (total %d)", len(new_items), len(proxies))
 
         # 2) Динамический пул из Proxy6 API (если есть токен)
         if cfg.proxy6_token:
@@ -133,5 +169,7 @@ def pool_status() -> dict:
         "loaded_age_sec": int(time.time() - _pool_loaded_at) if _pool_loaded_at else None,
         "token_configured": bool(cfg.proxy6_token),
         "static_list_size": len(_parse_static_list(cfg.proxy_static_list)),
-        "proxies": masked,
+        "file_path": cfg.proxy_list_file,
+        "file_loaded": len(_load_from_file(cfg.proxy_list_file)) if cfg.proxy_list_file else 0,
+        "sample": masked[:3],  # первые 3 для проверки формата
     }

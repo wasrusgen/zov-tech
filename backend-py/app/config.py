@@ -21,6 +21,7 @@ class Config:
 
     proxy6_token: str  # пусто = без прокси (прямой HTTP)
     proxy_static_list: str  # статический список прокси через запятую: "http://user:pass@host:port,..."
+    proxy_list_file: str    # путь к файлу со списком прокси в формате "host:port:user:pass" или "http://..."
 
 
 def _required(name: str) -> str:
@@ -44,4 +45,5 @@ def get_config() -> Config:
         grace_period_days=int(os.getenv("GRACE_PERIOD_DAYS", "14")),
         proxy6_token=os.getenv("PROXY6_TOKEN", ""),
         proxy_static_list=os.getenv("PROXY_STATIC_LIST", ""),
+        proxy_list_file=os.getenv("PROXY_LIST_FILE", ""),
     )
