@@ -439,7 +439,22 @@ const Podbor = (function () {
 
   function getCatState(catKey) {
     const cs = state.per_cat[catKey];
-    if (cs && cs.answers) return cs; // уже в новой форме
+    if (cs && cs.answers) {
+      // Чистим ответы для шагов, которых больше нет в текущей схеме
+      // (нужно при обновлении логики категории: например убрали класс энерго у ПММ)
+      const config = PODBOR_PARAMS[catKey];
+      if (config?.steps) {
+        const validKeys = new Set(config.steps.map(s => s.key));
+        const filtered = {};
+        for (const [k, v] of Object.entries(cs.answers)) {
+          if (validKeys.has(k)) filtered[k] = v;
+        }
+        if (Object.keys(filtered).length !== Object.keys(cs.answers).length) {
+          cs.answers = filtered;
+        }
+      }
+      return cs;
+    }
     // Миграция / инициализация
     return { answers: {}, notes: cs?.notes || "", _step: 0 };
   }
