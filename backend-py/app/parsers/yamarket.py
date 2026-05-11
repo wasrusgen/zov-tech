@@ -67,6 +67,9 @@ def _parse_html(html: str, limit: int) -> list[dict[str, Any]]:
         if len(results) >= limit:
             break
         href = link.get("href") or ""
+        # Пропускаем sponsored — их URL'ы с CPC-токенами истекают через несколько часов
+        if "sponsored=1" in href or "cpc=" in href or "advUuid" in href:
+            continue
         m_id = re.search(r"/card/[^/]+/(\d+)", href)
         if not m_id:
             continue

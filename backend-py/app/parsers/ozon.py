@@ -64,13 +64,17 @@ def _parse_html(html: str, limit: int) -> list[dict[str, Any]]:
             break
 
         href = link.get("href") or ""
-        # Нормализация URL — убираем query params для дедупа
+        # Пропускаем спонсорные ссылки — они истекают через 2-3 часа
+        if "sponsored=1" in href or "/promo/" in href or "cpc=" in href:
+            continue
+        # Чистим URL — убираем все query-параметры
         url_clean = href.split("?")[0]
         if url_clean in seen_urls:
             continue
         seen_urls.add(url_clean)
 
-        full_url = href if href.startswith("http") else f"{_BASE_URL}{href}"
+        # Финальный URL — БЕЗ query params (sponsored ссылки иначе через 2-3ч 404)
+        full_url = url_clean if url_clean.startswith("http") else f"{_BASE_URL}{url_clean}"
 
         # Поднимаемся до карточки — у OZON это обычно ближайший div с tile-* классом
         card = (

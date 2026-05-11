@@ -62,7 +62,9 @@ def _parse_html(html: str, limit: int) -> list[dict[str, Any]]:
             continue
         seen_urls.add(product_id)
 
-        full_url = href if href.startswith("http") else f"{_BASE_URL}{href}"
+        # Финальный URL — БЕЗ query params (sponsored / cpc / tracking)
+        href_clean = href.split("?")[0]
+        full_url = href_clean if href_clean.startswith("http") else f"{_BASE_URL}{href_clean}"
 
         # Поднимаемся к родительской карточке — у Citilink CSS-in-JS, поэтому
         # ищем ближайший div, в котором есть и цена и название
