@@ -138,20 +138,40 @@ def _extract_card(card, link_el, url: str) -> dict[str, Any] | None:
         except ValueError:
             pass
 
-    # Картинка (исключаем placeholder'ы)
+    # Картинка — приоритет: avatars.mds.yandex.net (реальные товарные фото)
     img_url = None
+    candidates = []
     for img_el in card.find_all("img"):
-        src = img_el.get("src") or img_el.get("data-src") or ""
+        for attr in ("data-src", "data-original", "srcset", "data-srcset", "src"):
+            v = img_el.get(attr) or ""
+            if not v:
+                continue
+            if attr in ("srcset", "data-srcset"):
+                # Берём самый большой размер
+                parts = v.split(",")
+                if parts:
+                    candidates.append(parts[-1].strip().split(" ")[0])
+            else:
+                candidates.append(v)
+    # Чистим и приоритизируем
+    for src in candidates:
         if not src or "data:image" in src:
-            srcset = img_el.get("srcset") or ""
-            if srcset:
-                src = srcset.split(",")[0].strip().split(" ")[0]
+            continue
         if src.startswith("//"):
             src = "https:" + src
-        if not src or "yastatic" in src or "_next/static" in src:
+        if "yastatic" in src:  # это иконки/логотипы
             continue
-        img_url = src
-        break
+        # avatars.mds.yandex.net — высший приоритет
+        if "avatars.mds.yandex" in src:
+            img_url = src
+            break
+        # Любой полноценный http(s) URL — fallback
+        if src.startswith("http") and not img_url:
+            img_url = src
+
+    # Если URL не содержит размерного суффикса — добавим /300x300
+    if img_url and "avatars.mds.yandex" in img_url and not re.search(r"/\d+x\d+/?$|/orig/?$", img_url):
+        img_url = img_url.rstrip("/") + "/300x300"
 
     # Рейтинг
     rating = None

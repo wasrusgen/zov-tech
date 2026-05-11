@@ -86,9 +86,17 @@ def enrich_one(query: str, sources: tuple = DEFAULT_SOURCES) -> dict[str, Any]:
 
     # Агрегация
     prices = [i["price_min_rub"] for i in items.values() if i and i.get("price_min_rub")]
-    images = [i["image_url"]     for i in items.values() if i and i.get("image_url")]
     ratings = [i["rating"]       for i in items.values() if i and i.get("rating")]
     reviews = [i["reviews_count"] for i in items.values() if i and i.get("reviews_count")]
+
+    # Фото — выбираем по приоритету источника (качество фото различается)
+    image_priority = ("yamarket", "wb", "ozon", "citilink", "dns")
+    image_url = None
+    for src in image_priority:
+        i = items.get(src)
+        if i and i.get("image_url"):
+            image_url = i["image_url"]
+            break
 
     # Я.Маркет даёт количество магазинов
     stores = None
@@ -107,7 +115,7 @@ def enrich_one(query: str, sources: tuple = DEFAULT_SOURCES) -> dict[str, Any]:
         **{src: items.get(src) for src in fetchers.keys()},
         "price_min_rub": min(prices) if prices else None,
         "price_max_rub": max(prices) if prices else None,
-        "image_url": images[0] if images else None,
+        "image_url": image_url,
         "rating_max": max(ratings) if ratings else None,
         "reviews_total": sum(reviews) if reviews else None,
         "stores_count": stores,

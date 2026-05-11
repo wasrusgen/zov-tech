@@ -133,20 +133,37 @@ def _extract_card(card, url: str) -> dict[str, Any] | None:
     if not title or len(title) < 10:
         return None
 
-    # Картинка — ищем реальное товарное фото (НЕ placeholder/SSR-иконку)
+    # Картинка — пробуем разные источники: src, data-src, srcset
     img_url = None
     for img_el in card.find_all("img"):
-        src = img_el.get("src") or img_el.get("data-src") or ""
-        if not src or "data:image" in src:
-            continue
-        if src.startswith("//"):
-            src = "https:" + src
-        # Filter placeholders: rstatic.citilink.ru/_next/static/images/... всегда заглушка
-        if "_next/static/images" in src:
-            continue
-        # Реальные товарные фото — на c.citilink.ru или main.citilink.ru
-        img_url = src
-        break
+        # Источники в порядке приоритета
+        candidates = []
+        for attr in ("data-src", "data-original", "data-srcset", "srcset", "src"):
+            val = img_el.get(attr) or ""
+            if not val:
+                continue
+            if attr in ("srcset", "data-srcset"):
+                # Берём самый большой размер (последний в srcset)
+                parts = val.split(",")
+                if parts:
+                    largest = parts[-1].strip().split(" ")[0]
+                    candidates.append(largest)
+            else:
+                candidates.append(val)
+
+        for src in candidates:
+            if not src or "data:image" in src:
+                continue
+            if src.startswith("//"):
+                src = "https:" + src
+            # Отсеиваем placeholder'ы Next.js (всегда заглушки)
+            if "_next/static/images" in src or "placeholder" in src.lower():
+                continue
+            # Реальные товарные фото — обычно на cs.citilink.ru / c.citilink.ru / images.citilink.ru
+            img_url = src
+            break
+        if img_url:
+            break
 
     # Рейтинг
     rating = None
