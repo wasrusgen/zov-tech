@@ -50,33 +50,43 @@ const PODBOR_BRAND_STRATEGY = [
   { key: "different", label: "Разные марки по категориям",   hint: "соберём оптимальный микс" },
 ];
 
-/* Бренды, у которых есть полная линейка кухонной техники, реально доступные в РФ (2026).
-   tier: premium / middle / budget · note: "available" | "parallel" (параллельный импорт). */
+/* Бренды для single-brand-кухни, актуально на 2026 (РФ).
+   ⚠ — параллельный импорт. ⭐ recommended — частый выбор для кухонь ЗОВ-СПб. */
 const PODBOR_SINGLE_BRAND_OPTIONS = [
-  // Премиум — официально или через параллельный импорт
-  { key: "miele",   label: "Miele",   tier: "premium", note: "parallel"  },
-  { key: "asko",    label: "Asko",    tier: "premium", note: "available" },
-  { key: "smeg",    label: "Smeg",    tier: "premium", note: "parallel"  },
-  { key: "gorenje", label: "Gorenje", tier: "premium", note: "available" },
+  // 💎 Премиум (от 100к ₽ за позицию)
+  { key: "miele",    label: "Miele ⚠",     tier: "premium", note: "parallel" },
+  { key: "gaggenau", label: "Gaggenau ⚠",  tier: "premium", note: "parallel" },
+  { key: "vzug",     label: "V-Zug ⚠",     tier: "premium", note: "parallel" },
+  { key: "smeg",     label: "Smeg ⚠",      tier: "premium", note: "parallel" },
+  { key: "asko",     label: "Asko",       tier: "premium", note: "available" },
+  { key: "liebherr", label: "Liebherr ⚠",  tier: "premium", note: "parallel" },
 
-  // Средний — реально работающие бренды
-  { key: "haier",   label: "Haier",   tier: "middle",  note: "available" },
-  { key: "samsung", label: "Samsung", tier: "middle",  note: "available" },
-  { key: "lg",      label: "LG",      tier: "middle",  note: "available" },
-  { key: "korting", label: "Körting", tier: "middle",  note: "available" },
-  { key: "midea",   label: "Midea",   tier: "middle",  note: "available" },
-  { key: "bosch",   label: "Bosch ⚠",   tier: "middle", note: "parallel" },
-  { key: "siemens", label: "Siemens ⚠", tier: "middle", note: "parallel" },
+  // ★ Средний — цена/качество (40–100к ₽)
+  { key: "bosch",    label: "Bosch ⚠",     tier: "middle",  note: "parallel" },
+  { key: "siemens",  label: "Siemens ⚠",   tier: "middle",  note: "parallel" },
+  { key: "neff",     label: "NEFF ⚠",      tier: "middle",  note: "parallel" },
+  { key: "haier",    label: "Haier",      tier: "middle",  note: "available", recommended: true },
+  { key: "electrolux", label: "Electrolux", tier: "middle", note: "available" },
+  { key: "aeg",      label: "AEG",        tier: "middle",  note: "available" },
+  { key: "lg",       label: "LG",         tier: "middle",  note: "available" },
+  { key: "samsung",  label: "Samsung",    tier: "middle",  note: "available" },
 
-  // Бюджет — российские/китайские
-  { key: "biryusa",   label: "Бирюса",  tier: "budget", note: "available" },
-  { key: "atlant",    label: "Атлант",  tier: "budget", note: "available" },
-  { key: "pozis",     label: "Pozis",   tier: "budget", note: "available" },
-  { key: "hisense",   label: "Hisense", tier: "budget", note: "available" },
-  { key: "hansa",     label: "Hansa",   tier: "budget", note: "available" },
-  { key: "dexp",      label: "DEXP",    tier: "budget", note: "available" },
+  // ₽ Бюджет (15–40к ₽ за позицию)
+  { key: "kuppersberg", label: "Kuppersberg", tier: "budget", note: "available", recommended: true },
+  { key: "maunfeld",    label: "Maunfeld",    tier: "budget", note: "available" },
+  { key: "weissgauff",  label: "Weissgauff",  tier: "budget", note: "available" },
+  { key: "korting",     label: "Körting",     tier: "budget", note: "available" },
+  { key: "gorenje",     label: "Gorenje",     tier: "budget", note: "available" },
+  { key: "hansa",       label: "Hansa",       tier: "budget", note: "available" },
+  { key: "beko",        label: "Beko",        tier: "budget", note: "available" },
+  { key: "hotpoint",    label: "Hotpoint",    tier: "budget", note: "available" },
+  { key: "indesit",     label: "Indesit",     tier: "budget", note: "available" },
+  { key: "hisense",     label: "Hisense",     tier: "budget", note: "available" },
+  { key: "midea",       label: "Midea",       tier: "budget", note: "available" },
+  { key: "candy",       label: "Candy",       tier: "budget", note: "available" },
+  { key: "atlant",      label: "Атлант",     tier: "budget", note: "available" },
 
-  { key: "ai_pick",   label: "Пусть AI выберет под бюджет", recommended: true },
+  { key: "ai_pick",     label: "Пусть AI выберет под бюджет", recommended: true },
 ];
 
 /* Доля бюджета каждой категории от полного комплекта (для адаптивных вилок). */
@@ -669,47 +679,47 @@ const PODBOR_PARAMS = {
   },
 };
 
-/* Бренды по категориям (актуально на 2026, РФ).
-   ⚠ — параллельный импорт, остальные — официально доступны. */
+/* Бренды по категориям, актуально на 2026 РФ.
+   ⚠ — параллельный импорт; остальные — официально доступны. */
 const PODBOR_BRANDS = {
   fridge: {
-    premium: ["Miele ⚠", "Liebherr ⚠", "Asko", "Gorenje"],
-    middle:  ["Haier", "Samsung", "LG", "Korting", "Bosch ⚠", "Siemens ⚠"],
-    budget:  ["Бирюса", "Атлант", "Pozis", "Hisense", "Indesit", "Hansa"],
+    premium: ["Miele ⚠", "Liebherr ⚠", "Gaggenau ⚠", "V-Zug ⚠", "Asko"],
+    middle:  ["Bosch ⚠", "Siemens ⚠", "NEFF ⚠", "Haier", "LG", "Samsung", "Electrolux", "AEG"],
+    budget:  ["Kuppersberg", "Maunfeld", "Weissgauff", "Hansa", "Beko", "Gorenje", "Hotpoint", "Indesit", "Hisense", "Атлант"],
   },
   hob: {
-    premium: ["Miele ⚠", "Asko", "Gorenje", "Smeg ⚠"],
-    middle:  ["Korting", "Haier", "Midea", "Bosch ⚠", "Siemens ⚠"],
-    budget:  ["Hansa", "Hisense", "DEXP", "Дарина"],
+    premium: ["Miele ⚠", "Gaggenau ⚠", "Asko", "Smeg ⚠"],
+    middle:  ["Bosch ⚠", "Siemens ⚠", "NEFF ⚠", "Haier", "Electrolux", "AEG"],
+    budget:  ["Kuppersberg", "Maunfeld", "Weissgauff", "Korting", "Hansa", "Beko", "Gorenje", "Midea"],
   },
   oven: {
-    premium: ["Miele ⚠", "Asko", "Gorenje", "Smeg ⚠"],
-    middle:  ["Korting", "Haier", "Midea", "Samsung", "Bosch ⚠"],
-    budget:  ["Hansa", "Hisense", "DEXP", "Дарина"],
+    premium: ["Miele ⚠", "Gaggenau ⚠", "NEFF ⚠", "Asko", "Smeg ⚠"],
+    middle:  ["Bosch ⚠", "Siemens ⚠", "Haier", "Electrolux", "AEG"],
+    budget:  ["Kuppersberg", "Maunfeld", "Weissgauff", "Korting", "Hansa", "Beko", "Gorenje"],
   },
   dw: {
-    premium: ["Miele ⚠", "Asko", "Gorenje"],
-    middle:  ["Haier", "Midea", "Korting", "Bosch ⚠"],
-    budget:  ["Hansa", "Hisense", "Indesit"],
+    premium: ["Miele ⚠", "Asko", "V-Zug ⚠"],
+    middle:  ["Bosch ⚠", "Siemens ⚠", "NEFF ⚠", "Electrolux", "Haier", "Whirlpool"],
+    budget:  ["Kuppersberg", "Maunfeld", "Weissgauff", "Hansa", "Beko", "Gorenje", "Indesit", "Candy"],
   },
   hood: {
-    premium: ["Miele ⚠", "Falmec ⚠", "Faber ⚠", "Gorenje"],
-    middle:  ["Korting", "Maunfeld", "Elikor", "Haier"],
-    budget:  ["Hansa", "Hisense", "DEXP", "Krona"],
+    premium: ["Miele ⚠", "Falmec ⚠", "Faber ⚠", "Smeg ⚠"],
+    middle:  ["Bosch ⚠", "Siemens ⚠", "Elica ⚠", "Haier"],
+    budget:  ["Kuppersberg", "Maunfeld", "Weissgauff", "Elikor", "Hansa", "Krona", "Korting"],
   },
   microwave: {
-    premium: ["Miele ⚠", "Asko"],
-    middle:  ["Samsung", "LG", "Haier", "Midea", "Bosch ⚠"],
-    budget:  ["Hansa", "Hisense", "DEXP", "Polaris"],
+    premium: ["Miele ⚠", "NEFF ⚠"],
+    middle:  ["Bosch ⚠", "Siemens ⚠", "Samsung", "LG", "Haier"],
+    budget:  ["Kuppersberg", "Maunfeld", "Weissgauff", "Hansa", "Midea", "Whirlpool"],
   },
   coffee: {
-    premium: ["Miele ⚠", "Jura ⚠", "Saeco ⚠"],
-    middle:  ["De'Longhi ⚠", "Philips ⚠", "Polaris", "Bork ⚠"],
-    budget:  ["Polaris", "Redmond", "Kitfort"],
+    premium: ["Miele ⚠", "Jura ⚠", "Smeg ⚠"],
+    middle:  ["Bosch ⚠", "Siemens ⚠", "NEFF ⚠", "De'Longhi ⚠"],
+    budget:  ["Kuppersberg", "Maunfeld", "Polaris", "Redmond", "Kitfort"],
   },
   washer: {
-    premium: ["Miele ⚠", "Asko", "Gorenje"],
-    middle:  ["Haier", "Samsung", "LG", "Korting", "Bosch ⚠"],
-    budget:  ["Атлант", "Indesit", "Hansa", "Hisense"],
+    premium: ["Miele ⚠", "Asko", "V-Zug ⚠"],
+    middle:  ["Bosch ⚠", "Siemens ⚠", "Haier", "LG", "Samsung", "Electrolux"],
+    budget:  ["Kuppersberg", "Maunfeld", "Weissgauff", "Hansa", "Beko", "Indesit", "Атлант", "Candy"],
   },
 };
