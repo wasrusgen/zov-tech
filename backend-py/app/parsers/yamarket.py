@@ -95,25 +95,31 @@ def _parse_html(html: str, limit: int) -> list[dict[str, Any]]:
 
 def _extract_card(card, link_el, url: str) -> dict[str, Any] | None:
     """Достаём title, price, image, rating, reviews, stores из карточки."""
-    full_text = card.get_text(" ", strip=True)
+    # Удаляем JSON-стейт виджетов React/Apiary — они захламляют get_text()
+    import copy
+    card_clean = copy.copy(card)
+    for tag in card_clean.find_all(["script", "noscript", "noframes", "template"]):
+        tag.decompose()
+    full_text = card_clean.get_text(" ", strip=True)
 
-    # Title — обычно в самой ссылке, либо в h3/h2/span внутри
-    title = (link_el.get("title") or link_el.get_text(strip=True) or "").strip()
+    # Title — приоритет: из URL slug (всегда чистый, есть всегда)
+    title = ""
+    m_slug = re.search(r"/card/([^/]+)/\d+", url)
+    if m_slug:
+        slug = m_slug.group(1)
+        # bosch-kgn39ul30u-dvukhkamernyy-kholodilnik → Bosch Kgn39ul30u двухкамерный холодильник
+        title = _slug_to_title(slug)
+    # Запасной — из <a title="..."> или h3/h2
+    if not title or len(title) < 5:
+        title = (link_el.get("title") or "").strip()
     if not title or len(title) < 5:
         for sel in ["h3", "h2", "[data-auto='snippet-title']", "span[itemprop='name']"]:
-            el = card.select_one(sel)
+            el = card_clean.select_one(sel)
             if el:
                 t = (el.get("title") or el.get_text(strip=True)).strip()
-                if t and len(t) > 5:
+                if t and len(t) > 5 and "{" not in t[:5]:
                     title = t
                     break
-    if not title:
-        # Резерв — длинный текст без цены/рейтинга
-        for s in card.find_all("span"):
-            t = s.get_text(strip=True)
-            if 15 < len(t) < 250 and "₽" not in t and "★" not in t and "отзыв" not in t.lower():
-                title = t
-                break
     if not title or len(title) < 5:
         return None
 
@@ -185,6 +191,50 @@ def _extract_card(card, link_el, url: str) -> dict[str, Any] | None:
         "specs": {},
         "source": "yamarket",
     }
+
+
+_TRANSLIT_MAP = {
+    "kholodilnik": "холодильник", "khol": "хол",
+    "dvukhkamernyy": "двухкамерный", "odnokamernyy": "однокамерный",
+    "morozilnaya": "морозильная", "kamera": "камера", "kolonna": "колонна",
+    "varochnaya": "варочная", "panel": "панель", "dukhovoy": "духовой", "shkaf": "шкаф",
+    "posudomoechnaya": "посудомоечная", "mashina": "машина",
+    "vytyazhka": "вытяжка", "kupolnaya": "купольная", "naklonnaya": "наклонная", "ostrovnaya": "островная",
+    "mikrovolnovaya": "микроволновая", "pech": "печь",
+    "kofemashina": "кофемашина", "kofevarka": "кофеварка",
+    "stiralnaya": "стиральная", "sushilnaya": "сушильная",
+    "induktsionnaya": "индукционная", "gazovaya": "газовая", "elektricheskaya": "электрическая",
+    "vstraivaemyy": "встраиваемый", "vstraivaemaya": "встраиваемая",
+    "no-frost": "No Frost", "nofrost": "NoFrost", "side-by-side": "Side-by-Side",
+    "belyy": "белый", "chernyy": "чёрный", "seryy": "серый", "metallik": "металлик",
+    "nerzhaveyushchaya": "нержавеющая", "stal": "сталь",
+    "serebristyy": "серебристый", "korichnevyy": "коричневый",
+    "diapazon": "диапазон", "obem": "объём", "shirina": "ширина",
+}
+
+
+def _slug_to_title(slug: str) -> str:
+    """Конвертирует URL-slug в читаемое название.
+    'bosch-kgn39ul30u-dvukhkamernyy-kholodilnik-no-frost-seryy-metallik' →
+    'Bosch KGN39UL30U Двухкамерный Холодильник NoFrost Серый Металлик'
+    """
+    # Сначала заменяем известные транслитерированные слова
+    s = slug.lower()
+    # Сложные многословные паттерны
+    s = s.replace("no-frost", "NoFrost")
+    s = s.replace("side-by-side", "Side-by-Side")
+    parts = s.replace("-", " ").split()
+    result = []
+    for p in parts:
+        replaced = _TRANSLIT_MAP.get(p, p)
+        # Капитализируем первой буквой, если это слово (не модель типа kgn39ul30u)
+        if any(c.isdigit() for c in replaced) and re.search(r"[a-z]", replaced):
+            # Модель — uppercase: kgn39ul30u → KGN39UL30U
+            replaced = replaced.upper()
+        elif replaced.isascii() and replaced.isalpha():
+            replaced = replaced.capitalize()  # Bosch, NoFrost оставляем
+        result.append(replaced)
+    return " ".join(result).strip()
 
 
 def _try_int(v: Any) -> int | None:
