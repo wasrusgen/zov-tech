@@ -372,6 +372,7 @@ const PODBOR_PARAMS = {
   },
   dw: {
     steps: [
+      // 1. Тип встройки
       {
         key: "install",
         title: "Тип встройки",
@@ -382,47 +383,41 @@ const PODBOR_PARAMS = {
           { key: "freestanding", label: "Отдельностоящая",       hint: "без фасада",              pict: "dw_install_freestanding" },
         ],
       },
-      {
-        key: "class",
-        title: "Класс / энергопотребление",
-        type: "multi",
-        options: [
-          { key: "standard",   label: "Стандарт" },
-          { key: "aplus",      label: "A+++ энергоэффективность" },
-          { key: "inverter",   label: "Inverter",   hint: "тише и долговечнее" },
-          { key: "intensive",  label: "Зона интенсивной мойки", hint: "для кастрюль" },
-        ],
-      },
+      // 2. Размер
       {
         key: "width",
-        title: "Ширина",
+        title: "Размер (ширина)",
         type: "single",
         options: [
           { key: "45", label: "45 см", hint: "9–10 комплектов" },
           { key: "60", label: "60 см", hint: "13–14 комплектов", star: true },
         ],
       },
+      // 3. Корзины + программы
       {
         key: "baskets",
-        title: "Корзины",
+        title: "Корзины и программы",
         type: "single",
         options: [
-          { key: "two",   label: "2 корзины", hint: "стандарт" },
-          { key: "three", label: "3 корзины", hint: "+ зона для приборов сверху", star: true },
+          { key: "two_basic",  label: "2 корзины · базовый набор",      hint: "5-6 программ · эконом" },
+          { key: "three_std",  label: "3 корзины · стандарт",            hint: "8-10 программ · оптимум", star: true },
+          { key: "three_pro",  label: "3 корзины · расширенный",         hint: "12+ программ · стекло, авто, кастрюли" },
         ],
       },
+      // 4. Особенности (включая энерго-класс и avto-программы)
       {
         key: "features",
         title: "Особенности",
         type: "multi",
         options: [
-          { key: "wifi",     label: "Wi-Fi",                hint: "уведомление когда готово" },
-          { key: "beam",     label: "Луч на полу",          hint: "статус работы" },
-          { key: "autoopen", label: "Авто-открывание двери", hint: "для сушки" },
-          { key: "autodose", label: "Авто-дозирование",      hint: "соль / ополаскиватель" },
-          { key: "glasszone", label: "Зона для бокалов",     hint: "" },
-          { key: "aquastop", label: "AquaStop",             hint: "защита от протечек" },
-          { key: "silent",   label: "≤44 дБ",               hint: "тихо ночью" },
+          { key: "wifi",      label: "Wi-Fi",                hint: "уведомление когда готово" },
+          { key: "autoopen",  label: "Авто-открывание двери", hint: "для сушки" },
+          { key: "autodose",  label: "Авто-дозирование",      hint: "соль / ополаскиватель" },
+          { key: "beam",      label: "Луч на полу",          hint: "статус работы" },
+          { key: "aquastop",  label: "AquaStop",             hint: "защита от протечек" },
+          { key: "silent",    label: "≤44 дБ",               hint: "тихо ночью" },
+          { key: "inverter",  label: "Inverter",             hint: "тише, долговечнее, A+++" },
+          { key: "glasszone", label: "Зона для бокалов" },
         ],
       },
     ],

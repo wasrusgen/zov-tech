@@ -378,59 +378,66 @@ const PODBOR_PICTS = {
 
   oven_install_builtin: `
     <svg viewBox="0 0 96 128">
-      <rect x="4" y="2" width="88" height="124" rx="4" fill="none" stroke="#6B4A2B" stroke-width="1.1" stroke-dasharray="3 3" opacity="0.45"/>
-      <rect x="18" y="12" width="68" height="112" rx="4" fill="#6B4A2B" opacity="0.1"/>
-      <rect x="14" y="8" width="68" height="112" rx="4" fill="url(#g-twoch)" stroke="#6B4A2B" stroke-width="1.6"/>
-      <rect x="14" y="8" width="68" height="112" rx="4" fill="url(#g-sheen)"/>
-      <!-- Панель управления сверху -->
-      <rect x="14" y="8" width="68" height="20" rx="4" fill="#6B4A2B" opacity="0.06"/>
-      <line x1="14" y1="28" x2="82" y2="28" stroke="#6B4A2B" stroke-width="1.3"/>
+      <!-- Реальные пропорции 60×60 см. БЕЗ ниши — духовка не закрывается фасадом, а стоит открыто в шкафу. -->
+      <rect x="12" y="32" width="78" height="74" rx="3" fill="#6B4A2B" opacity="0.1"/>
+      <rect x="8" y="28" width="78" height="74" rx="3" fill="url(#g-twoch)" stroke="#6B4A2B" stroke-width="1.6"/>
+      <rect x="8" y="28" width="78" height="74" rx="3" fill="url(#g-sheen)"/>
+      <!-- Верхняя панель управления -->
+      <rect x="8" y="28" width="78" height="16" rx="3" fill="#6B4A2B" opacity="0.08"/>
+      <line x1="8" y1="44" x2="86" y2="44" stroke="#6B4A2B" stroke-width="1.3"/>
       <!-- 4 ручки -->
-      <circle cx="22" cy="18" r="2.5" fill="none" stroke="#6B4A2B" stroke-width="1.1"/>
-      <circle cx="34" cy="18" r="2.5" fill="none" stroke="#6B4A2B" stroke-width="1.1"/>
-      <circle cx="62" cy="18" r="2.5" fill="none" stroke="#6B4A2B" stroke-width="1.1"/>
-      <circle cx="74" cy="18" r="2.5" fill="none" stroke="#6B4A2B" stroke-width="1.1"/>
+      <circle cx="16" cy="36" r="2.5" fill="none" stroke="#6B4A2B" stroke-width="1.1"/>
+      <circle cx="28" cy="36" r="2.5" fill="none" stroke="#6B4A2B" stroke-width="1.1"/>
+      <circle cx="66" cy="36" r="2.5" fill="none" stroke="#6B4A2B" stroke-width="1.1"/>
+      <circle cx="78" cy="36" r="2.5" fill="none" stroke="#6B4A2B" stroke-width="1.1"/>
       <!-- Дисплей -->
-      <rect x="42" y="14" width="16" height="8" rx="1" fill="#1F1A14" opacity="0.7"/>
+      <rect x="40" y="32" width="14" height="8" rx="1" fill="#1F1A14" opacity="0.75"/>
       <!-- Ручка дверцы -->
-      <line x1="22" y1="36" x2="74" y2="36" stroke="#6B4A2B" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="16" y1="52" x2="78" y2="52" stroke="#6B4A2B" stroke-width="2.5" stroke-linecap="round"/>
       <!-- Стеклянное окошко -->
-      <rect x="22" y="44" width="52" height="62" rx="2" fill="none" stroke="#6B4A2B" stroke-width="1.2"/>
-      <rect x="24" y="46" width="48" height="58" rx="1" fill="url(#g-cold)" opacity="0.7"/>
-      <!-- Внутренняя «решётка» -->
-      <line x1="26" y1="62" x2="70" y2="62" stroke="#6B4A2B" stroke-width="0.8" stroke-dasharray="2 2" opacity="0.5"/>
-      <line x1="26" y1="78" x2="70" y2="78" stroke="#6B4A2B" stroke-width="0.8" stroke-dasharray="2 2" opacity="0.5"/>
-      <line x1="26" y1="94" x2="70" y2="94" stroke="#6B4A2B" stroke-width="0.8" stroke-dasharray="2 2" opacity="0.5"/>
-      <!-- Нижняя кромка -->
-      <line x1="14" y1="114" x2="82" y2="114" stroke="#6B4A2B" stroke-width="0.8" opacity="0.4"/>
+      <rect x="16" y="58" width="62" height="40" rx="2" fill="none" stroke="#6B4A2B" stroke-width="1.2"/>
+      <rect x="18" y="60" width="58" height="36" rx="1" fill="url(#g-cold)" opacity="0.7"/>
+      <!-- Решётки внутри -->
+      <line x1="20" y1="72" x2="74" y2="72" stroke="#6B4A2B" stroke-width="0.8" stroke-dasharray="2 2" opacity="0.5"/>
+      <line x1="20" y1="84" x2="74" y2="84" stroke="#6B4A2B" stroke-width="0.8" stroke-dasharray="2 2" opacity="0.5"/>
     </svg>
   `,
 
   oven_install_stove: `
     <svg viewBox="0 0 96 128">
-      <rect x="18" y="10" width="68" height="116" rx="4" fill="#6B4A2B" opacity="0.1"/>
-      <!-- Корпус плиты (полный — варочная + духовка) -->
-      <rect x="14" y="6" width="68" height="116" rx="4" fill="#F5EDDC" stroke="#6B4A2B" stroke-width="1.6"/>
-      <!-- Верх — варочная панель -->
-      <rect x="20" y="14" width="56" height="28" rx="2" fill="url(#g-cold)" stroke="#6B4A2B" stroke-width="1.2"/>
-      <circle cx="32" cy="22" r="4" fill="none" stroke="#6B4A2B" stroke-width="0.9"/>
-      <circle cx="32" cy="34" r="4" fill="none" stroke="#6B4A2B" stroke-width="0.9"/>
-      <circle cx="64" cy="22" r="4" fill="none" stroke="#6B4A2B" stroke-width="0.9"/>
-      <circle cx="64" cy="34" r="4" fill="none" stroke="#6B4A2B" stroke-width="0.9"/>
-      <!-- Панель управления -->
-      <rect x="14" y="44" width="68" height="14" rx="0" fill="#6B4A2B" opacity="0.08"/>
-      <circle cx="22" cy="51" r="2" fill="none" stroke="#6B4A2B" stroke-width="1"/>
-      <circle cx="34" cy="51" r="2" fill="none" stroke="#6B4A2B" stroke-width="1"/>
-      <circle cx="62" cy="51" r="2" fill="none" stroke="#6B4A2B" stroke-width="1"/>
-      <circle cx="74" cy="51" r="2" fill="none" stroke="#6B4A2B" stroke-width="1"/>
-      <rect x="44" y="48" width="12" height="6" rx="0.5" fill="#1F1A14" opacity="0.7"/>
+      <!-- Плита: варочная + духовка + ножки. Реалистичная пропорция 60×85 см. -->
+      <rect x="14" y="14" width="68" height="100" rx="3" fill="#6B4A2B" opacity="0.1"/>
+      <rect x="10" y="10" width="68" height="100" rx="3" fill="#F5EDDC" stroke="#6B4A2B" stroke-width="1.6"/>
+      <rect x="10" y="10" width="68" height="100" rx="3" fill="url(#g-sheen)"/>
+      <!-- Варочная панель сверху (стеклокерамика) -->
+      <rect x="14" y="14" width="60" height="26" rx="2" fill="url(#g-cold)" stroke="#6B4A2B" stroke-width="1.2"/>
+      <!-- 4 конфорки -->
+      <circle cx="26" cy="22" r="4" fill="none" stroke="#6B4A2B" stroke-width="1"/>
+      <circle cx="26" cy="22" r="2.2" fill="none" stroke="#6B4A2B" stroke-width="0.6" opacity="0.5"/>
+      <circle cx="26" cy="34" r="4" fill="none" stroke="#6B4A2B" stroke-width="1"/>
+      <circle cx="26" cy="34" r="2.2" fill="none" stroke="#6B4A2B" stroke-width="0.6" opacity="0.5"/>
+      <circle cx="62" cy="22" r="4" fill="none" stroke="#6B4A2B" stroke-width="1"/>
+      <circle cx="62" cy="22" r="2.2" fill="none" stroke="#6B4A2B" stroke-width="0.6" opacity="0.5"/>
+      <circle cx="62" cy="34" r="4" fill="none" stroke="#6B4A2B" stroke-width="1"/>
+      <circle cx="62" cy="34" r="2.2" fill="none" stroke="#6B4A2B" stroke-width="0.6" opacity="0.5"/>
+      <!-- Панель управления (под варочной) -->
+      <rect x="10" y="42" width="68" height="14" fill="#6B4A2B" opacity="0.08"/>
+      <line x1="10" y1="56" x2="78" y2="56" stroke="#6B4A2B" stroke-width="1.3"/>
+      <circle cx="18" cy="49" r="2.2" fill="none" stroke="#6B4A2B" stroke-width="1"/>
+      <circle cx="30" cy="49" r="2.2" fill="none" stroke="#6B4A2B" stroke-width="1"/>
+      <rect x="40" y="46" width="14" height="6" rx="0.5" fill="#1F1A14" opacity="0.75"/>
+      <circle cx="60" cy="49" r="2.2" fill="none" stroke="#6B4A2B" stroke-width="1"/>
+      <circle cx="72" cy="49" r="2.2" fill="none" stroke="#6B4A2B" stroke-width="1"/>
       <!-- Дверца духовки -->
-      <line x1="22" y1="64" x2="74" y2="64" stroke="#6B4A2B" stroke-width="2.5" stroke-linecap="round"/>
-      <rect x="22" y="70" width="52" height="44" rx="2" fill="none" stroke="#6B4A2B" stroke-width="1.2"/>
-      <rect x="24" y="72" width="48" height="40" rx="1" fill="url(#g-cold)" opacity="0.6"/>
+      <line x1="16" y1="64" x2="72" y2="64" stroke="#6B4A2B" stroke-width="2.5" stroke-linecap="round"/>
+      <rect x="16" y="70" width="56" height="34" rx="2" fill="none" stroke="#6B4A2B" stroke-width="1.2"/>
+      <rect x="18" y="72" width="52" height="30" rx="1" fill="url(#g-cold)" opacity="0.6"/>
+      <line x1="20" y1="82" x2="68" y2="82" stroke="#6B4A2B" stroke-width="0.7" stroke-dasharray="2 2" opacity="0.5"/>
+      <line x1="20" y1="92" x2="68" y2="92" stroke="#6B4A2B" stroke-width="0.7" stroke-dasharray="2 2" opacity="0.5"/>
       <!-- Ножки -->
-      <rect x="22" y="118" width="5" height="6" rx="1" fill="#6B4A2B"/>
-      <rect x="69" y="118" width="5" height="6" rx="1" fill="#6B4A2B"/>
+      <rect x="16" y="110" width="6" height="10" rx="1" fill="#6B4A2B"/>
+      <rect x="66" y="110" width="6" height="10" rx="1" fill="#6B4A2B"/>
+      <line x1="4" y1="122" x2="88" y2="122" stroke="#6B4A2B" stroke-width="0.8" opacity="0.35"/>
     </svg>
   `,
 
