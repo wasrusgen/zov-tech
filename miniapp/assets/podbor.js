@@ -1142,8 +1142,8 @@ const Podbor = (function () {
           <div class="kv"><span>Бренд</span><strong>${bsLabel}${brandDetail}</strong></div>
           <div class="kv"><span>Бюджет</span><strong>${budgetLabel}</strong></div>
           <div class="kv"><span>Стратегия</span><strong>${strategyLabels || "—"}</strong></div>
-          <div class="kv"><span>Подключение</span><strong>${PODBOR_INFRA.stove.find(f => f.key === state.infra.stove)?.label || "—"}</strong></div>
-          <div class="kv"><span>Вентиляция</span><strong>${PODBOR_INFRA.vent.find(f => f.key === state.infra.vent)?.label || "—"}</strong></div>
+          ${state.categories.includes("hob") ? `<div class="kv"><span>Подключение</span><strong>${PODBOR_INFRA.stove.find(f => f.key === state.infra.stove)?.label || "—"}</strong></div>` : ""}
+          ${state.categories.includes("hood") ? `<div class="kv"><span>Вентиляция</span><strong>${PODBOR_INFRA.vent.find(f => f.key === state.infra.vent)?.label || "—"}</strong></div>` : ""}
         </div>
 
         <label class="field">
