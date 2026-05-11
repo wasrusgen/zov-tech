@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from .config import get_config
 from .auth import verify_init_data
 from . import sheets, ai, telegram as tg
+from .parsers import dns as parser_dns
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 log = logging.getLogger("zov.backend")
@@ -138,6 +139,18 @@ async def api_test_telegram():
 @app.get("/api/seed_admin")
 async def api_seed_admin():
     return _handle_seed_admin()
+
+
+@app.get("/api/parse_dns")
+async def api_parse_dns(q: str = "", limit: int = 1):
+    """Тестовый эндпоинт парсера DNS. Пример: /api/parse_dns?q=Bosch+KGN39&limit=3"""
+    if not q:
+        return {"error": "missing_query", "hint": "use ?q=<search>"}
+    try:
+        results = parser_dns.search_dns(q, limit=min(max(1, limit), 5))
+        return {"ok": True, "query": q, "count": len(results), "results": results}
+    except Exception as e:
+        return {"ok": False, "error": str(e), "query": q}
 
 
 # =================================================================
@@ -276,6 +289,14 @@ def _handle_podbor(body: dict[str, Any]) -> dict[str, Any]:
     )
     ai_result = ai.call_ai(user_prompt)
 
+    # Обогащение моделей DNS-парсингом
+    enrich_dns = body.get("enrich", True)
+    if enrich_dns:
+        try:
+            _enrich_ai_with_dns(ai_result)
+        except Exception as e:
+            log.warning("DNS enrich failed: %s", e)
+
     # Update lead row with AI response
     sheets.update_cell_by_key("Leads", "id", lead_id, "ai_response",
                               json.dumps(ai_result.get("json") or ai_result.get("text", ""), ensure_ascii=False))
@@ -283,11 +304,24 @@ def _handle_podbor(body: dict[str, Any]) -> dict[str, Any]:
     sheets.update_cell_by_key("Leads", "id", lead_id, "ai_tokens_used", ai_result.get("tokens", 0))
     sheets.update_cell_by_key("Leads", "id", lead_id, "sent_to_tg", True)
 
-    summary_text = _format_podbor_for_telegram(ai_result, client_name)
+    summary_text = _format_podbor_for_telegram(ai_result, client_name, lead_id)
     tg.send_message(tg_id, summary_text)
 
     sheets.log_event("podbor_completed", tg_id, {"id": lead_id, "tokens": ai_result.get("tokens", 0)})
-    return {"ok": True, "id": lead_id, "summary": summary_text}
+    return {"ok": True, "id": lead_id, "summary": summary_text, "ai": ai_result.get("json")}
+
+
+def _enrich_ai_with_dns(ai_result: dict[str, Any]) -> None:
+    """Берёт ai_result['json']['by_category'][cat]['models'] и обогащает каждую DNS-данными."""
+    j = ai_result.get("json")
+    if not j or not isinstance(j, dict):
+        return
+    by_cat = j.get("by_category") or {}
+    for cat_key, cat_data in by_cat.items():
+        if not isinstance(cat_data, dict):
+            continue
+        models = cat_data.get("models") or []
+        cat_data["models"] = parser_dns.enrich_models(models, delay_sec=0.4)
 
 
 def _handle_test_ai() -> dict[str, Any]:
@@ -334,7 +368,19 @@ def _handle_seed_admin() -> dict[str, Any]:
 # Helpers
 # =================================================================
 
-def _format_podbor_for_telegram(ai_result: dict[str, Any], client_name: str) -> str:
+_CAT_LABELS = {
+    "fridge": "❄️ Холодильник",
+    "hob": "🔥 Варочная панель",
+    "oven": "🔥 Духовой шкаф",
+    "dw": "💧 Посудомоечная",
+    "hood": "💨 Вытяжка",
+    "microwave": "📻 СВЧ",
+    "coffee": "☕ Кофемашина",
+    "washer": "🧺 Стиральная машина",
+}
+
+
+def _format_podbor_for_telegram(ai_result: dict[str, Any], client_name: str, lead_id: str = "") -> str:
     if ai_result.get("error"):
         return f"❌ Не удалось получить подбор от AI.\n{ai_result.get('text', '')}"
     j = ai_result.get("json")
@@ -349,20 +395,57 @@ def _format_podbor_for_telegram(ai_result: dict[str, Any], client_name: str) -> 
         lines.append(j["summary"])
         lines.append("")
 
-    for item in (j.get("items") or []):
-        lines.append(f"<b>{item.get('brand', '')} {item.get('model', '')}</b>")
-        if item.get("price_rub"):
-            lines.append(f"💰 {_format_price(item['price_rub'])} ₽")
-        if item.get("highlights"):
-            lines.append("✓ " + ", ".join(item["highlights"]))
-        if item.get("caveats"):
-            lines.append(f"⚠️ {item['caveats']}")
-        lines.append("")
+    # Новая структура: by_category
+    by_cat = j.get("by_category") or {}
+    if by_cat:
+        for cat_key, cat_data in by_cat.items():
+            cat_label = _CAT_LABELS.get(cat_key, cat_key.upper())
+            lines.append(f"━━━ <b>{cat_label}</b> ━━━")
+            models = (cat_data or {}).get("models") or []
+            for i, m in enumerate(models, 1):
+                lines.append(f"<b>{i}. {m.get('brand', '')} {m.get('model', '')}</b>")
+                pmin = m.get("price_min_rub")
+                pmax = m.get("price_max_rub")
+                if pmin and pmax and pmin != pmax:
+                    lines.append(f"💰 {_format_price(pmin)} — {_format_price(pmax)} ₽")
+                elif pmin:
+                    lines.append(f"💰 {_format_price(pmin)} ₽")
+                if m.get("highlights"):
+                    lines.append("✓ " + ", ".join(m["highlights"]))
+                if m.get("pros"):
+                    lines.append("⊕ " + "; ".join(m["pros"][:3]))
+                if m.get("cons"):
+                    lines.append("⊖ " + "; ".join(m["cons"][:2]))
+                lines.append("")
+            lines.append("")
+    else:
+        # Fallback: старая структура items[]
+        for item in (j.get("items") or []):
+            lines.append(f"<b>{item.get('brand', '')} {item.get('model', '')}</b>")
+            if item.get("price_rub"):
+                lines.append(f"💰 {_format_price(item['price_rub'])} ₽")
+            if item.get("highlights"):
+                lines.append("✓ " + ", ".join(item["highlights"]))
+            if item.get("caveats"):
+                lines.append(f"⚠️ {item['caveats']}")
+            lines.append("")
 
-    if j.get("total_price_rub"):
+    # Итого
+    tpe = j.get("total_price_estimate_rub") or {}
+    if isinstance(tpe, dict) and (tpe.get("min") or tpe.get("max")):
+        tmin = tpe.get("min", 0)
+        tmax = tpe.get("max", 0)
+        if tmin and tmax and tmin != tmax:
+            lines.append(f"<b>ИТОГО: {_format_price(tmin)} — {_format_price(tmax)} ₽</b> · {j.get('budget_status', '')}")
+        else:
+            lines.append(f"<b>ИТОГО: {_format_price(tmin or tmax)} ₽</b> · {j.get('budget_status', '')}")
+    elif j.get("total_price_rub"):
         lines.append(f"<b>ИТОГО: {_format_price(j['total_price_rub'])} ₽</b> · {j.get('budget_status', '')}")
+
     if j.get("warnings"):
         lines.append("\n⚠️ " + "; ".join(j["warnings"]))
+    if lead_id:
+        lines.append(f"\n<i>ID: {lead_id[:8]}</i>")
     return "\n".join(lines)
 
 
