@@ -40,7 +40,44 @@ _HEADERS = {
 
 def search_wb(query: str, limit: int = 3, timeout: float = 12.0,
               max_retries: int = 2) -> list[dict[str, Any]]:
-    """WB через прямой JSON API. Делает экспоненциальный backoff при 429."""
+    """WB через прямой JSON API. Делает экспоненциальный backoff при 429.
+
+    Пробует несколько вариантов запроса (full → brand+model → brand only)
+    чтобы повысить вероятность найти товар."""
+    # Генерируем варианты запросов от точного к широкому
+    queries = _generate_query_variants(query)
+    for q in queries:
+        results = _search_wb_one(q, limit=limit, timeout=timeout, max_retries=max_retries)
+        if results:
+            return results
+    return []
+
+
+def _generate_query_variants(query: str) -> list[str]:
+    """Из 'Bosch Serie 4 KGN39NW00R холодильник' делаем варианты:
+       1. Bosch Serie 4 KGN39NW00R холодильник
+       2. Bosch KGN39NW00R
+       3. KGN39NW00R
+       4. Bosch holodilnik
+    """
+    import re
+    variants = [query]
+    parts = query.split()
+    # Находим модель-индекс (с цифрами и буквами)
+    model_idx = None
+    for p in parts:
+        if re.search(r"\d", p) and re.search(r"[a-zA-Z]", p) and len(p) >= 4:
+            model_idx = p
+            break
+    brand = parts[0] if parts else ""
+    if brand and model_idx:
+        variants.append(f"{brand} {model_idx}")
+        variants.append(model_idx)
+    return list(dict.fromkeys(variants))  # дедуп с сохранением порядка
+
+
+def _search_wb_one(query: str, limit: int, timeout: float, max_retries: int) -> list[dict[str, Any]]:
+    """Один запрос к WB API."""
     import time
     params = {**_DEFAULT_PARAMS, "query": query}
 

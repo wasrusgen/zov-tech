@@ -51,24 +51,27 @@
 <script>
 /* Mock-данные — имитируем AI-ответ с DNS+WB+Я.Маркет обогащением */
 const MOCK_AI = {
-  summary: "Подобран комплект для семьи 3 человек, бюджет средний. Холодильник Bosch с NoFrost + индукционная варочная Bosch и духовка с конвекцией. Все три прибора одной марки для дизайн-единства.",
+  summary: "Подобран комплект Haier для семьи из 3 человек, бюджет средний. Холодильник с NoFrost + индукционная варочная Haier и компактная духовка с конвекцией. Все три прибора одной марки для дизайн-единства и тише в эксплуатации.",
   by_category: {
     fridge: {
+      analysis: "В этом бюджете 2026 года Haier и Korting вытеснили Bosch по соотношению цена/качество. Haier C4F744CMG — оптимальный двухкамерный по тишине и объёму, Liebherr — премиум-вариант с зоной свежести, Бирюса — бюджетная страховка.",
       models: [
         {
-          brand: "Bosch", model: "Serie 4 KGN39NW00R",
-          price_min_rub: 79990, price_max_rub: 92000,
-          highlights: ["NoFrost (не нужно размораживать)", "Инвертор (тише и -30% энергии)"],
-          pros: ["тихий 38дБ", "класс A++", "стеклянные полки"],
-          cons: ["глубина 660мм — на 60мм больше стандартной ниши"],
+          brand: "Haier", model: "C4F744CMG",
+          price_min_rub: 89990, price_max_rub: 105000,
+          highlights: ["Total NoFrost (не нужно размораживать)", "Инвертор (тише и -30% энергии)", "Класс A++ (~30% экономии)"],
+          pros: ["тихий 36 дБ — на 4 дБ тише среднего по сегменту", "большой объём 463 л против 380 л у Bosch в этой цене", "инвертор + класс A++ — экономия ~30% против A+ моделей", "10 лет гарантии на компрессор"],
+          cons: ["глубина 660 мм — на 60 мм больше стандартной ниши, проверить на замере", "нет зоны свежести BioFresh — в этом плане Liebherr заметно лучше"],
+          reasoning: "Лучший по цена/качество в среднем сегменте. Тише и больше Bosch в той же цене, но без премиум-зоны свежести.",
           tier: "middle",
           enriched: {
-            image_url: "https://placehold.co/200x200/F5EDDC/6B4A2B?text=Bosch",
-            price_min_rub: 79990, price_max_rub: 92000,
+            image_url: "https://placehold.co/200x200/F5EDDC/6B4A2B?text=Haier",
+            price_min_rub: 89990, price_max_rub: 105000,
             rating_max: 4.7, reviews_total: 1242, stores_count: 12,
-            wb: { url: "https://www.wildberries.ru/catalog/123/detail.aspx" },
-            yamarket: { url: "https://market.yandex.ru/product--bosch-kgn39/123" },
-            ozon: { url: "https://www.ozon.ru/product/bosch-kgn39-123" }
+            citilink: { url: "https://www.citilink.ru/product/haier-123/", price_min_rub: 92000 },
+            ozon: { url: "https://www.ozon.ru/product/haier-c4f744cmg/", price_min_rub: 89990 },
+            wb: { url: "https://www.wildberries.ru/catalog/123/detail.aspx", price_min_rub: 94500 },
+            yamarket: { url: "https://market.yandex.ru/product--haier-c4f744cmg/123", price_min_rub: 105000 }
           }
         },
         {
@@ -184,12 +187,14 @@ function renderReport(ai, leadId) {
     const models = (catData && catData.models) || [];
     if (!models.length) continue;
 
+    const catAnalysis = (catData && catData.analysis) || "";
     const catNode = el(`
       <div class="report-cat">
         <h3 class="report-cat-head">
           <span class="report-cat-icon">${(catIcon && window.ICONS && window.ICONS[catIcon]) || ""}</span>
           ${_esc(catLabel)}
         </h3>
+        ${catAnalysis ? `<div class="report-cat-analysis">${_esc(catAnalysis)}</div>` : ""}
         <div class="report-models"></div>
       </div>
     `);
@@ -248,11 +253,24 @@ function _renderModelCard(m) {
   if (reviews) metaParts.push(`<span class="reviews">${reviews} отзыв.</span>`);
   if (stores) metaParts.push(`<span class="stores">${stores} магазинов</span>`);
 
-  const links = [];
-  if (enriched.wb && enriched.wb.url) links.push({ label: "Wildberries", url: enriched.wb.url });
-  if (enriched.yamarket && enriched.yamarket.url) links.push({ label: "Я.Маркет", url: enriched.yamarket.url });
-  if (enriched.ozon && enriched.ozon.url) links.push({ label: "OZON", url: enriched.ozon.url });
-  if (enriched.dns && enriched.dns.url) links.push({ label: "DNS", url: enriched.dns.url });
+  const sourcesData = [
+    { key: "ozon", label: "OZON", item: enriched.ozon },
+    { key: "citilink", label: "Citilink", item: enriched.citilink },
+    { key: "wb", label: "Wildberries", item: enriched.wb },
+    { key: "yamarket", label: "Я.Маркет", item: enriched.yamarket },
+    { key: "dns", label: "DNS", item: enriched.dns },
+  ];
+  const sourceLinks = sourcesData
+    .filter(s => s.item && s.item.url)
+    .map(s => `<a href="${_esc(s.item.url)}" target="_blank" rel="noopener noreferrer" class="report-link report-link--${s.key}">${s.label}${s.item.price_min_rub ? ` · ${formatRub(s.item.price_min_rub)} ₽` : ""}</a>`);
+
+  function _plural(n) {
+    const last = n % 10, lastTwo = n % 100;
+    if (lastTwo >= 11 && lastTwo <= 14) return "магазинов";
+    if (last === 1) return "магазин";
+    if (last >= 2 && last <= 4) return "магазина";
+    return "магазинов";
+  }
 
   return el(`
     <article class="report-model">
@@ -263,13 +281,29 @@ function _renderModelCard(m) {
         ${metaParts.length ? `<div class="report-model-meta">${metaParts.join(" · ")}</div>` : ""}
         <div class="report-model-price">${priceHtml}</div>
         ${(m.highlights || []).length ? `<div class="report-highlights">✓ ${m.highlights.map(_esc).join(" · ")}</div>` : ""}
-        ${(m.pros || []).length ? `<div class="report-pros">⊕ ${m.pros.slice(0, 3).map(_esc).join(" · ")}</div>` : ""}
-        ${(m.cons || []).length ? `<div class="report-cons">⊖ ${m.cons.slice(0, 2).map(_esc).join(" · ")}</div>` : ""}
-        ${links.length ? `
-          <div class="report-links">
-            ${links.map(l => `<a href="${_esc(l.url)}" target="_blank" rel="noopener noreferrer" class="report-link">${l.label} →</a>`).join("")}
+
+        ${(m.pros || []).length ? `
+          <div class="report-pros-block">
+            <div class="pc-head">Плюсы</div>
+            <ul class="pc-list">${m.pros.slice(0, 4).map(p => `<li>${_esc(p)}</li>`).join("")}</ul>
           </div>
         ` : ""}
+
+        ${(m.cons || []).length ? `
+          <div class="report-cons-block">
+            <div class="pc-head">Минусы</div>
+            <ul class="pc-list">${m.cons.slice(0, 3).map(c => `<li>${_esc(c)}</li>`).join("")}</ul>
+          </div>
+        ` : ""}
+
+        ${m.reasoning ? `<div class="report-reasoning">💡 ${_esc(m.reasoning)}</div>` : ""}
+
+        ${sourceLinks.length ? `
+          <div class="report-links">
+            <div class="report-links-head">${sourceLinks.length} ${_plural(sourceLinks.length)} нашли товар:</div>
+            ${sourceLinks.join("")}
+          </div>
+        ` : `<div class="report-links-empty">— не найден в подключённых магазинах</div>`}
       </div>
     </article>
   `);

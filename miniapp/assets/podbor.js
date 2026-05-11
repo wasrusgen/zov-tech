@@ -1255,6 +1255,7 @@ const Podbor = (function () {
       const catLabel = catMeta?.label || catKey;
       const catIcon = catMeta?.icon;
       const models = (catData && catData.models) || [];
+      const catAnalysis = (catData && catData.analysis) || "";
       if (!models.length) continue;
 
       const catNode = el(`
@@ -1263,6 +1264,7 @@ const Podbor = (function () {
             <span class="report-cat-icon">${(catIcon && ICONS[catIcon]) || ""}</span>
             ${_esc(catLabel)}
           </h3>
+          ${catAnalysis ? `<div class="report-cat-analysis">${_esc(catAnalysis)}</div>` : ""}
           <div class="report-models"></div>
         </div>
       `);
@@ -1307,8 +1309,8 @@ const Podbor = (function () {
 
   function _renderModelCard(m) {
     const enriched = m.enriched || {};
-    const pMin = m.price_min_rub || enriched.price_min_rub;
-    const pMax = m.price_max_rub || enriched.price_max_rub;
+    const pMin = enriched.price_min_rub || m.price_min_rub;
+    const pMax = enriched.price_max_rub || m.price_max_rub;
     const img = enriched.image_url;
     const rating = enriched.rating_max;
     const reviews = enriched.reviews_total;
@@ -1324,11 +1326,17 @@ const Podbor = (function () {
     if (reviews) metaParts.push(`<span class="reviews">${reviews} отзыв.</span>`);
     if (stores) metaParts.push(`<span class="stores">${stores} магазинов</span>`);
 
-    const links = [];
-    if (enriched.wb && enriched.wb.url)        links.push({ label: "Wildberries", url: enriched.wb.url });
-    if (enriched.yamarket && enriched.yamarket.url) links.push({ label: "Я.Маркет",  url: enriched.yamarket.url });
-    if (enriched.ozon && enriched.ozon.url)    links.push({ label: "OZON",       url: enriched.ozon.url });
-    if (enriched.dns && enriched.dns.url)      links.push({ label: "DNS",        url: enriched.dns.url });
+    // Бейджи источников + ссылки
+    const sourcesData = [
+      { key: "ozon",     label: "OZON",        item: enriched.ozon },
+      { key: "citilink", label: "Citilink",    item: enriched.citilink },
+      { key: "wb",       label: "Wildberries", item: enriched.wb },
+      { key: "yamarket", label: "Я.Маркет",    item: enriched.yamarket },
+      { key: "dns",      label: "DNS",         item: enriched.dns },
+    ];
+    const sourceLinks = sourcesData
+      .filter(s => s.item && s.item.url)
+      .map(s => `<a href="${_esc(s.item.url)}" target="_blank" rel="noopener noreferrer" class="report-link report-link--${s.key}">${s.label}${s.item.price_min_rub ? ` · ${formatRub(s.item.price_min_rub)} ₽` : ""}</a>`);
 
     const card = el(`
       <article class="report-model">
@@ -1339,17 +1347,41 @@ const Podbor = (function () {
           ${metaParts.length ? `<div class="report-model-meta">${metaParts.join(" · ")}</div>` : ""}
           <div class="report-model-price">${priceHtml}</div>
           ${(m.highlights || []).length ? `<div class="report-highlights">✓ ${m.highlights.map(_esc).join(" · ")}</div>` : ""}
-          ${(m.pros || []).length ? `<div class="report-pros">⊕ ${m.pros.slice(0, 3).map(_esc).join(" · ")}</div>` : ""}
-          ${(m.cons || []).length ? `<div class="report-cons">⊖ ${m.cons.slice(0, 2).map(_esc).join(" · ")}</div>` : ""}
-          ${links.length ? `
-            <div class="report-links">
-              ${links.map(l => `<a href="${_esc(l.url)}" target="_blank" rel="noopener noreferrer" class="report-link">${l.label} →</a>`).join("")}
+
+          ${(m.pros || []).length ? `
+            <div class="report-pros-block">
+              <div class="pc-head">Плюсы</div>
+              <ul class="pc-list">${m.pros.slice(0, 4).map(p => `<li>${_esc(p)}</li>`).join("")}</ul>
             </div>
           ` : ""}
+
+          ${(m.cons || []).length ? `
+            <div class="report-cons-block">
+              <div class="pc-head">Минусы</div>
+              <ul class="pc-list">${m.cons.slice(0, 3).map(c => `<li>${_esc(c)}</li>`).join("")}</ul>
+            </div>
+          ` : ""}
+
+          ${m.reasoning ? `<div class="report-reasoning">💡 ${_esc(m.reasoning)}</div>` : ""}
+
+          ${sourceLinks.length ? `
+            <div class="report-links">
+              <div class="report-links-head">${sourceLinks.length} ${_pluralStores(sourceLinks.length)} нашли товар:</div>
+              ${sourceLinks.join("")}
+            </div>
+          ` : `<div class="report-links-empty">— не найден в подключённых магазинах</div>`}
         </div>
       </article>
     `);
     return card;
+  }
+
+  function _pluralStores(n) {
+    const last = n % 10, lastTwo = n % 100;
+    if (lastTwo >= 11 && lastTwo <= 14) return "магазинов";
+    if (last === 1) return "магазин";
+    if (last >= 2 && last <= 4) return "магазина";
+    return "магазинов";
   }
 
   function _renderCompareTable(models) {

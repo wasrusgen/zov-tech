@@ -474,21 +474,55 @@ def _format_podbor_for_telegram(ai_result: dict[str, Any], client_name: str, lea
         for cat_key, cat_data in by_cat.items():
             cat_label = _CAT_LABELS.get(cat_key, cat_key.upper())
             lines.append(f"━━━ <b>{cat_label}</b> ━━━")
+            # Анализ категории от AI
+            analysis = (cat_data or {}).get("analysis")
+            if analysis:
+                lines.append(f"<i>{analysis}</i>")
+                lines.append("")
             models = (cat_data or {}).get("models") or []
             for i, m in enumerate(models, 1):
                 lines.append(f"<b>{i}. {m.get('brand', '')} {m.get('model', '')}</b>")
-                pmin = m.get("price_min_rub")
-                pmax = m.get("price_max_rub")
+                # Цены и магазины из enrichment
+                enriched = m.get("enriched") or {}
+                pmin = enriched.get("price_min_rub") or m.get("price_min_rub")
+                pmax = enriched.get("price_max_rub") or m.get("price_max_rub")
                 if pmin and pmax and pmin != pmax:
                     lines.append(f"💰 {_format_price(pmin)} — {_format_price(pmax)} ₽")
                 elif pmin:
                     lines.append(f"💰 {_format_price(pmin)} ₽")
+                # Отзывы и рейтинг (если есть)
+                rating = enriched.get("rating_max")
+                reviews = enriched.get("reviews_total")
+                meta_parts = []
+                if rating: meta_parts.append(f"★ {rating:.1f}")
+                if reviews: meta_parts.append(f"{reviews} отзыв.")
+                stores = enriched.get("stores_count")
+                if stores: meta_parts.append(f"{stores} магаз.")
+                if meta_parts:
+                    lines.append("📊 " + " · ".join(meta_parts))
+                # Источники где нашли товар
+                sources_found = [
+                    src.upper() for src in ("ozon", "citilink", "wb", "yamarket", "dns")
+                    if enriched.get(src)
+                ]
+                if sources_found:
+                    lines.append(f"🛒 Нашли в: {' · '.join(sources_found)}")
                 if m.get("highlights"):
                     lines.append("✓ " + ", ".join(m["highlights"]))
                 if m.get("pros"):
-                    lines.append("⊕ " + "; ".join(m["pros"][:3]))
+                    lines.append("<b>⊕ Плюсы:</b>")
+                    for p in m["pros"][:4]:
+                        lines.append(f"  • {p}")
                 if m.get("cons"):
-                    lines.append("⊖ " + "; ".join(m["cons"][:2]))
+                    lines.append("<b>⊖ Минусы:</b>")
+                    for c in m["cons"][:3]:
+                        lines.append(f"  • {c}")
+                if m.get("reasoning"):
+                    lines.append(f"<i>💡 {m['reasoning']}</i>")
+                # Ссылка на «лучший» магазин
+                best_url = enriched.get("best_url")
+                if best_url:
+                    lines.append(f"🔗 <a href=\"{best_url}\">Открыть в магазине</a>")
                 lines.append("")
             lines.append("")
     else:

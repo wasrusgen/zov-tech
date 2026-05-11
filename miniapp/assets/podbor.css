@@ -1288,6 +1288,89 @@
   margin-top: 2px;
 }
 
+/* Блоки плюсов/минусов с маркированными списками */
+.report-pros-block, .report-cons-block {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.report-pros-block {
+  background: rgba(42, 107, 63, 0.08);
+  border-left: 2px solid #2A6B3F;
+}
+.report-cons-block {
+  background: rgba(138, 62, 42, 0.08);
+  border-left: 2px solid #8A3E2A;
+}
+.pc-head {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.report-pros-block .pc-head { color: #2A6B3F; }
+.report-cons-block .pc-head { color: #8A3E2A; }
+.pc-list {
+  margin: 0;
+  padding-left: 16px;
+  color: var(--ink);
+}
+.pc-list li { margin: 2px 0; }
+
+.report-reasoning {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--warm);
+  border-radius: 8px;
+  font-style: italic;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--walnut);
+}
+
+.report-cat-analysis {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--ink-2);
+  font-style: italic;
+  padding: 10px 14px;
+  background: #FFFCF6;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent-2);
+  border-radius: 8px;
+  margin: 4px 0 4px;
+}
+
+.report-links-head {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+  width: 100%;
+}
+.report-links-empty {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  font-style: italic;
+  margin-top: 8px;
+}
+
+/* Цветовая дифференциация бейджей магазинов */
+.report-link--ozon     { border-color: #0044CC; color: #0044CC; }
+.report-link--citilink { border-color: #FFBA00; color: #B57E00; }
+.report-link--wb       { border-color: #CB11AB; color: #CB11AB; }
+.report-link--yamarket { border-color: #FC3F1D; color: #FC3F1D; }
+.report-link--dns      { border-color: #FA9300; color: #C26C00; }
+
 .report-links {
   display: flex;
   flex-wrap: wrap;
