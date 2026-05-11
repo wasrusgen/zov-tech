@@ -240,11 +240,12 @@ const Podbor = (function () {
     if (!cs) return false;
     const config = PODBOR_PARAMS[catKey];
     if (!config) return false;
-    // Новая схема: все single-шаги должны иметь ответ. Multi (features) — необязательно.
+    // Новая схема: все активные single-шаги должны иметь ответ. Multi (features) — необязательно.
     if (config.steps) {
       const ans = cs.answers || {};
       return config.steps.every(step => {
-        if (step.type === "multi") return true; // multi необязателен
+        if (!isStepActive(step, ans)) return true; // неактивный пропускаем
+        if (step.type === "multi") return true;     // multi необязателен
         return !!ans[step.key];
       });
     }
@@ -323,6 +324,7 @@ const Podbor = (function () {
       const labels = [];
       for (const step of config.steps) {
         if (step.type === "multi") continue;
+        if (!isStepActive(step, ans)) continue;
         const val = ans[step.key];
         if (!val) continue;
         const opts = resolveStepOptions(step, ans);
@@ -353,6 +355,33 @@ const Podbor = (function () {
     return [];
   }
 
+  /* Активен ли шаг (выполняется ли condition) */
+  function isStepActive(step, answers) {
+    if (!step.condition) return true;
+    for (const [key, expected] of Object.entries(step.condition)) {
+      const actual = answers[key];
+      const ok = Array.isArray(expected) ? expected.includes(actual) : actual === expected;
+      if (!ok) return false;
+    }
+    return true;
+  }
+
+  /* Найти следующий активный шаг (или steps.length если все после inactive) */
+  function findNextActiveIdx(steps, fromIdx, answers) {
+    for (let i = fromIdx + 1; i < steps.length; i++) {
+      if (isStepActive(steps[i], answers)) return i;
+    }
+    return steps.length;
+  }
+
+  /* Найти предыдущий активный (или -1) */
+  function findPrevActiveIdx(steps, fromIdx, answers) {
+    for (let i = fromIdx - 1; i >= 0; i--) {
+      if (isStepActive(steps[i], answers)) return i;
+    }
+    return -1;
+  }
+
   /* ===================== Иерархический wizard внутри категории ===================== */
 
   function getCatState(catKey) {
@@ -372,7 +401,12 @@ const Podbor = (function () {
     const cat = PODBOR_CATEGORIES.find(x => x.key === catKey);
     const config = PODBOR_PARAMS[catKey];
     const cs = getCatState(catKey);
-    const stepIdx = Math.max(0, Math.min(cs._step || 0, config.steps.length));
+    let stepIdx = Math.max(0, Math.min(cs._step || 0, config.steps.length));
+
+    // Нормализация: пропускаем неактивные шаги вперёд
+    while (stepIdx < config.steps.length && !isStepActive(config.steps[stepIdx], cs.answers)) {
+      stepIdx++;
+    }
 
     // Финальный экран категории — обзор + заметки + кнопка "Готово"
     if (stepIdx >= config.steps.length) {
@@ -469,18 +503,22 @@ const Podbor = (function () {
           newAns[step.key] = arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val];
         } else {
           newAns[step.key] = val;
-          // Если меняем answer для шага, от которого зависит следующий — сбросим все последующие answers
+          // Если меняем answer для шага, от которого зависят следующие — сбросим их answers
           for (let i = stepIdx + 1; i < config.steps.length; i++) {
             const s = config.steps[i];
             if (s.optionsBy && s.optionsBy.dependsOn === step.key) {
               delete newAns[s.key];
             }
+            if (s.condition && Object.prototype.hasOwnProperty.call(s.condition, step.key)) {
+              delete newAns[s.key];
+            }
           }
         }
         setCatState(catKey, { answers: newAns });
-        // Single-select: автопереход на следующий шаг
+        // Single-select: автопереход на следующий АКТИВНЫЙ шаг
         if (!isMulti) {
-          setCatState(catKey, { _step: stepIdx + 1 });
+          const nextIdx = findNextActiveIdx(config.steps, stepIdx, newAns);
+          setCatState(catKey, { _step: nextIdx });
           haptic && haptic("impact");
         }
         render();
@@ -499,24 +537,27 @@ const Podbor = (function () {
       });
     });
 
-    // Кнопки
+    // Кнопки — через активные шаги
     const wizPrev = node.querySelector("#wizPrev");
     if (wizPrev) wizPrev.addEventListener("click", () => {
-      setCatState(catKey, { _step: Math.max(0, stepIdx - 1) });
+      const prevIdx = findPrevActiveIdx(config.steps, stepIdx, cs.answers);
+      setCatState(catKey, { _step: Math.max(0, prevIdx) });
       render();
     });
     const wizMenu = node.querySelector("#wizMenu");
     if (wizMenu) wizMenu.addEventListener("click", () => { detailView = "menu"; render(); });
     const wizNext = node.querySelector("#wizNext");
     if (wizNext) wizNext.addEventListener("click", () => {
-      setCatState(catKey, { _step: stepIdx + 1 });
+      const nextIdx = findNextActiveIdx(config.steps, stepIdx, cs.answers);
+      setCatState(catKey, { _step: nextIdx });
       haptic && haptic("impact");
       render();
     });
-    // Header back — на предыдущий шаг или к меню
+    // Header back — на предыдущий активный или к меню
     node.querySelector(".podbor-back").addEventListener("click", () => {
-      if (stepIdx > 0) {
-        setCatState(catKey, { _step: stepIdx - 1 });
+      const prevIdx = findPrevActiveIdx(config.steps, stepIdx, cs.answers);
+      if (prevIdx >= 0) {
+        setCatState(catKey, { _step: prevIdx });
         render();
       } else {
         detailView = "menu";
@@ -532,7 +573,7 @@ const Podbor = (function () {
     const config = PODBOR_PARAMS[catKey];
     const cs = getCatState(catKey);
 
-    const rows = config.steps.map(step => {
+    const rows = config.steps.filter(step => isStepActive(step, cs.answers)).map(step => {
       const v = cs.answers[step.key];
       const opts = resolveStepOptions(step, cs.answers);
       if (step.type === "multi") {

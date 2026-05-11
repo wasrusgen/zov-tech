@@ -168,180 +168,469 @@ const PODBOR_PARAMS = {
     ],
   },
   hob: {
-    primary: [
-      { key: "heat", label: "Тип нагрева", options: [
-        { key: "induction", label: "Индукция" },
-        { key: "hi_light",  label: "Hi-Light (стеклокерамика)" },
-        { key: "gas",       label: "Газ" },
-        { key: "domino",    label: "Domino (модульная)" },
-      ]},
-      { key: "width", label: "Ширина, см", options: [
-        { key: "30", label: "30" }, { key: "45", label: "45" },
-        { key: "60", label: "60" }, { key: "80", label: "80" }, { key: "90", label: "90" },
-      ]},
-      { key: "zones", label: "Число зон", options: [
-        { key: "2", label: "2" }, { key: "3", label: "3" },
-        { key: "4", label: "4" }, { key: "5", label: "5" },
-      ]},
-      { key: "color", label: "Цвет", options: [
-        { key: "black", label: "Чёрный" }, { key: "white", label: "Белый" },
-        { key: "frameless", label: "Без рамки" }, { key: "inox", label: "Нерж. сталь" },
-      ]},
-    ],
-    features: [
-      { key: "boost",      label: "PowerBoost",        hint: "форсаж — кипятит за минуту" },
-      { key: "flex",       label: "FlexZone",          hint: "объединяет зоны под большую сковороду" },
-      { key: "hob2hood",   label: "Hob2Hood",          hint: "вытяжка автоматически следит за варочной" },
-      { key: "child_lock", label: "Защита от детей",   hint: "блокировка панели" },
+    steps: [
+      {
+        key: "heat_source",
+        title: "Источник нагрева",
+        type: "single",
+        options: [
+          { key: "elec",  label: "Электричество",       hint: "индукция / Hi-Light" },
+          { key: "gas",   label: "Газ",                 hint: "открытое пламя / на стекле" },
+          { key: "combi", label: "Комбинированная",     hint: "газ + электро" },
+        ],
+      },
+      {
+        key: "subtype",
+        title: "Подтип",
+        type: "multi",
+        optionsBy: {
+          dependsOn: "heat_source",
+          map: {
+            elec: [
+              { key: "induction", label: "Индукция",     hint: "магнитный нагрев посуды" },
+              { key: "hilight",   label: "Hi-Light",      hint: "стеклокерамика · спираль" },
+            ],
+            gas: [
+              { key: "open",  label: "Открытое пламя",   hint: "металл + чугунные решётки" },
+              { key: "glass", label: "Газ под стеклом",  hint: "стеклокерамика + конфорки" },
+            ],
+            combi: [
+              { key: "induction", label: "Индукция",     hint: "электро-зона" },
+              { key: "hilight",   label: "Hi-Light",      hint: "электро-зона" },
+              { key: "open",  label: "Газ · открытое",   hint: "газ-зона" },
+              { key: "glass", label: "Газ под стеклом",  hint: "газ-зона" },
+            ],
+          },
+        },
+      },
+      {
+        key: "width",
+        title: "Размер (ширина)",
+        type: "single",
+        options: [
+          { key: "30", label: "30 см", hint: "Domino · модульная" },
+          { key: "45", label: "45 см", hint: "узкая" },
+          { key: "60", label: "60 см", hint: "стандарт", star: true },
+          { key: "75", label: "75 см", hint: "расширенная" },
+          { key: "90", label: "90 см", hint: "максимальная" },
+        ],
+      },
+      {
+        key: "burners",
+        title: "Количество конфорок",
+        type: "single",
+        options: [
+          { key: "2", label: "2" },
+          { key: "3", label: "3" },
+          { key: "4", label: "4", star: true },
+          { key: "5", label: "5" },
+          { key: "6", label: "6" },
+        ],
+      },
+      {
+        key: "features",
+        title: "Особенности",
+        type: "multi",
+        options: [
+          { key: "wok",    label: "Зона wok",            hint: "большая зона для wok-сковороды" },
+          { key: "boost",  label: "Booster · форсаж",    hint: "кипятит за минуту" },
+          { key: "ffd",    label: "Газ-контроль FFD",    hint: "автоотключение при затухании" },
+          { key: "slider", label: "Слайдер / сенсор",    hint: "плавная регулировка" },
+          { key: "flex",   label: "Объединение зон Flex", hint: "под большую посуду" },
+          { key: "timer",  label: "Таймер на зону",      hint: "" },
+          { key: "h2h",    label: "Hob2Hood",            hint: "вытяжка следит за варочной" },
+          { key: "lock",   label: "Защита от детей",     hint: "" },
+        ],
+      },
     ],
   },
   oven: {
-    primary: [
-      { key: "config", label: "Конфигурация", options: [
-        { key: "compact_combi", label: "Компакт + СВЧ" },
-        { key: "full_60",       label: "Полный 60 см" },
-        { key: "xl_90",         label: "XL 90 см" },
-        { key: "two_separate",  label: "2 отдельных прибора" },
-      ]},
-      { key: "color", label: "Цвет", options: [
-        { key: "black", label: "Чёрный" },
-        { key: "inox",  label: "Нерж. сталь" },
-        { key: "white", label: "Белый" },
-        { key: "blackglass", label: "Чёрное стекло" },
-        { key: "anthracite", label: "Антрацит" },
-      ]},
-      { key: "cleaning", label: "Очистка", options: [
-        { key: "hydro", label: "Гидролиз" },
-        { key: "pyro",  label: "Пиролиз" },
-        { key: "eco",   label: "Eco / каталитическая" },
-        { key: "aqua",  label: "Aqua" },
-        { key: "std",   label: "Стандарт" },
-      ]},
-    ],
-    features: [
-      { key: "4d",        label: "4D HotAir",       hint: "конвекция с 4 сторон — равномерное запекание" },
-      { key: "steam",     label: "Пар",             hint: "хлеб с румяной корочкой, мясо без пересушки" },
-      { key: "probe",     label: "Термощуп",        hint: "готовит до точной температуры (medium / well-done)" },
-      { key: "autopilot", label: "Автопилот",       hint: "выбираешь блюдо — духовка сама ставит режим" },
-      { key: "softclose", label: "SoftClose",       hint: "дверца закрывается плавно" },
-      { key: "smart",     label: "Smart / Wi-Fi",   hint: "следишь за приготовлением с телефона" },
+    steps: [
+      {
+        key: "install",
+        title: "Тип установки",
+        type: "single",
+        options: [
+          { key: "built_in", label: "Встраиваемый",        hint: "под фасад ЗОВ", star: true },
+          { key: "stove",    label: "Плита с духовкой",    hint: "отдельностоящая" },
+        ],
+      },
+      {
+        key: "functions",
+        title: "Функции",
+        type: "multi",
+        optionsBy: {
+          dependsOn: "install",
+          map: {
+            built_in: [
+              { key: "basic",      label: "Базовая (статика)",  hint: "без вентилятора" },
+              { key: "convection", label: "Конвекция",           hint: "равномерный жар", star: true },
+              { key: "pyrolysis",  label: "Пиролиз",             hint: "самоочистка при 500°" },
+              { key: "steam",      label: "Пар",                 hint: "хлеб, мясо без пересушки" },
+              { key: "microwave",  label: "Микроволны (комби)",  hint: "заменяет СВЧ" },
+              { key: "grill",      label: "Гриль / Турбо-гриль", hint: "корочка сверху" },
+            ],
+            stove: [
+              { key: "gas_oven",    label: "Газовая духовка" },
+              { key: "elec_oven",   label: "Электро-духовка" },
+              { key: "combi_stove", label: "Газ-плита + электро-духовка" },
+            ],
+          },
+        },
+      },
+      {
+        key: "size",
+        title: "Размер",
+        type: "single",
+        optionsBy: {
+          dependsOn: "install",
+          map: {
+            built_in: [
+              { key: "std60",   label: "60 × 60 см", hint: "стандарт", star: true },
+              { key: "compact", label: "60 × 45 см", hint: "компакт · в колонну" },
+              { key: "wide90",  label: "90 × 60 см", hint: "широкий · премиум" },
+            ],
+            stove: [
+              { key: "50", label: "50 см" },
+              { key: "60", label: "60 см", star: true },
+              { key: "85", label: "85 см" },
+              { key: "90", label: "90 см" },
+            ],
+          },
+        },
+      },
+      {
+        key: "location",
+        title: "Где ставим",
+        type: "single",
+        condition: { install: "built_in" },
+        options: [
+          { key: "under_top", label: "Под столешницу", hint: "нижний ряд" },
+          { key: "in_column", label: "В колонне",      hint: "на уровне глаз", star: true },
+          { key: "with_pair", label: "В пенале",       hint: "+ СВЧ / кофемашина" },
+        ],
+      },
+      {
+        key: "features",
+        title: "Особенности",
+        type: "multi",
+        options: [
+          { key: "rails",       label: "Телескопические направляющие" },
+          { key: "wifi",        label: "Wi-Fi · смарт",        hint: "управление с телефона" },
+          { key: "autoprogram", label: "Авто-программы",       hint: "духовка сама ставит режим" },
+          { key: "coldoor",     label: "Холодная дверь",       hint: "4 стекла · безопасно для детей" },
+          { key: "probe",       label: "Термощуп",             hint: "до точной температуры" },
+          { key: "softclose",   label: "SoftClose",            hint: "плавное закрытие" },
+          { key: "4d",          label: "4D HotAir",            hint: "конвекция с 4 сторон" },
+        ],
+      },
     ],
   },
   dw: {
-    primary: [
-      { key: "width", label: "Ширина, см", options: [
-        { key: "45", label: "45" }, { key: "60", label: "60" },
-      ]},
-      { key: "mount", label: "Монтаж", options: [
-        { key: "full_built_in", label: "Полная встройка (под фасад)" },
-        { key: "partial",       label: "Частичная встройка" },
-        { key: "freestanding",  label: "Отдельная" },
-      ]},
-      { key: "settings", label: "Комплектов", options: [
-        { key: "8-9",   label: "8–9 (для 2–3 человек)" },
-        { key: "10-11", label: "10–11 (семья 3–4)" },
-        { key: "12-14", label: "12–14 (большая семья)" },
-      ]},
-    ],
-    features: [
-      { key: "aquastop", label: "AquaStop",   hint: "защита от протечек — машина сама перекроет воду" },
-      { key: "tray",     label: "3-й лоток",   hint: "отдельная полка для столовых приборов" },
-      { key: "autoopen", label: "AutoOpen",   hint: "приоткрывает дверь после мойки — сухая посуда" },
-      { key: "silent",   label: "≤44 дБ",     hint: "можно мыть ночью, не слышно" },
-      { key: "smart",    label: "Smart / Wi-Fi", hint: "уведомление на телефон когда готово" },
+    steps: [
+      {
+        key: "install",
+        title: "Тип встройки",
+        type: "single",
+        options: [
+          { key: "full",         label: "Полновстраиваемая",   hint: "фасад ЗОВ полностью", star: true },
+          { key: "partial",      label: "Частично встраиваемая", hint: "видна панель управления" },
+          { key: "freestanding", label: "Отдельностоящая",     hint: "без фасада" },
+        ],
+      },
+      {
+        key: "class",
+        title: "Класс / энергопотребление",
+        type: "multi",
+        options: [
+          { key: "standard",   label: "Стандарт" },
+          { key: "aplus",      label: "A+++ энергоэффективность" },
+          { key: "inverter",   label: "Inverter",   hint: "тише и долговечнее" },
+          { key: "intensive",  label: "Зона интенсивной мойки", hint: "для кастрюль" },
+        ],
+      },
+      {
+        key: "width",
+        title: "Ширина",
+        type: "single",
+        options: [
+          { key: "45", label: "45 см", hint: "9–10 комплектов" },
+          { key: "60", label: "60 см", hint: "13–14 комплектов", star: true },
+        ],
+      },
+      {
+        key: "baskets",
+        title: "Корзины",
+        type: "single",
+        options: [
+          { key: "two",   label: "2 корзины", hint: "стандарт" },
+          { key: "three", label: "3 корзины", hint: "+ зона для приборов сверху", star: true },
+        ],
+      },
+      {
+        key: "features",
+        title: "Особенности",
+        type: "multi",
+        options: [
+          { key: "wifi",     label: "Wi-Fi",                hint: "уведомление когда готово" },
+          { key: "beam",     label: "Луч на полу",          hint: "статус работы" },
+          { key: "autoopen", label: "Авто-открывание двери", hint: "для сушки" },
+          { key: "autodose", label: "Авто-дозирование",      hint: "соль / ополаскиватель" },
+          { key: "glasszone", label: "Зона для бокалов",     hint: "" },
+          { key: "aquastop", label: "AquaStop",             hint: "защита от протечек" },
+          { key: "silent",   label: "≤44 дБ",               hint: "тихо ночью" },
+        ],
+      },
     ],
   },
   hood: {
-    primary: [
-      { key: "type", label: "Тип", options: [
-        { key: "inclined",   label: "Наклонная" },
-        { key: "t_shape",    label: "Т-образная" },
-        { key: "dome",       label: "Купольная" },
-        { key: "built_in",   label: "Встроенная" },
-        { key: "telescopic", label: "Телескопическая" },
-        { key: "island",     label: "Островная" },
-      ]},
-      { key: "width", label: "Ширина, см", options: [
-        { key: "50", label: "50" }, { key: "60", label: "60" },
-        { key: "80", label: "80" }, { key: "90", label: "90" },
-      ]},
-      { key: "color", label: "Цвет", options: [
-        { key: "inox",        label: "Нерж. сталь" },
-        { key: "black",       label: "Чёрный" },
-        { key: "white",       label: "Белый" },
-        { key: "black_glass", label: "Чёрное стекло" },
-      ]},
-      { key: "mode", label: "Режим работы", options: [
-        { key: "exhaust", label: "Только отвод (вентиляция)" },
-        { key: "recirc",  label: "Только рециркуляция (фильтр)" },
-        { key: "combi",   label: "Оба режима" },
-      ]},
-    ],
-    features: [
-      { key: "hi_perf",    label: "Производительность 600+ м³/ч", hint: "сильно тянет — для большой кухни / wok" },
-      { key: "perimeter",  label: "Периметральная вытяжка",        hint: "тянет с краёв — больше пара захватывает" },
-      { key: "low_noise",  label: "Тихая работа ≤50 дБ",           hint: "не оглушает за столом" },
-      { key: "smart",      label: "Smart / Wi-Fi",                 hint: "автоматическая работа в паре с варочной" },
+    steps: [
+      {
+        key: "form_factor",
+        title: "Форм-фактор",
+        type: "single",
+        options: [
+          { key: "built_in_drawer", label: "Встроенная · выдвижная", hint: "скрытая в шкафу, выдвигается панель", star: true },
+          { key: "fully_hidden",    label: "Полностью скрытая",       hint: "внутри шкафа без панели" },
+          { key: "dome",            label: "Купольная / каминная",    hint: "видимый купол над плитой" },
+          { key: "inclined",        label: "Наклонная",               hint: "стекло под углом" },
+          { key: "island",          label: "Островная",               hint: "с потолка над островом" },
+          { key: "downdraft",       label: "Downdraft",               hint: "выдвижная из столешницы" },
+          { key: "hob_combo",       label: "Hood-in-hob",             hint: "встроенная в варочную" },
+        ],
+      },
+      {
+        key: "mode",
+        title: "Подключение",
+        type: "single",
+        options: [
+          { key: "exhaust", label: "Отвод в вентшахту", star: true },
+          { key: "recirc",  label: "Рециркуляция",     hint: "угольный фильтр" },
+          { key: "combi",   label: "Универсальная",    hint: "оба режима" },
+        ],
+      },
+      {
+        key: "width",
+        title: "Ширина",
+        type: "single",
+        options: [
+          { key: "50",  label: "50 см" },
+          { key: "60",  label: "60 см", star: true },
+          { key: "75",  label: "75 см" },
+          { key: "90",  label: "90 см" },
+          { key: "120", label: "120 см", hint: "островная / купольная" },
+        ],
+      },
+      {
+        key: "color",
+        title: "Цвет / материал",
+        type: "multi",
+        condition: { form_factor: ["dome", "inclined", "island"] },
+        options: [
+          { key: "inox",        label: "Нержавейка" },
+          { key: "black",       label: "Чёрный" },
+          { key: "white",       label: "Белый" },
+          { key: "glass_black", label: "Стекло чёрное" },
+          { key: "glass_white", label: "Стекло белое" },
+          { key: "copper",      label: "Медь / латунь", hint: "премиум" },
+        ],
+      },
+      {
+        key: "features",
+        title: "Особенности",
+        type: "multi",
+        options: [
+          { key: "touch",     label: "Сенсорное управление" },
+          { key: "led",       label: "LED-подсветка",     hint: "тёплая / нейтральная" },
+          { key: "auto",      label: "Авто-включение",    hint: "по сенсору варочной" },
+          { key: "silent",    label: "Тихая · до 40 дБ",  hint: "не оглушает за столом" },
+          { key: "turbo",     label: "Турбо-режим" },
+          { key: "wifi",      label: "Wi-Fi" },
+          { key: "perimeter", label: "Периметральная",    hint: "тянет с краёв" },
+          { key: "hi_perf",   label: "600+ м³/ч",         hint: "для большой кухни / wok" },
+        ],
+      },
     ],
   },
   microwave: {
-    primary: [
-      { key: "type", label: "Размещение", options: [
-        { key: "builtin",      label: "Встроенная" },
-        { key: "freestanding", label: "Отдельная" },
-      ]},
-      { key: "volume", label: "Объём, л", options: [
-        { key: "to20",  label: "до 20" },
-        { key: "20-25", label: "20–25" },
-        { key: "25+",   label: "25+" },
-      ]},
-    ],
-    features: [
-      { key: "grill",      label: "Гриль",      hint: "запекает корочку сверху" },
-      { key: "convection", label: "Конвекция",  hint: "работает как маленькая духовка" },
-      { key: "inverter",   label: "Инвертор",   hint: "плавная мощность — не пересушивает" },
+    steps: [
+      {
+        key: "install",
+        title: "Тип установки",
+        type: "single",
+        options: [
+          { key: "built_in",     label: "Встраиваемая",     hint: "в колонну с духовкой", star: true },
+          { key: "freestanding", label: "Отдельностоящая",  hint: "на столешнице / полке" },
+        ],
+      },
+      {
+        key: "functions",
+        title: "Функции",
+        type: "multi",
+        options: [
+          { key: "solo",       label: "Соло",        hint: "только нагрев" },
+          { key: "grill",      label: "Гриль",       hint: "корочка сверху" },
+          { key: "convection", label: "Конвекция",   hint: "мини-духовка" },
+          { key: "steam",      label: "Пар",         hint: "" },
+          { key: "inverter",   label: "Инвертор",    hint: "плавная мощность · не пересушивает" },
+        ],
+      },
+      {
+        key: "size",
+        title: "Размер",
+        type: "single",
+        optionsBy: {
+          dependsOn: "install",
+          map: {
+            built_in: [
+              { key: "38h", label: "~38 см H", hint: "стандартная встройка", star: true },
+              { key: "45h", label: "~45 см H", hint: "под компакт-духовку" },
+            ],
+            freestanding: [
+              { key: "17l", label: "17 л" },
+              { key: "20l", label: "20 л", star: true },
+              { key: "25l", label: "25 л" },
+              { key: "32l", label: "32 л" },
+            ],
+          },
+        },
+      },
+      {
+        key: "features",
+        title: "Особенности",
+        type: "multi",
+        options: [
+          { key: "wifi",     label: "Wi-Fi" },
+          { key: "humid",    label: "Сенсор влажности / веса" },
+          { key: "defrost",  label: "Авто-разморозка" },
+          { key: "antibact", label: "Антибактериальная эмаль" },
+        ],
+      },
     ],
   },
   coffee: {
-    primary: [
-      { key: "type", label: "Размещение", options: [
-        { key: "builtin",      label: "Встроенная" },
-        { key: "freestanding", label: "Отдельная" },
-      ]},
-      { key: "tech", label: "Тип", options: [
-        { key: "auto_grinder", label: "Автомат с кофемолкой" },
-        { key: "capsule",      label: "Капсульная" },
-        { key: "manual",       label: "Рожковая (бариста)" },
-      ]},
-    ],
-    features: [
-      { key: "milk",     label: "Капучинатор", hint: "автоматическое латте/капучино" },
-      { key: "profiles", label: "Профили",     hint: "у каждого свой размер/крепость" },
-      { key: "smart",    label: "Smart / Wi-Fi", hint: "управление с телефона" },
+    steps: [
+      {
+        key: "type",
+        title: "Тип кофемашины",
+        type: "single",
+        options: [
+          { key: "built_in_grinder", label: "Встраиваемая зерновая", hint: "60 × 45 см · в колонну", star: true },
+          { key: "free_grinder",     label: "Отдельностоящая зерновая", hint: "на столешнице" },
+          { key: "capsule",          label: "Капсульная",            hint: "Nespresso / Dolce Gusto" },
+          { key: "manual",           label: "Рожковая",              hint: "бариста-стиль с холдером" },
+          { key: "tap",              label: "Кран-кофемашина",       hint: "под столешницу, премиум" },
+        ],
+      },
+      {
+        key: "milk",
+        title: "Молочная система",
+        type: "multi",
+        condition: { type: ["built_in_grinder", "free_grinder", "manual"] },
+        options: [
+          { key: "auto",         label: "Автоматический капучинатор", hint: "латте / капучино одной кнопкой" },
+          { key: "manual_steam", label: "Ручной паровой кран",        hint: "" },
+          { key: "none",         label: "Без молочной системы",       hint: "только эспрессо" },
+          { key: "cup_warm",     label: "Подогрев чашек сверху",      hint: "" },
+        ],
+      },
+      {
+        key: "water",
+        title: "Подключение воды",
+        type: "single",
+        condition: { type: ["built_in_grinder", "tap"] },
+        options: [
+          { key: "tank",       label: "С резервуаром",        hint: "без подвода воды" },
+          { key: "water_line", label: "Автоподключение к водопроводу", star: true },
+        ],
+      },
+      {
+        key: "size",
+        title: "Размер",
+        type: "single",
+        condition: { type: "built_in_grinder" },
+        options: [
+          { key: "std",    label: "60 × 45 см", hint: "стандарт", star: true },
+          { key: "narrow", label: "45 × 45 см", hint: "узкая" },
+        ],
+      },
+      {
+        key: "features",
+        title: "Особенности",
+        type: "multi",
+        options: [
+          { key: "wifi",      label: "Wi-Fi · профили",            hint: "разные напитки для каждого" },
+          { key: "touch",     label: "Сенсорный экран" },
+          { key: "grinder",   label: "Регулировка помола" },
+          { key: "autoclean", label: "Авточистка молочной системы" },
+        ],
+      },
     ],
   },
   washer: {
-    primary: [
-      { key: "type", label: "Размещение", options: [
-        { key: "builtin",      label: "Встроенная" },
-        { key: "freestanding", label: "Отдельная" },
-      ]},
-      { key: "load", label: "Загрузка, кг", options: [
-        { key: "to6",  label: "до 6" },
-        { key: "6-8",  label: "6–8" },
-        { key: "8-10", label: "8–10" },
-        { key: "10+",  label: "10+" },
-      ]},
-      { key: "depth", label: "Глубина", options: [
-        { key: "slim",     label: "Slim (до 45 см)" },
-        { key: "standard", label: "Стандарт (60 см)" },
-      ]},
-    ],
-    features: [
-      { key: "steam",  label: "Пар",          hint: "освежает без стирки, убивает аллергены" },
-      { key: "dry",    label: "Сушка",        hint: "достал — и сразу в шкаф" },
-      { key: "silent", label: "≤50 дБ",       hint: "ночная стирка не разбудит" },
-      { key: "smart",  label: "Smart / Wi-Fi", hint: "запуск с телефона, уведомления" },
+    steps: [
+      {
+        key: "install",
+        title: "Тип установки",
+        type: "single",
+        options: [
+          { key: "built_in",     label: "Встраиваемая",     hint: "скрытая фасадом ЗОВ", star: true },
+          { key: "under_top",    label: "Под столешницу",   hint: "открытая, без фасада" },
+          { key: "freestanding", label: "Отдельностоящая",  hint: "" },
+        ],
+      },
+      {
+        key: "function",
+        title: "Функция",
+        type: "single",
+        options: [
+          { key: "wash_only",  label: "Только стирка", star: true },
+          { key: "wash_dry",   label: "Стирка + сушка (combo)" },
+          { key: "dryer_pair", label: "Отдельная сушильная рядом", hint: "в одну колонну · ~170 см H" },
+        ],
+      },
+      {
+        key: "depth",
+        title: "Глубина",
+        type: "single",
+        options: [
+          { key: "45", label: "45 см", hint: "узкая · под модуль ЗОВ", star: true },
+          { key: "60", label: "60 см", hint: "стандарт · нестандартный модуль" },
+        ],
+      },
+      {
+        key: "load_type",
+        title: "Загрузка",
+        type: "single",
+        options: [
+          { key: "front",    label: "Фронтальная", star: true },
+          { key: "vertical", label: "Вертикальная", hint: "только отдельностоящая" },
+        ],
+      },
+      {
+        key: "load_kg",
+        title: "Объём загрузки",
+        type: "single",
+        options: [
+          { key: "to6",  label: "до 6 кг",  hint: "1–2 человека" },
+          { key: "6_8",  label: "6–8 кг",   hint: "семья 3–4", star: true },
+          { key: "8_10", label: "8–10 кг",  hint: "большая семья" },
+          { key: "10+",  label: "10+ кг",   hint: "очень большие объёмы" },
+        ],
+      },
+      {
+        key: "features",
+        title: "Особенности",
+        type: "multi",
+        options: [
+          { key: "inverter",  label: "Инвертор / прямой привод" },
+          { key: "steam",     label: "Steam · пар",           hint: "освежает / убивает аллергены" },
+          { key: "wifi",      label: "Wi-Fi",                 hint: "запуск с телефона" },
+          { key: "autodose",  label: "Авто-дозирование" },
+          { key: "silent",    label: "Тихий · ≤50 дБ",        hint: "ночная стирка" },
+          { key: "aquastop",  label: "AquaStop",              hint: "защита от протечек" },
+        ],
+      },
     ],
   },
 };
