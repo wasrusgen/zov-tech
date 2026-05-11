@@ -20,6 +20,7 @@ class Config:
     grace_period_days: int
 
     proxy6_token: str  # пусто = без прокси (прямой HTTP)
+    proxy_static_list: str  # статический список прокси через запятую: "http://user:pass@host:port,..."
 
 
 def _required(name: str) -> str:
@@ -42,4 +43,5 @@ def get_config() -> Config:
         active_period_days=int(os.getenv("ACTIVE_PERIOD_DAYS", "90")),
         grace_period_days=int(os.getenv("GRACE_PERIOD_DAYS", "14")),
         proxy6_token=os.getenv("PROXY6_TOKEN", ""),
+        proxy_static_list=os.getenv("PROXY_STATIC_LIST", ""),
     )
