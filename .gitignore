@@ -66,3 +66,4 @@ yarn-error.log*
 # Temp/secret files
 .tmp_*
 *.proxies.txt
+r.json
