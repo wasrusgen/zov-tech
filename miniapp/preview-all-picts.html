@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#FBF7F0">
+  <title>Превью всех пиктограмм · 25 шт</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Newsreader:ital,wght@0,400..600;1,400..600&family=JetBrains+Mono:wght@400;500&display=swap">
+  <style>
+    :root {
+      --paper:  #FBF7F0;
+      --ink:    #1F1A14;
+      --muted:  #8B8275;
+      --line:   rgba(31, 26, 20, 0.18);
+      --walnut: #6B4A2B;
+      --warm:   #F5EDDC;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 24px 18px 80px; font-family: "Geist", sans-serif; background: var(--paper); color: var(--ink); }
+    .wrap { max-width: 800px; margin: 0 auto; }
+    .kicker { font-family: "JetBrains Mono", monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+    h1 { font-family: "Newsreader", serif; font-style: italic; font-size: 32px; margin: 0 0 8px; font-weight: 400; }
+    .lede { color: var(--muted); font-size: 14px; margin: 0 0 24px; }
+    .section { margin-top: 32px; padding: 20px 0 0; border-top: 1px solid var(--line); }
+    .section-head { font-family: "Newsreader", serif; font-style: italic; font-size: 22px; margin: 0 0 16px; }
+    .section-head .em { color: var(--walnut); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+    .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 12px 8px; text-align: center; }
+    .card svg { width: 88px; height: 104px; display: block; margin: 0 auto 6px; }
+    .name { font-size: 12.5px; font-weight: 600; line-height: 1.2; color: var(--ink); }
+    .hint { font-family: "JetBrains Mono", monospace; font-size: 9px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-top: 2px; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker">Preview · All Pictograms · v1</div>
+  <h1>Все 25 пиктограмм<br><em style="color: var(--walnut)">по 7 категориям</em></h1>
+  <p class="lede">Стиль D · 3D-перспектива с тенью. Категория «Холодильник» — отдельно в <a href="preview-fridges.html">preview-fridges.html</a>.</p>
+
+  <div id="root"></div>
+</div>
+
+<script src="assets/icons.js?v=20260511m"></script>
+<script src="assets/podbor.config.js?v=20260511m"></script>
+<script src="assets/podbor.picts.js?v=20260511m"></script>
+<script>
+const SECTIONS = [
+  { title: "Варочная панель · 3 источника", em: "hob", keys: ["hob_src_elec","hob_src_gas","hob_src_combi"], labels: ["Электричество","Газ","Комбинированная"], hints: ["индукция / Hi-Light","открытое пламя / на стекле","газ + электро"] },
+  { title: "Духовка · 2 типа", em: "oven", keys: ["oven_install_builtin","oven_install_stove"], labels: ["Встраиваемый","Плита с духовкой"], hints: ["под фасад ЗОВ","отдельностоящая"] },
+  { title: "Посудомоечная · 3 типа", em: "dw", keys: ["dw_install_full","dw_install_partial","dw_install_freestanding"], labels: ["Полновстраиваемая","Частично встраиваемая","Отдельностоящая"], hints: ["фасад ЗОВ полностью","видна панель управления","без фасада"] },
+  { title: "Вытяжка · 7 форм-факторов", em: "hood", keys: ["hood_form_drawer","hood_form_hidden","hood_form_dome","hood_form_inclined","hood_form_island","hood_form_downdraft","hood_form_hob"], labels: ["Встроенная · выдвижная","Полностью скрытая","Купольная","Наклонная","Островная","Downdraft","Hood-in-hob"], hints: ["скрытая в шкафу","внутри шкафа","купол над плитой","стекло под углом","с потолка","из столешницы","в варочной"] },
+  { title: "СВЧ · 2 типа", em: "microwave", keys: ["microwave_install_builtin","microwave_install_freestanding"], labels: ["Встраиваемая","Отдельностоящая"], hints: ["в колонну","на столешнице"] },
+  { title: "Кофемашина · 5 типов", em: "coffee", keys: ["coffee_type_builtin","coffee_type_free_grinder","coffee_type_capsule","coffee_type_manual","coffee_type_tap"], labels: ["Встраиваемая зерновая","Отдельностоящая зерновая","Капсульная","Рожковая","Кран-кофемашина"], hints: ["60×45 · в колонну","на столешнице","Nespresso","бариста-стиль","под столешницу"] },
+  { title: "Стиральная · 3 типа", em: "washer", keys: ["washer_install_builtin","washer_install_undertop","washer_install_freestanding"], labels: ["Встраиваемая","Под столешницу","Отдельностоящая"], hints: ["скрытая фасадом","открытая","соло"] },
+];
+
+const root = document.getElementById("root");
+for (const s of SECTIONS) {
+  const section = document.createElement("section");
+  section.className = "section";
+  section.innerHTML = `<h2 class="section-head">${s.title}</h2><div class="grid"></div>`;
+  const grid = section.querySelector(".grid");
+  s.keys.forEach((k, i) => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `${PODBOR_PICTS[k] || '<div style="color:#c00">missing: '+k+'</div>'}<div class="name">${s.labels[i]}</div><div class="hint">${s.hints[i] || ""}</div>`;
+    grid.appendChild(card);
+  });
+  root.appendChild(section);
+}
+</script>
+</body>
+</html>

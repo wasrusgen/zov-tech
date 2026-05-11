@@ -218,9 +218,9 @@ const PODBOR_PARAMS = {
         title: "Источник нагрева",
         type: "single",
         options: [
-          { key: "elec",  label: "Электричество",       hint: "индукция / Hi-Light" },
-          { key: "gas",   label: "Газ",                 hint: "открытое пламя / на стекле" },
-          { key: "combi", label: "Комбинированная",     hint: "газ + электро" },
+          { key: "elec",  label: "Электричество",       hint: "индукция / Hi-Light",        pict: "hob_src_elec" },
+          { key: "gas",   label: "Газ",                 hint: "открытое пламя / на стекле", pict: "hob_src_gas" },
+          { key: "combi", label: "Комбинированная",     hint: "газ + электро",              pict: "hob_src_combi" },
         ],
       },
       {
@@ -295,8 +295,8 @@ const PODBOR_PARAMS = {
         title: "Тип установки",
         type: "single",
         options: [
-          { key: "built_in", label: "Встраиваемый",        hint: "под фасад ЗОВ", star: true },
-          { key: "stove",    label: "Плита с духовкой",    hint: "отдельностоящая" },
+          { key: "built_in", label: "Встраиваемый",        hint: "под фасад ЗОВ",   star: true, pict: "oven_install_builtin" },
+          { key: "stove",    label: "Плита с духовкой",    hint: "отдельностоящая", pict: "oven_install_stove" },
         ],
       },
       {
@@ -377,9 +377,9 @@ const PODBOR_PARAMS = {
         title: "Тип встройки",
         type: "single",
         options: [
-          { key: "full",         label: "Полновстраиваемая",   hint: "фасад ЗОВ полностью", star: true },
-          { key: "partial",      label: "Частично встраиваемая", hint: "видна панель управления" },
-          { key: "freestanding", label: "Отдельностоящая",     hint: "без фасада" },
+          { key: "full",         label: "Полновстраиваемая",     hint: "фасад ЗОВ полностью",     star: true, pict: "dw_install_full" },
+          { key: "partial",      label: "Частично встраиваемая", hint: "видна панель управления", pict: "dw_install_partial" },
+          { key: "freestanding", label: "Отдельностоящая",       hint: "без фасада",              pict: "dw_install_freestanding" },
         ],
       },
       {
@@ -434,13 +434,13 @@ const PODBOR_PARAMS = {
         title: "Форм-фактор",
         type: "single",
         options: [
-          { key: "built_in_drawer", label: "Встроенная · выдвижная", hint: "скрытая в шкафу, выдвигается панель", star: true },
-          { key: "fully_hidden",    label: "Полностью скрытая",       hint: "внутри шкафа без панели" },
-          { key: "dome",            label: "Купольная / каминная",    hint: "видимый купол над плитой" },
-          { key: "inclined",        label: "Наклонная",               hint: "стекло под углом" },
-          { key: "island",          label: "Островная",               hint: "с потолка над островом" },
-          { key: "downdraft",       label: "Downdraft",               hint: "выдвижная из столешницы" },
-          { key: "hob_combo",       label: "Hood-in-hob",             hint: "встроенная в варочную" },
+          { key: "built_in_drawer", label: "Встроенная · выдвижная", hint: "скрытая в шкафу, выдвигается панель", star: true, pict: "hood_form_drawer" },
+          { key: "fully_hidden",    label: "Полностью скрытая",       hint: "внутри шкафа без панели",  pict: "hood_form_hidden" },
+          { key: "dome",            label: "Купольная / каминная",    hint: "видимый купол над плитой", pict: "hood_form_dome" },
+          { key: "inclined",        label: "Наклонная",               hint: "стекло под углом",         pict: "hood_form_inclined" },
+          { key: "island",          label: "Островная",               hint: "с потолка над островом",   pict: "hood_form_island" },
+          { key: "downdraft",       label: "Downdraft",               hint: "выдвижная из столешницы",  pict: "hood_form_downdraft" },
+          { key: "hob_combo",       label: "Hood-in-hob",             hint: "встроенная в варочную",    pict: "hood_form_hob" },
         ],
       },
       {
@@ -503,8 +503,8 @@ const PODBOR_PARAMS = {
         title: "Тип установки",
         type: "single",
         options: [
-          { key: "built_in",     label: "Встраиваемая",     hint: "в колонну с духовкой", star: true },
-          { key: "freestanding", label: "Отдельностоящая",  hint: "на столешнице / полке" },
+          { key: "built_in",     label: "Встраиваемая",     hint: "в колонну с духовкой",  star: true, pict: "microwave_install_builtin" },
+          { key: "freestanding", label: "Отдельностоящая",  hint: "на столешнице / полке", pict: "microwave_install_freestanding" },
         ],
       },
       {
@@ -559,11 +559,11 @@ const PODBOR_PARAMS = {
         title: "Тип кофемашины",
         type: "single",
         options: [
-          { key: "built_in_grinder", label: "Встраиваемая зерновая", hint: "60 × 45 см · в колонну", star: true },
-          { key: "free_grinder",     label: "Отдельностоящая зерновая", hint: "на столешнице" },
-          { key: "capsule",          label: "Капсульная",            hint: "Nespresso / Dolce Gusto" },
-          { key: "manual",           label: "Рожковая",              hint: "бариста-стиль с холдером" },
-          { key: "tap",              label: "Кран-кофемашина",       hint: "под столешницу, премиум" },
+          { key: "built_in_grinder", label: "Встраиваемая зерновая",    hint: "60 × 45 см · в колонну",     star: true, pict: "coffee_type_builtin" },
+          { key: "free_grinder",     label: "Отдельностоящая зерновая", hint: "на столешнице",              pict: "coffee_type_free_grinder" },
+          { key: "capsule",          label: "Капсульная",               hint: "Nespresso / Dolce Gusto",    pict: "coffee_type_capsule" },
+          { key: "manual",           label: "Рожковая",                 hint: "бариста-стиль с холдером",   pict: "coffee_type_manual" },
+          { key: "tap",              label: "Кран-кофемашина",          hint: "под столешницу, премиум",    pict: "coffee_type_tap" },
         ],
       },
       {
@@ -618,9 +618,9 @@ const PODBOR_PARAMS = {
         title: "Тип установки",
         type: "single",
         options: [
-          { key: "built_in",     label: "Встраиваемая",     hint: "скрытая фасадом ЗОВ", star: true },
-          { key: "under_top",    label: "Под столешницу",   hint: "открытая, без фасада" },
-          { key: "freestanding", label: "Отдельностоящая",  hint: "" },
+          { key: "built_in",     label: "Встраиваемая",     hint: "скрытая фасадом ЗОВ", star: true, pict: "washer_install_builtin" },
+          { key: "under_top",    label: "Под столешницу",   hint: "открытая, без фасада", pict: "washer_install_undertop" },
+          { key: "freestanding", label: "Отдельностоящая",  hint: "",                     pict: "washer_install_freestanding" },
         ],
       },
       {
