@@ -16,13 +16,14 @@ from .. import proxy_pool
 
 log = logging.getLogger("zov.parser.wb")
 
-_SEARCH_URL = "https://search.wb.ru/exactmatch/ru/common/v9/search"
+# WB обновил API: v9 → v18 (2026). Новый формат: products на верхнем уровне.
+_SEARCH_URL = "https://search.wb.ru/exactmatch/ru/common/v18/search"
 _DEFAULT_PARAMS = {
     "TestGroup": "no_test",
     "TestID": "no_test",
     "appType": "1",
     "curr": "rub",
-    "dest": "-1257786",  # Москва, можно поменять
+    "dest": "-1257786",  # Москва (можно подменить, нам это не критично)
     "resultset": "catalog",
     "sort": "popular",
     "spp": "30",
@@ -54,26 +55,40 @@ def search_wb(query: str, limit: int = 3, timeout: float = 12.0,
 
 
 def _generate_query_variants(query: str) -> list[str]:
-    """Из 'Bosch Serie 4 KGN39NW00R холодильник' делаем варианты:
-       1. Bosch Serie 4 KGN39NW00R холодильник
-       2. Bosch KGN39NW00R
-       3. KGN39NW00R
-       4. Bosch holodilnik
+    """Из 'Bosch Serie 4 KGN39NW00R холодильник' делаем варианты от specific к general:
+       1. Bosch Serie 4 KGN39NW00R холодильник  (исходный)
+       2. Bosch KGN39NW00R                      (brand + model)
+       3. KGN39NW00R                            (только индекс)
+       4. Bosch холодильник                     (brand + category — последний шанс)
     """
     import re
     variants = [query]
     parts = query.split()
-    # Находим модель-индекс (с цифрами и буквами)
+    # Находим модель-индекс (буквы + цифры, длина ≥4)
     model_idx = None
     for p in parts:
         if re.search(r"\d", p) and re.search(r"[a-zA-Z]", p) and len(p) >= 4:
             model_idx = p
             break
     brand = parts[0] if parts else ""
+
+    # Категории-ключевые слова на русском
+    cat_words = {
+        "холодильник", "холодильника", "варочная", "духовой", "духовка", "плита",
+        "посудомоечная", "вытяжка", "микроволновая", "свч", "кофемашина", "стиральная",
+        "морозильник", "морозильная",
+    }
+    cat_in_query = next((w for w in parts if w.lower() in cat_words), None)
+
     if brand and model_idx:
         variants.append(f"{brand} {model_idx}")
         variants.append(model_idx)
-    return list(dict.fromkeys(variants))  # дедуп с сохранением порядка
+
+    # Brand + category — широкий fallback
+    if brand and cat_in_query and f"{brand} {cat_in_query}" not in variants:
+        variants.append(f"{brand} {cat_in_query}")
+
+    return list(dict.fromkeys(variants))
 
 
 def _search_wb_one(query: str, limit: int, timeout: float, max_retries: int) -> list[dict[str, Any]]:
@@ -109,7 +124,8 @@ def _search_wb_one(query: str, limit: int, timeout: float, max_retries: int) -> 
             log.warning("WB JSON parse failed: %s", e)
             return []
 
-        products = (data.get("data") or {}).get("products") or []
+        # WB v18: products на верхнем уровне; v9 (legacy fallback): data.products
+        products = data.get("products") or (data.get("data") or {}).get("products") or []
         if not products:
             log.info("WB no products for query=%r", query)
             return []
@@ -121,25 +137,36 @@ def _search_wb_one(query: str, limit: int, timeout: float, max_retries: int) -> 
 
 
 def _build_item(p: dict[str, Any]) -> dict[str, Any]:
-    sale_u = p.get("salePriceU") or 0
-    price_u = p.get("priceU") or 0
-    # WB цена в копейках (или /100). Старое поле было в копейках, иногда в условных единицах.
-    # Делим на 100 — стандартный паттерн.
-    price_min = (sale_u // 100) if sale_u else (price_u // 100 if price_u else None)
-    price_max = (price_u // 100) if price_u and price_u != sale_u else None
+    """Парсит product из WB API.
+    v9: salePriceU / priceU (в копейках, делим на 100)
+    v18: sizes[0].price.{basic, product, total} (в копейках)
+    """
+    price_min = None
+    price_max = None
 
-    # Если у товара есть варианты sizes — берём минимальную цену оттуда
+    # v18: цены в sizes[].price.{product, total, basic}
     sizes = p.get("sizes") or []
-    if sizes:
-        size_prices = []
-        for s in sizes:
-            sp = (s.get("price") or {}).get("product") or 0
-            if sp:
-                size_prices.append(sp // 100)
-        if size_prices:
-            price_min = min(size_prices)
-            if len(size_prices) > 1:
-                price_max = max(size_prices)
+    size_prices = []
+    for s in sizes:
+        pr = s.get("price") or {}
+        # Приоритет: product (с учётом скидки) > total > basic
+        for fld in ("product", "total", "basic"):
+            v = pr.get(fld) or 0
+            if v:
+                size_prices.append(v // 100)
+                break
+    if size_prices:
+        price_min = min(size_prices)
+        if len(size_prices) > 1 and max(size_prices) != price_min:
+            price_max = max(size_prices)
+
+    # v9 fallback — только если ничего не нашли в sizes
+    if price_min is None:
+        sale_u = p.get("salePriceU") or 0
+        price_u = p.get("priceU") or 0
+        price_min = (sale_u // 100) if sale_u else (price_u // 100 if price_u else None)
+        if price_u and price_u != sale_u:
+            price_max = price_u // 100
 
     pid = p.get("id")
     image_url = _build_image_url(pid) if pid else None
