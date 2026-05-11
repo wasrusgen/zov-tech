@@ -130,7 +130,27 @@ def _search_wb_one(query: str, limit: int, timeout: float, max_retries: int) -> 
             log.info("WB no products for query=%r", query)
             return []
 
-        return [_build_item(p) for p in products[:limit]]
+        # WB anti-bot иногда возвращает 1-2 нерелевантных товара (платья, обувь)
+        # вместо 429. Фильтруем по релевантности к query.
+        relevant = [p for p in products if _is_relevant(p, query)]
+        if not relevant:
+            log.info("WB: %d products but none relevant to query=%r (anti-bot trash)",
+                     len(products), query)
+            return []
+
+        return [_build_item(p) for p in relevant[:limit]]
+
+
+def _is_relevant(product: dict, query: str) -> bool:
+    """Проверяем что товар реально соответствует поиску, а не WB anti-bot мусор."""
+    name = (product.get("name") or "").lower()
+    brand = (product.get("brand") or "").lower()
+    q_words = [w.lower() for w in query.split() if len(w) >= 3]
+    if not q_words:
+        return True
+    # Хотя бы 1 значимое слово запроса должно быть в name или brand
+    matches = sum(1 for w in q_words if w in name or w in brand)
+    return matches >= 1
 
     log.warning("WB gave up after %d attempts for query=%r", max_retries + 1, query)
     return []
