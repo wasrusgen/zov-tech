@@ -1353,6 +1353,85 @@
   color: var(--walnut);
 }
 
+/* Технические характеристики */
+.report-specs {
+  margin-top: 10px;
+  background: #FFFCF6;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.report-specs-head {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.report-specs-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 10px;
+}
+.spec-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 0;
+}
+.spec-item.highlight {
+  grid-column: 1 / -1;
+  border-bottom: 1px dashed var(--accent-2);
+  padding-bottom: 6px;
+  margin-bottom: 4px;
+}
+.spec-label {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.spec-value {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.spec-item.highlight .spec-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--accent-2);
+}
+
+/* Утилитарные ссылки — инструкция, схема установки */
+.report-util-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.util-link {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: var(--warm);
+  border: 1px solid var(--line);
+  padding: 5px 10px;
+  border-radius: var(--r-pill);
+  text-decoration: none;
+  transition: background 0.12s;
+}
+.util-link:active { background: #EAD9B6; }
+.util-link--manual { border-color: #6B4A2B; }
+.util-link--dims { border-color: var(--accent-2); color: var(--accent-2); }
+
 .report-cat-analysis {
   font-size: 13.5px;
   line-height: 1.5;
@@ -1654,3 +1733,53 @@
   line-height: 1.5;
 }
 .report-warnings > div { margin: 2px 0; }
+
+/* Экспорт отчёта */
+.report-export {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--warm);
+  border: 1px dashed var(--walnut);
+  border-radius: var(--r);
+}
+.report-export-head {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--walnut);
+  margin-bottom: 10px;
+}
+.report-export-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.btn-export {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid var(--walnut);
+  color: var(--walnut);
+  cursor: pointer;
+  transition: all 0.12s;
+  flex: 1;
+  min-width: 140px;
+}
+.btn-export:active {
+  background: var(--walnut);
+  color: var(--paper);
+  transform: scale(0.97);
+}
+.report-export-hint {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-top: 8px;
+  line-height: 1.4;
+}

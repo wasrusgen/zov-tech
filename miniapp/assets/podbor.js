@@ -39,6 +39,7 @@ const Podbor = (function () {
       budget_preset: "",       // 'luxe'|'premium'|'middle'|'budget'|'exact'
       price_ranges: {},        // только если budget_preset === 'exact'
       pick_strategies: [],     // ['reviews','balance','tech',...] — multi
+      model_count: "5",        // '3' | '5' | '7' — сколько моделей в каждой категории
       infra: { stove: "", vent: "" },
       notes: "",
     };
@@ -1059,6 +1060,14 @@ const Podbor = (function () {
       }
     );
 
+    // Количество моделей в категории
+    const mc = state.model_count || "5";
+    const countGrid = renderPinCards(
+      PODBOR_MODEL_COUNTS,
+      o => (mc === o.key ? "on" : ""),
+      key => { update({ model_count: key }); render(); }
+    );
+
     const node = el(`
       <section class="podbor-step">
         <h2 class="display-title">Стратегия<br><span class="accent">подбора</span></h2>
@@ -1066,6 +1075,15 @@ const Podbor = (function () {
       </section>
     `);
     node.appendChild(grid);
+
+    const countHead = el(`
+      <div class="block">
+        <div class="block-head">Сколько моделей предложить</div>
+      </div>
+    `);
+    countHead.appendChild(countGrid);
+    node.appendChild(countHead);
+
     const cta = el(`
       <div class="podbor-cta-row">
         <button class="btn-secondary" data-go="budget">Назад</button>
@@ -1356,7 +1374,97 @@ const Podbor = (function () {
       wrap.appendChild(wn);
     }
 
+    // Кнопки экспорта в конце
+    const exportNode = el(`
+      <div class="report-export">
+        <div class="report-export-head">Сохранить отчёт</div>
+        <div class="report-export-buttons">
+          <button class="btn-export" id="exportHtml">⬇ Скачать HTML</button>
+          <button class="btn-export" id="exportPrint">🖨 Печать → PDF</button>
+        </div>
+        <div class="report-export-hint">HTML удобно отправить клиенту в мессенджер · PDF — для печати или вложения</div>
+      </div>
+    `);
+    exportNode.querySelector("#exportHtml").addEventListener("click", () => _exportReportHtml(ai, leadId));
+    exportNode.querySelector("#exportPrint").addEventListener("click", () => _exportReportPrint(wrap, leadId));
+    wrap.appendChild(exportNode);
+
     return wrap;
+  }
+
+  /* Экспорт: HTML файл с inline стилями и данными — скачивается */
+  function _exportReportHtml(ai, leadId) {
+    // Создаём stand-alone HTML вокруг текущего DOM отчёта
+    const reportEl = document.querySelector(".report");
+    if (!reportEl) return;
+    // Копируем все стили со страницы (link + style)
+    const stylesheets = [];
+    document.querySelectorAll("link[rel='stylesheet'], style").forEach(s => stylesheets.push(s.outerHTML));
+    const html = `<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Подбор техники · ${leadId.slice(0,8)}</title>
+${stylesheets.join("\n")}
+<style>
+  body { background: #FBF7F0; padding: 20px; max-width: 900px; margin: 0 auto; }
+  .report-export { display: none; }
+  .podbor-header, .podbor-progress, .cat-strip, #submitResult > .success { display: none; }
+</style>
+</head>
+<body>
+<h1 style="font-family: 'Newsreader', serif; font-style: italic; color: #1F1A14;">Подбор техники · клиент: ${_esc(state.client_name || "—")}</h1>
+${reportEl.outerHTML}
+<footer style="margin-top: 40px; padding: 20px; border-top: 1px solid #ddd; font-size: 11px; color: #888; font-family: 'JetBrains Mono', monospace;">
+  Отчёт сгенерирован ${new Date().toLocaleString("ru-RU")} · ZOV Tech Picker · Lead ID: ${leadId}
+</footer>
+</body>
+</html>`;
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `podbor-${leadId.slice(0,8)}-${(state.client_name || "client").replace(/\s+/g, "_")}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    haptic && haptic("success");
+  }
+
+  /* Экспорт: открываем системный print диалог — пользователь сохраняет как PDF */
+  function _exportReportPrint(reportNode, leadId) {
+    // Открываем новое окно с чистой версткой отчёта только
+    const reportEl = document.querySelector(".report");
+    if (!reportEl) return;
+    const stylesheets = [];
+    document.querySelectorAll("link[rel='stylesheet'], style").forEach(s => stylesheets.push(s.outerHTML));
+    const w = window.open("", "_blank");
+    if (!w) { alert("Браузер заблокировал окно. Разрешите всплывающие окна."); return; }
+    w.document.write(`<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Подбор техники · ${leadId.slice(0,8)} · Печать</title>
+${stylesheets.join("\n")}
+<style>
+  body { background: #fff; padding: 20px; max-width: 900px; margin: 0 auto; }
+  .report-export, .podbor-header, .podbor-progress, .cat-strip { display: none; }
+  @media print {
+    body { padding: 10px; }
+    .report-model { page-break-inside: avoid; }
+    .report-cat { page-break-after: auto; }
+  }
+</style>
+</head>
+<body>
+<h1 style="font-family: 'Newsreader', serif; font-style: italic;">Подбор техники · ${_esc(state.client_name || "—")}</h1>
+${reportEl.outerHTML}
+<script>setTimeout(() => window.print(), 500);<\/script>
+</body>
+</html>`);
+    w.document.close();
+    haptic && haptic("success");
   }
 
   function _renderModelCard(m) {
@@ -1414,7 +1522,11 @@ const Podbor = (function () {
             </div>
           ` : ""}
 
+          ${_renderSpecsBlock(m.specs || {})}
+
           ${m.reasoning ? `<div class="report-reasoning">💡 ${_esc(m.reasoning)}</div>` : ""}
+
+          ${_renderUtilityLinks(m)}
 
           ${sourceLinks.length ? `
             <div class="report-links">
@@ -1426,6 +1538,53 @@ const Podbor = (function () {
       </article>
     `);
     return card;
+  }
+
+  /* Спеки технические: габариты, объём, шум, класс энергии, цвет.
+     Габариты — критично для проектирования кухни. */
+  function _renderSpecsBlock(specs) {
+    if (!specs || Object.keys(specs).length === 0) return "";
+    const items = [];
+    if (specs.dimensions_mm) items.push({ label: "Габариты ШхГxВ", value: `${specs.dimensions_mm} мм`, highlight: true });
+    if (specs.volume_l)      items.push({ label: "Объём",          value: `${specs.volume_l} л` });
+    if (specs.weight_kg)     items.push({ label: "Вес",            value: `${specs.weight_kg} кг` });
+    if (specs.noise_db)      items.push({ label: "Шум",            value: `${specs.noise_db} дБ` });
+    if (specs.energy_class)  items.push({ label: "Класс энергии",  value: specs.energy_class });
+    if (specs.color)         items.push({ label: "Цвет / материал", value: specs.color });
+
+    if (!items.length) return "";
+
+    return `
+      <div class="report-specs">
+        <div class="report-specs-head">Характеристики</div>
+        <div class="report-specs-grid">
+          ${items.map(i => `
+            <div class="spec-item${i.highlight ? " highlight" : ""}">
+              <div class="spec-label">${_esc(i.label)}</div>
+              <div class="spec-value">${_esc(i.value)}</div>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  /* Кнопки "Инструкция" (Google поиск) + "Габариты" (если есть в specs). */
+  function _renderUtilityLinks(m) {
+    const buttons = [];
+    const manualQuery = m.manual_search_query
+      || `${m.brand || ""} ${m.model || ""} manual инструкция pdf`.trim();
+    if (manualQuery && manualQuery.length > 5) {
+      const url = `https://www.google.com/search?q=${encodeURIComponent(manualQuery)}`;
+      buttons.push(`<a href="${url}" target="_blank" rel="noopener noreferrer" class="util-link util-link--manual">📄 Инструкция</a>`);
+    }
+    const dims = (m.specs || {}).dimensions_mm;
+    if (dims) {
+      const url = `https://www.google.com/search?q=${encodeURIComponent(`${m.brand} ${m.model} габариты схема установки`)}`;
+      buttons.push(`<a href="${url}" target="_blank" rel="noopener noreferrer" class="util-link util-link--dims">📐 Схема установки</a>`);
+    }
+    if (!buttons.length) return "";
+    return `<div class="report-util-links">${buttons.join("")}</div>`;
   }
 
   function _pluralStores(n) {

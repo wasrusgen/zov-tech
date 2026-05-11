@@ -63,6 +63,8 @@ const MOCK_AI = {
           pros: ["тихий 36 дБ — на 4 дБ тише среднего по сегменту", "большой объём 463 л против 380 л у Bosch в этой цене", "инвертор + класс A++ — экономия ~30% против A+ моделей", "10 лет гарантии на компрессор"],
           cons: ["глубина 660 мм — на 60 мм больше стандартной ниши, проверить на замере", "нет зоны свежести BioFresh — в этом плане Liebherr заметно лучше"],
           reasoning: "Лучший по цена/качество в среднем сегменте. Тише и больше Bosch в той же цене, но без премиум-зоны свежести.",
+          specs: { dimensions_mm: "595×660×2000", volume_l: 463, weight_kg: 75, noise_db: 36, energy_class: "A++", color: "Нержавеющая сталь" },
+          manual_search_query: "Haier C4F744CMG manual инструкция pdf",
           tier: "middle",
           enriched: {
             image_url: "https://placehold.co/200x200/F5EDDC/6B4A2B?text=Haier",
@@ -81,6 +83,8 @@ const MOCK_AI = {
           pros: ["премиум-качество немецкой сборки", "очень тихий 34 дБ — на 2 дБ тише Haier", "BioFresh — овощи дольше хрустящие на 30 дней", "10 лет гарантии на компрессор"],
           cons: ["цена выше Haier на ~50% при том же объёме", "идёт параллельным импортом — ждать 4-6 недель"],
           reasoning: "Премиум-выбор для тех, кому важна зона свежести и тишина. Переплата ~50% за бренд и BioFresh.",
+          specs: { dimensions_mm: "597×675×2010", volume_l: 372, weight_kg: 89, noise_db: 34, energy_class: "A+++", color: "Нержавеющая сталь SmartSteel" },
+          manual_search_query: "Liebherr CNd 5223 manual инструкция pdf",
           tier: "premium",
           enriched: {
             image_url: "https://placehold.co/200x200/EFE3CC/6B4A2B?text=Liebherr",
@@ -97,6 +101,8 @@ const MOCK_AI = {
           pros: ["доступная цена в 2 раза ниже Haier", "компактные габариты 600×600×1900 мм — идеальная ниша", "официальная гарантия 3 года от российского производителя"],
           cons: ["без инвертора — компрессор работает циклами, заметнее на слух", "шум 42 дБ — на 6 дБ громче Haier", "нет зон свежести"],
           reasoning: "Страховочный бюджет-вариант если клиент не хочет переплачивать. Российский, доступный, надёжный.",
+          specs: { dimensions_mm: "580×600×1450", volume_l: 240, weight_kg: 52, noise_db: 42, energy_class: "A+", color: "Белый" },
+          manual_search_query: "Бирюса M124 инструкция pdf",
           tier: "budget",
           enriched: {
             image_url: "https://placehold.co/200x200/FBF7F0/6B4A2B?text=Birusa",
@@ -301,6 +307,33 @@ function _renderModelCard(m) {
     return "магазинов";
   }
 
+  // Specs block
+  const specs = m.specs || {};
+  const specsItems = [];
+  if (specs.dimensions_mm) specsItems.push({ label: "Габариты ШхГxВ", value: specs.dimensions_mm + " мм", highlight: true });
+  if (specs.volume_l) specsItems.push({ label: "Объём", value: specs.volume_l + " л" });
+  if (specs.weight_kg) specsItems.push({ label: "Вес", value: specs.weight_kg + " кг" });
+  if (specs.noise_db) specsItems.push({ label: "Шум", value: specs.noise_db + " дБ" });
+  if (specs.energy_class) specsItems.push({ label: "Класс энергии", value: specs.energy_class });
+  if (specs.color) specsItems.push({ label: "Цвет / материал", value: specs.color });
+  const specsHtml = specsItems.length ? `
+    <div class="report-specs">
+      <div class="report-specs-head">Характеристики</div>
+      <div class="report-specs-grid">
+        ${specsItems.map(i => `<div class="spec-item${i.highlight ? " highlight" : ""}"><div class="spec-label">${_esc(i.label)}</div><div class="spec-value">${_esc(i.value)}</div></div>`).join("")}
+      </div>
+    </div>` : "";
+
+  // Utility links
+  const utilButtons = [];
+  if (m.manual_search_query) {
+    utilButtons.push(`<a href="https://www.google.com/search?q=${encodeURIComponent(m.manual_search_query)}" target="_blank" class="util-link util-link--manual">📄 Инструкция</a>`);
+  }
+  if (specs.dimensions_mm) {
+    utilButtons.push(`<a href="https://www.google.com/search?q=${encodeURIComponent((m.brand || '') + ' ' + (m.model || '') + ' габариты схема установки')}" target="_blank" class="util-link util-link--dims">📐 Схема установки</a>`);
+  }
+  const utilHtml = utilButtons.length ? `<div class="report-util-links">${utilButtons.join("")}</div>` : "";
+
   return el(`
     <article class="report-model">
       <div class="report-model-img${img ? "" : " placeholder"}">${img ? `<img src="${_esc(img)}" alt="" loading="lazy">` : ""}</div>
@@ -325,7 +358,11 @@ function _renderModelCard(m) {
           </div>
         ` : ""}
 
+        ${specsHtml}
+
         ${m.reasoning ? `<div class="report-reasoning">💡 ${_esc(m.reasoning)}</div>` : ""}
+
+        ${utilHtml}
 
         ${sourceLinks.length ? `
           <div class="report-links">
