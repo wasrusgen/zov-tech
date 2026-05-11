@@ -178,22 +178,74 @@ const Podbor = (function () {
           <label class="field">
             <span class="field-label">Клиент</span>
             <input type="text" data-bind="client_name" value="${state.client_name || ""}" placeholder="Например: А. Пестова">
+            <span class="field-error" id="nameError"></span>
           </label>
         </div>
         <div class="form-row">
           <label class="field">
             <span class="field-label">Телефон</span>
-            <input type="tel" data-bind="client_phone" value="${state.client_phone || ""}" placeholder="+7 ...">
+            <input type="tel" data-bind="client_phone" value="${state.client_phone || ""}" placeholder="+7 900 123-45-67">
+            <span class="field-hint">Формат: +7, 8, или 10 цифр начиная с 9</span>
+            <span class="field-error" id="phoneError"></span>
           </label>
         </div>
 
         <div class="podbor-cta-row">
-          <button class="btn-primary" data-go="categories">Начать</button>
+          <button class="btn-primary" id="introNext">Начать</button>
         </div>
       </section>
     `);
     bindInputs(node);
-    bindNav(node);
+
+    const phoneInput = node.querySelector("input[data-bind='client_phone']");
+    const phoneError = node.querySelector("#phoneError");
+    const nameInput = node.querySelector("input[data-bind='client_name']");
+    const nameError = node.querySelector("#nameError");
+
+    // Валидация на blur — мягкие подсказки
+    phoneInput.addEventListener("blur", () => {
+      const v = phoneInput.value.trim();
+      if (v && !isValidPhone(v)) {
+        phoneError.textContent = "Похоже на неполный номер. Нужно 11 цифр (или 10 с цифры 9)";
+      } else {
+        phoneError.textContent = "";
+      }
+    });
+
+    node.querySelector("#introNext").addEventListener("click", () => {
+      // Имя
+      const name = (state.client_name || "").trim();
+      if (!name) {
+        nameError.textContent = "Укажите имя клиента";
+        nameInput.focus();
+        haptic && haptic("warning");
+        return;
+      } else {
+        nameError.textContent = "";
+      }
+
+      // Телефон
+      const phone = (state.client_phone || "").trim();
+      if (!phone) {
+        phoneError.textContent = "Укажите телефон клиента";
+        phoneInput.focus();
+        haptic && haptic("warning");
+        return;
+      }
+      if (!isValidPhone(phone)) {
+        phoneError.textContent = "Неверный формат. Пример: +7 900 123-45-67 или 89001234567";
+        phoneInput.focus();
+        haptic && haptic("warning");
+        return;
+      }
+      // Нормализуем перед переходом
+      const normalized = normalizePhone(phone);
+      if (normalized !== phone) {
+        update({ client_phone: normalized });
+      }
+      go("categories");
+    });
+
     return node;
   }
 
@@ -1537,6 +1589,15 @@ const Podbor = (function () {
     if (d.length === 10 && d.startsWith("9")) d = "7" + d; // мобильный без префикса
     if (d.length !== 11 || !d.startsWith("7")) return raw.trim(); // не похоже на РФ-номер — не трогаем
     return `+7 ${d.slice(1, 4)} ${d.slice(4, 7)}-${d.slice(7, 9)}-${d.slice(9, 11)}`;
+  }
+
+  /* Проверка: получится ли валидный РФ-номер из введённого. */
+  function isValidPhone(raw) {
+    if (!raw) return false;
+    let d = raw.replace(/\D/g, "");
+    if (d.length === 11 && d.startsWith("8")) d = "7" + d.slice(1);
+    if (d.length === 10 && d.startsWith("9")) d = "7" + d;
+    return d.length === 11 && d.startsWith("7");
   }
 
   function bindNav(node) {
