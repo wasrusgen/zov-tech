@@ -98,7 +98,13 @@ async def _dispatch_post(request: Request):
         return JSONResponse({"error": "unknown_path", "path": path}, status_code=404)
 
     try:
-        return JSONResponse(fn(body))
+        # podbor использует Playwright sync API → выполняем в threadpool
+        if path == "podbor":
+            import asyncio
+            result = await asyncio.to_thread(fn, body)
+        else:
+            result = fn(body)
+        return JSONResponse(result)
     except Exception as e:
         log.exception("api error on path=%s", path)
         sheets.log_event("api_error", None, {"path": path, "error": str(e)})
@@ -124,7 +130,9 @@ async def api_measurement(request: Request):
 @app.post("/api/podbor")
 async def api_podbor(request: Request):
     body = await _safe_json(request)
-    return _handle_podbor(body)
+    # _handle_podbor использует Playwright sync API — выполняем в threadpool
+    import asyncio
+    return await asyncio.to_thread(_handle_podbor, body)
 
 
 @app.get("/api/test_ai")
@@ -143,7 +151,7 @@ async def api_seed_admin():
 
 
 @app.get("/api/parse_dns")
-async def api_parse_dns(q: str = "", limit: int = 1):
+def api_parse_dns(q: str = "", limit: int = 1):  # sync — для threadpool
     """Тест парсера DNS."""
     if not q:
         return {"error": "missing_query", "hint": "use ?q=<search>"}
@@ -155,7 +163,7 @@ async def api_parse_dns(q: str = "", limit: int = 1):
 
 
 @app.get("/api/parse_wb")
-async def api_parse_wb(q: str = "", limit: int = 3):
+def api_parse_wb(q: str = "", limit: int = 3):
     if not q:
         return {"error": "missing_query"}
     try:
@@ -166,7 +174,7 @@ async def api_parse_wb(q: str = "", limit: int = 3):
 
 
 @app.get("/api/parse_ozon")
-async def api_parse_ozon(q: str = "", limit: int = 3):
+def api_parse_ozon(q: str = "", limit: int = 3):
     if not q:
         return {"error": "missing_query"}
     try:
@@ -177,7 +185,7 @@ async def api_parse_ozon(q: str = "", limit: int = 3):
 
 
 @app.get("/api/parse_yamarket")
-async def api_parse_yamarket(q: str = "", limit: int = 3):
+def api_parse_yamarket(q: str = "", limit: int = 3):
     if not q:
         return {"error": "missing_query"}
     try:
@@ -188,7 +196,7 @@ async def api_parse_yamarket(q: str = "", limit: int = 3):
 
 
 @app.get("/api/parse_all")
-async def api_parse_all(q: str = ""):
+def api_parse_all(q: str = ""):
     """Спрашивает все источники и возвращает агрегированный результат."""
     if not q:
         return {"error": "missing_query"}
