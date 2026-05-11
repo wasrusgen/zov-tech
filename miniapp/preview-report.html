@@ -76,60 +76,89 @@ const MOCK_AI = {
         },
         {
           brand: "Liebherr", model: "CNd 5223",
-          price_min_rub: 109900, price_max_rub: 124000,
+          price_min_rub: 134900, price_max_rub: 154000,
           highlights: ["BioFresh (зона свежести)", "NoFrost", "SoftClose"],
-          pros: ["премиум-качество сборки", "очень тихий 34дБ", "10 лет гарантии на компрессор"],
-          cons: ["цена выше среднего на +15%"],
+          pros: ["премиум-качество немецкой сборки", "очень тихий 34 дБ — на 2 дБ тише Haier", "BioFresh — овощи дольше хрустящие на 30 дней", "10 лет гарантии на компрессор"],
+          cons: ["цена выше Haier на ~50% при том же объёме", "идёт параллельным импортом — ждать 4-6 недель"],
+          reasoning: "Премиум-выбор для тех, кому важна зона свежести и тишина. Переплата ~50% за бренд и BioFresh.",
           tier: "premium",
           enriched: {
             image_url: "https://placehold.co/200x200/EFE3CC/6B4A2B?text=Liebherr",
-            price_min_rub: 109900, price_max_rub: 124000,
-            rating_max: 4.9, reviews_total: 873, stores_count: 8,
-            wb: { url: "#" }, yamarket: { url: "#" }
+            rating_max: 4.9, reviews_total: 873, stores_count: 4,
+            ozon: { url: "https://www.ozon.ru/product/liebherr-cnd5223/", price_min_rub: 134900 },
+            citilink: { url: "https://www.citilink.ru/product/liebherr-cnd5223/", price_min_rub: 142000 },
+            yamarket: { url: "https://market.yandex.ru/product--liebherr-cnd5223/", price_min_rub: 154000 }
           }
         },
         {
-          brand: "Indesit", model: "ITS 4180 W",
+          brand: "Бирюса", model: "M124",
           price_min_rub: 39990,
           highlights: ["LowFrost (размораживать только мороз)", "класс A+"],
-          pros: ["доступная цена", "компактные габариты"],
-          cons: ["без инвертора", "шум 42дБ"],
+          pros: ["доступная цена в 2 раза ниже Haier", "компактные габариты 600×600×1900 мм — идеальная ниша", "официальная гарантия 3 года от российского производителя"],
+          cons: ["без инвертора — компрессор работает циклами, заметнее на слух", "шум 42 дБ — на 6 дБ громче Haier", "нет зон свежести"],
+          reasoning: "Страховочный бюджет-вариант если клиент не хочет переплачивать. Российский, доступный, надёжный.",
           tier: "budget",
           enriched: {
-            image_url: "https://placehold.co/200x200/FBF7F0/6B4A2B?text=Indesit",
-            price_min_rub: 39990, price_max_rub: 44900,
-            rating_max: 4.3, reviews_total: 2100, stores_count: 15,
-            dns: { url: "#" }, ozon: { url: "#" }
+            image_url: "https://placehold.co/200x200/FBF7F0/6B4A2B?text=Birusa",
+            rating_max: 4.3, reviews_total: 2100, stores_count: 5,
+            ozon: { url: "https://www.ozon.ru/product/biryusa-m124/", price_min_rub: 39990 },
+            citilink: { url: "https://www.citilink.ru/product/biryusa-m124/", price_min_rub: 41500 },
+            wb: { url: "https://www.wildberries.ru/catalog/biryusa-m124/", price_min_rub: 42990 },
+            dns: { url: "https://www.dns-shop.ru/product/biryusa-m124/", price_min_rub: 44900 }
           }
         }
       ]
     },
     hob: {
+      analysis: "В 2026 году индукционные варочные среднего сегмента — это Haier и Korting. Bosch ещё доступен через ПИ, но цена выше на 25%. Все три модели — 60 см, 4 зоны, индукция.",
       models: [
         {
-          brand: "Bosch", model: "PUE611BB5E",
-          price_min_rub: 59900, price_max_rub: 68000,
-          highlights: ["Индукция", "PowerBoost (форсаж — кипятит за минуту)", "TouchSelect (плавная регулировка)"],
-          pros: ["4 индукционные зоны", "безопасность для детей", "класс A"],
-          cons: ["требует индукционной посуды"],
+          brand: "Haier", label: "Haier",
+          model: "HHX-Y64NFB",
+          price_min_rub: 39990, price_max_rub: 48000,
+          highlights: ["Индукция (магнитный нагрев посуды)", "Booster (кипятит за минуту)", "Сенсорное управление"],
+          pros: ["4 индукционные зоны 60 см — стандарт", "Booster на 2 зонах — кипятит литр за 60 сек", "защита от детей блокировкой", "класс A — экономия энергии"],
+          cons: ["требует индукционной посуды (магнитное дно)", "нет FlexZone — нельзя объединить две зоны под крупную сковороду"],
+          reasoning: "Базовая индукция от лидера рынка 2026 РФ. Идеальна когда не нужны премиум-фичи.",
           tier: "middle",
           enriched: {
-            image_url: "https://placehold.co/200x200/F5EDDC/6B4A2B?text=Bosch+PUE",
-            rating_max: 4.6, reviews_total: 845, stores_count: 10,
-            wb: { url: "#" }, yamarket: { url: "#" }
+            image_url: "https://placehold.co/200x200/F5EDDC/6B4A2B?text=Haier+hob",
+            rating_max: 4.6, reviews_total: 845, stores_count: 4,
+            ozon: { url: "https://www.ozon.ru/product/haier-hhx-y64nfb/", price_min_rub: 39990 },
+            citilink: { url: "https://www.citilink.ru/product/haier-hhx-y64nfb/", price_min_rub: 42500 },
+            wb: { url: "#", price_min_rub: 44990 },
+            yamarket: { url: "#", price_min_rub: 48000 }
           }
         },
         {
-          brand: "Siemens", model: "EH675FJC1E",
-          price_min_rub: 79900, price_max_rub: 89000,
-          highlights: ["Индукция", "FlexZone (объединение зон)", "Hob2Hood (управление вытяжкой)"],
-          pros: ["варочная управляет вытяжкой", "5 зон + Flex", "8-летняя гарантия"],
-          cons: ["цена премиум-сегмента"],
-          tier: "premium",
+          brand: "Korting", model: "HI 64560 BB",
+          price_min_rub: 54990, price_max_rub: 62000,
+          highlights: ["Индукция", "FlexZone (объединение зон)", "9 уровней мощности"],
+          pros: ["FlexZone — объединяет 2 зоны для wok или большой кастрюли", "более чувствительный сенсор чем у Haier (9 vs 4 деления)", "5 лет официальной гарантии в РФ"],
+          cons: ["цена выше базового Haier на 38%", "управление сенсорное — иногда срабатывает по случайному касанию"],
+          reasoning: "Премиум-функционал FlexZone за разумные деньги. Для тех, кто часто готовит в wok.",
+          tier: "middle",
           enriched: {
-            image_url: "https://placehold.co/200x200/EFE3CC/6B4A2B?text=Siemens",
-            rating_max: 4.8, reviews_total: 432, stores_count: 6,
-            yamarket: { url: "#" }, ozon: { url: "#" }
+            image_url: "https://placehold.co/200x200/EFE3CC/6B4A2B?text=Korting",
+            rating_max: 4.8, reviews_total: 432, stores_count: 3,
+            ozon: { url: "https://www.ozon.ru/product/korting-hi64560bb/", price_min_rub: 54990 },
+            citilink: { url: "https://www.citilink.ru/product/korting-hi64560bb/", price_min_rub: 58000 },
+            yamarket: { url: "https://market.yandex.ru/product--korting-hi64560bb/", price_min_rub: 62000 }
+          }
+        },
+        {
+          brand: "Bosch", model: "PUE611BB5E ⚠ПИ",
+          price_min_rub: 64990, price_max_rub: 78000,
+          highlights: ["Индукция", "PowerBoost", "PerfectCook (сенсор посуды)"],
+          pros: ["PerfectCook — сенсор определяет посуду и держит температуру", "лучший дизайн без рамки", "немецкая надёжность"],
+          cons: ["параллельный импорт — гарантия только продавца, не Bosch", "цена выше Haier на 65% за похожий функционал", "ожидание поставки 3-5 недель"],
+          reasoning: "Премиум-выбор для эстетов. Доступен только через ПИ, переплата за бренд значительная.",
+          tier: "middle",
+          enriched: {
+            image_url: "https://placehold.co/200x200/D8C9A8/6B4A2B?text=Bosch+%E2%9A%A0",
+            rating_max: 4.7, reviews_total: 1240, stores_count: 2,
+            ozon: { url: "https://www.ozon.ru/product/bosch-pue611bb5e/", price_min_rub: 64990 },
+            yamarket: { url: "https://market.yandex.ru/product--bosch-pue611bb5e/", price_min_rub: 78000 }
           }
         }
       ]
@@ -200,12 +229,12 @@ function renderReport(ai, leadId) {
     `);
     const modelsWrap = catNode.querySelector(".report-models");
 
+    // Матрица цен — primary view, ВСТАВЛЯЕМ ДО списка моделей
+    const matrixNode = _renderPriceMatrix(models);
+    if (matrixNode) catNode.insertBefore(matrixNode, modelsWrap);
+
     for (const m of models) {
       modelsWrap.appendChild(_renderModelCard(m));
-    }
-
-    if (models.length >= 2) {
-      modelsWrap.appendChild(_renderCompareTable(models));
     }
 
     wrap.appendChild(catNode);
@@ -306,6 +335,80 @@ function _renderModelCard(m) {
         ` : `<div class="report-links-empty">— не найден в подключённых магазинах</div>`}
       </div>
     </article>
+  `);
+}
+
+function _renderPriceMatrix(models) {
+  if (!models || !models.length) return null;
+  const STORES = [
+    { key: "ozon", label: "OZON" },
+    { key: "citilink", label: "Citilink" },
+    { key: "wb", label: "Wildberries" },
+    { key: "yamarket", label: "Я.Маркет" },
+    { key: "dns", label: "DNS" },
+  ];
+  const activeStores = STORES.filter(s =>
+    models.some(m => (m.enriched || {})[s.key] && ((m.enriched || {})[s.key].price_min_rub || (m.enriched || {})[s.key].url))
+  );
+  const showStoresCols = activeStores.length > 0;
+
+  const head = `
+    <thead>
+      <tr>
+        <th class="col-model">Модель</th>
+        ${showStoresCols
+          ? activeStores.map(s => `<th class="col-store">${s.label}</th>`).join("")
+          : `<th class="col-store">Цена (AI)</th>`}
+        <th class="col-best">Мин</th>
+      </tr>
+    </thead>
+  `;
+
+  const rows = models.map(m => {
+    const enriched = m.enriched || {};
+    const cellPrices = showStoresCols
+      ? activeStores.map(s => {
+          const item = enriched[s.key];
+          return { store: s.key, price: item && item.price_min_rub, url: item && item.url };
+        })
+      : [{ store: "ai", price: enriched.price_min_rub || m.price_min_rub, url: null }];
+
+    const validPrices = cellPrices.map(c => c.price).filter(p => p && p > 0);
+    const bestPrice = validPrices.length ? Math.min(...validPrices) : null;
+
+    const modelCell = `
+      <td class="col-model">
+        <div class="m-brand">${_esc(m.brand || "")}</div>
+        <div class="m-name">${_esc(m.model || "")}</div>
+      </td>
+    `;
+    const storeCells = cellPrices.map(c => {
+      if (!c.price) {
+        return c.url
+          ? `<td class="cell-price"><a href="${_esc(c.url)}" target="_blank" rel="noopener noreferrer" class="cell-noprice-link">смотреть →</a></td>`
+          : `<td class="cell-price empty">—</td>`;
+      }
+      const isBest = bestPrice && c.price === bestPrice;
+      const priceHtml = `<strong>${formatRub(c.price)}</strong> ₽`;
+      const cellInner = c.url
+        ? `<a href="${_esc(c.url)}" target="_blank" rel="noopener noreferrer">${priceHtml}${isBest ? ' <span class="best-mark">✓</span>' : ''}</a>`
+        : `${priceHtml}${isBest ? ' <span class="best-mark">✓</span>' : ''}`;
+      return `<td class="cell-price${isBest ? ' best' : ''}">${cellInner}</td>`;
+    }).join("");
+    const bestCell = `<td class="col-best">${bestPrice ? `<strong>${formatRub(bestPrice)}</strong>` : "—"}</td>`;
+    return `<tr>${modelCell}${storeCells}${bestCell}</tr>`;
+  }).join("");
+
+  return el(`
+    <div class="report-matrix-wrap">
+      <div class="report-matrix-head">Цены по магазинам — лучшая отмечена ✓</div>
+      <div class="report-matrix-scroll">
+        <table class="report-matrix">
+          ${head}
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>
   `);
 }
 

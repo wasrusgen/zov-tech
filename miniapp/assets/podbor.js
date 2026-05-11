@@ -1265,19 +1265,19 @@ const Podbor = (function () {
             ${_esc(catLabel)}
           </h3>
           ${catAnalysis ? `<div class="report-cat-analysis">${_esc(catAnalysis)}</div>` : ""}
-          <div class="report-models"></div>
         </div>
       `);
-      const modelsWrap = catNode.querySelector(".report-models");
 
+      // Сравнение цен — основной блок, всегда вверху
+      const matrixNode = _renderPriceMatrix(models);
+      if (matrixNode) catNode.appendChild(matrixNode);
+
+      // Детальные карточки с pros/cons
+      const modelsWrap = el(`<div class="report-models"></div>`);
       for (const m of models) {
         modelsWrap.appendChild(_renderModelCard(m));
       }
-
-      // Сравнение
-      if (models.length >= 2) {
-        modelsWrap.appendChild(_renderCompareTable(models));
-      }
+      catNode.appendChild(modelsWrap);
 
       wrap.appendChild(catNode);
     }
@@ -1382,6 +1382,93 @@ const Podbor = (function () {
     if (last === 1) return "магазин";
     if (last >= 2 && last <= 4) return "магазина";
     return "магазинов";
+  }
+
+  /* Матрица цен: rows = models, cols = магазины, cells = цены, лучшая подсвечена */
+  function _renderPriceMatrix(models) {
+    if (!models || !models.length) return null;
+
+    const STORES = [
+      { key: "ozon",     label: "OZON" },
+      { key: "citilink", label: "Citilink" },
+      { key: "wb",       label: "Wildberries" },
+      { key: "yamarket", label: "Я.Маркет" },
+      { key: "dns",      label: "DNS" },
+    ];
+
+    // Определяем какие магазины имеют хоть какую-то цену — только их колонки
+    const activeStores = STORES.filter(s =>
+      models.some(m => (m.enriched || {})[s.key] && ((m.enriched || {})[s.key].price_min_rub || (m.enriched || {})[s.key].url))
+    );
+
+    // Если ни один store не дал цены — показываем простую таблицу с AI-ценами
+    const showStoresCols = activeStores.length > 0;
+
+    const head = `
+      <thead>
+        <tr>
+          <th class="col-model">Модель</th>
+          ${showStoresCols
+            ? activeStores.map(s => `<th class="col-store">${s.label}</th>`).join("")
+            : `<th class="col-store">Цена (AI)</th>`}
+          <th class="col-best">Мин</th>
+        </tr>
+      </thead>
+    `;
+
+    const rows = models.map(m => {
+      const enriched = m.enriched || {};
+      // Собираем цены по каждому активному магазину
+      const cellPrices = showStoresCols
+        ? activeStores.map(s => {
+            const item = enriched[s.key];
+            return {
+              store: s.key,
+              price: item && item.price_min_rub,
+              url: item && item.url,
+            };
+          })
+        : [{ store: "ai", price: enriched.price_min_rub || m.price_min_rub, url: enriched.best_url || null }];
+
+      const validPrices = cellPrices.map(c => c.price).filter(p => p && p > 0);
+      const bestPrice = validPrices.length ? Math.min(...validPrices) : null;
+
+      const modelCell = `
+        <td class="col-model">
+          <div class="m-brand">${_esc(m.brand || "")}</div>
+          <div class="m-name">${_esc(m.model || "")}</div>
+        </td>
+      `;
+      const storeCells = cellPrices.map(c => {
+        if (!c.price) {
+          return c.url
+            ? `<td class="cell-price"><a href="${_esc(c.url)}" target="_blank" rel="noopener noreferrer" class="cell-noprice-link">смотреть →</a></td>`
+            : `<td class="cell-price empty">—</td>`;
+        }
+        const isBest = bestPrice && c.price === bestPrice;
+        const priceHtml = `<strong>${formatRub(c.price)}</strong> ₽`;
+        const cellInner = c.url
+          ? `<a href="${_esc(c.url)}" target="_blank" rel="noopener noreferrer">${priceHtml}${isBest ? ' <span class="best-mark">✓</span>' : ''}</a>`
+          : `${priceHtml}${isBest ? ' <span class="best-mark">✓</span>' : ''}`;
+        return `<td class="cell-price${isBest ? ' best' : ''}">${cellInner}</td>`;
+      }).join("");
+      const bestCell = `<td class="col-best">${bestPrice ? `<strong>${formatRub(bestPrice)}</strong>` : "—"}</td>`;
+
+      return `<tr>${modelCell}${storeCells}${bestCell}</tr>`;
+    }).join("");
+
+    return el(`
+      <div class="report-matrix-wrap">
+        <div class="report-matrix-head">Цены по магазинам — лучшая отмечена ✓</div>
+        <div class="report-matrix-scroll">
+          <table class="report-matrix">
+            ${head}
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        ${!showStoresCols ? `<div class="report-matrix-hint">Магазины ещё не нашли товар. Цены — оценка AI на основе текущих рыночных данных.</div>` : ""}
+      </div>
+    `);
   }
 
   function _renderCompareTable(models) {

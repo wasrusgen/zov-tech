@@ -1392,7 +1392,149 @@
 }
 .report-link:active { background: var(--warm); }
 
-/* Сравнительная таблица — accordion */
+/* ============================================================
+   Матрица цен по магазинам (PRIMARY view категории)
+   ============================================================ */
+
+.report-matrix-wrap {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  margin: 8px 0 16px;
+}
+
+.report-matrix-head {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 12px 14px 8px;
+}
+
+.report-matrix-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.report-matrix {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  min-width: 100%;
+}
+
+.report-matrix thead th {
+  background: var(--warm);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+  position: relative;
+}
+
+.report-matrix .col-model {
+  position: sticky;
+  left: 0;
+  background: var(--warm);
+  z-index: 2;
+  min-width: 130px;
+  box-shadow: 2px 0 4px rgba(31, 26, 20, 0.06);
+}
+.report-matrix tbody .col-model {
+  background: #FFFCF6;
+}
+
+.report-matrix tbody td {
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.report-matrix .m-brand {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+.report-matrix .m-name {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: normal;
+  line-height: 1.25;
+}
+
+.report-matrix .cell-price {
+  font-size: 12.5px;
+  color: var(--ink);
+}
+.report-matrix .cell-price a {
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px dashed transparent;
+  transition: border 0.12s;
+}
+.report-matrix .cell-price a:active { border-bottom-color: var(--accent-2); }
+.report-matrix .cell-price.empty { color: var(--muted); text-align: center; }
+.report-matrix .cell-price.best {
+  background: rgba(42, 107, 63, 0.10);
+}
+.report-matrix .cell-price.best a,
+.report-matrix .cell-price.best strong {
+  color: #1F5530;
+}
+.report-matrix .best-mark {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background: #2A6B3F;
+  color: #fff;
+  border-radius: 50%;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+.cell-noprice-link {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--accent-2);
+}
+
+.report-matrix .col-best {
+  font-size: 12.5px;
+  color: var(--ink);
+  font-weight: 600;
+  background: #FFFCF6;
+}
+
+.report-matrix-hint {
+  font-size: 11.5px;
+  color: var(--muted);
+  font-style: italic;
+  padding: 10px 14px 14px;
+  border-top: 1px dashed var(--line);
+}
+
+/* Сравнительная таблица — accordion (legacy, оставлен для совместимости) */
 .report-compare {
   background: #fff;
   border: 1px solid var(--line);
