@@ -67,3 +67,4 @@ yarn-error.log*
 .tmp_*
 *.proxies.txt
 r.json
+wb.json
