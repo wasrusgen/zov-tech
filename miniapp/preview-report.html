@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#FBF7F0">
+  <title>Превью отчёта · ЗОВ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Newsreader:ital,wght@0,400..600;1,400..600&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="assets/styles.css?v=20260511e">
+  <link rel="stylesheet" href="assets/podbor.css?v=20260511e">
+  <style>
+    body { padding: 24px 16px; background: var(--paper); }
+    .wrap { max-width: 720px; margin: 0 auto; }
+    .preview-kicker {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .preview-title {
+      font-family: var(--font-display);
+      font-style: italic;
+      font-size: 32px;
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+      margin: 0 0 8px;
+      color: var(--ink);
+    }
+    .preview-lede {
+      color: var(--muted);
+      font-size: 14px;
+      margin: 0 0 24px;
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="preview-kicker">Preview · Inline Report v1</div>
+  <h1 class="preview-title">Отчёт<br><em style="color: var(--accent-2)">после подбора</em></h1>
+  <p class="preview-lede">Как будет выглядеть страница для менеджера и клиента после нажатия «Отправить». Mock-данные.</p>
+
+  <div id="reportRoot"></div>
+</div>
+
+<script src="assets/icons.js?v=20260511e"></script>
+<script src="assets/podbor.config.js?v=20260511e"></script>
+<script>
+/* Mock-данные — имитируем AI-ответ с DNS+WB+Я.Маркет обогащением */
+const MOCK_AI = {
+  summary: "Подобран комплект для семьи 3 человек, бюджет средний. Холодильник Bosch с NoFrost + индукционная варочная Bosch и духовка с конвекцией. Все три прибора одной марки для дизайн-единства.",
+  by_category: {
+    fridge: {
+      models: [
+        {
+          brand: "Bosch", model: "Serie 4 KGN39NW00R",
+          price_min_rub: 79990, price_max_rub: 92000,
+          highlights: ["NoFrost (не нужно размораживать)", "Инвертор (тише и -30% энергии)"],
+          pros: ["тихий 38дБ", "класс A++", "стеклянные полки"],
+          cons: ["глубина 660мм — на 60мм больше стандартной ниши"],
+          tier: "middle",
+          enriched: {
+            image_url: "https://placehold.co/200x200/F5EDDC/6B4A2B?text=Bosch",
+            price_min_rub: 79990, price_max_rub: 92000,
+            rating_max: 4.7, reviews_total: 1242, stores_count: 12,
+            wb: { url: "https://www.wildberries.ru/catalog/123/detail.aspx" },
+            yamarket: { url: "https://market.yandex.ru/product--bosch-kgn39/123" },
+            ozon: { url: "https://www.ozon.ru/product/bosch-kgn39-123" }
+          }
+        },
+        {
+          brand: "Liebherr", model: "CNd 5223",
+          price_min_rub: 109900, price_max_rub: 124000,
+          highlights: ["BioFresh (зона свежести)", "NoFrost", "SoftClose"],
+          pros: ["премиум-качество сборки", "очень тихий 34дБ", "10 лет гарантии на компрессор"],
+          cons: ["цена выше среднего на +15%"],
+          tier: "premium",
+          enriched: {
+            image_url: "https://placehold.co/200x200/EFE3CC/6B4A2B?text=Liebherr",
+            price_min_rub: 109900, price_max_rub: 124000,
+            rating_max: 4.9, reviews_total: 873, stores_count: 8,
+            wb: { url: "#" }, yamarket: { url: "#" }
+          }
+        },
+        {
+          brand: "Indesit", model: "ITS 4180 W",
+          price_min_rub: 39990,
+          highlights: ["LowFrost (размораживать только мороз)", "класс A+"],
+          pros: ["доступная цена", "компактные габариты"],
+          cons: ["без инвертора", "шум 42дБ"],
+          tier: "budget",
+          enriched: {
+            image_url: "https://placehold.co/200x200/FBF7F0/6B4A2B?text=Indesit",
+            price_min_rub: 39990, price_max_rub: 44900,
+            rating_max: 4.3, reviews_total: 2100, stores_count: 15,
+            dns: { url: "#" }, ozon: { url: "#" }
+          }
+        }
+      ]
+    },
+    hob: {
+      models: [
+        {
+          brand: "Bosch", model: "PUE611BB5E",
+          price_min_rub: 59900, price_max_rub: 68000,
+          highlights: ["Индукция", "PowerBoost (форсаж — кипятит за минуту)", "TouchSelect (плавная регулировка)"],
+          pros: ["4 индукционные зоны", "безопасность для детей", "класс A"],
+          cons: ["требует индукционной посуды"],
+          tier: "middle",
+          enriched: {
+            image_url: "https://placehold.co/200x200/F5EDDC/6B4A2B?text=Bosch+PUE",
+            rating_max: 4.6, reviews_total: 845, stores_count: 10,
+            wb: { url: "#" }, yamarket: { url: "#" }
+          }
+        },
+        {
+          brand: "Siemens", model: "EH675FJC1E",
+          price_min_rub: 79900, price_max_rub: 89000,
+          highlights: ["Индукция", "FlexZone (объединение зон)", "Hob2Hood (управление вытяжкой)"],
+          pros: ["варочная управляет вытяжкой", "5 зон + Flex", "8-летняя гарантия"],
+          cons: ["цена премиум-сегмента"],
+          tier: "premium",
+          enriched: {
+            image_url: "https://placehold.co/200x200/EFE3CC/6B4A2B?text=Siemens",
+            rating_max: 4.8, reviews_total: 432, stores_count: 6,
+            yamarket: { url: "#" }, ozon: { url: "#" }
+          }
+        }
+      ]
+    }
+  },
+  total_price_estimate_rub: { min: 280000, max: 420000 },
+  budget_status: "в_рамках",
+  warnings: [
+    "Холодильник Bosch KGN39 имеет глубину 660мм — уточнить нишу клиента (стандарт 600мм)"
+  ]
+};
+
+/* ---- mini-копия renderReport из podbor.js, чтобы превью работало автономно ---- */
+
+function el(html) {
+  const t = document.createElement("template");
+  t.innerHTML = html.trim();
+  return t.content.firstChild;
+}
+
+function _esc(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function formatRub(n) {
+  if (!n) return "—";
+  return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
+function renderReport(ai, leadId) {
+  const summary = ai.summary || "";
+  const byCat = ai.by_category || {};
+  const total = ai.total_price_estimate_rub || {};
+  const budgetStatus = ai.budget_status || "";
+  const warnings = ai.warnings || [];
+
+  const wrap = el(`<section class="report"></section>`);
+
+  wrap.appendChild(el(`
+    <div class="report-head">
+      <div class="kicker">Отчёт · ${leadId.slice(0, 8)}</div>
+      ${summary ? `<p class="report-summary">${_esc(summary)}</p>` : ""}
+    </div>
+  `));
+
+  for (const [catKey, catData] of Object.entries(byCat)) {
+    const catMeta = (window.PODBOR_CATEGORIES || []).find(c => c.key === catKey);
+    const catLabel = catMeta?.label || catKey;
+    const catIcon = catMeta?.icon;
+    const models = (catData && catData.models) || [];
+    if (!models.length) continue;
+
+    const catNode = el(`
+      <div class="report-cat">
+        <h3 class="report-cat-head">
+          <span class="report-cat-icon">${(catIcon && window.ICONS && window.ICONS[catIcon]) || ""}</span>
+          ${_esc(catLabel)}
+        </h3>
+        <div class="report-models"></div>
+      </div>
+    `);
+    const modelsWrap = catNode.querySelector(".report-models");
+
+    for (const m of models) {
+      modelsWrap.appendChild(_renderModelCard(m));
+    }
+
+    if (models.length >= 2) {
+      modelsWrap.appendChild(_renderCompareTable(models));
+    }
+
+    wrap.appendChild(catNode);
+  }
+
+  if (total && (total.min || total.max)) {
+    const tmin = total.min, tmax = total.max;
+    const range = (tmin && tmax && tmin !== tmax)
+      ? `${formatRub(tmin)} — ${formatRub(tmax)} ₽`
+      : `${formatRub(tmin || tmax)} ₽`;
+    wrap.appendChild(el(`
+      <div class="report-total">
+        <span class="lbl">ИТОГО</span>
+        <strong>${range}</strong>
+        ${budgetStatus ? `<span class="status">${_esc(budgetStatus)}</span>` : ""}
+      </div>
+    `));
+  }
+
+  if (warnings.length) {
+    const wn = el(`<div class="report-warnings"></div>`);
+    warnings.forEach(w => wn.appendChild(el(`<div>⚠️ ${_esc(w)}</div>`)));
+    wrap.appendChild(wn);
+  }
+
+  return wrap;
+}
+
+function _renderModelCard(m) {
+  const enriched = m.enriched || {};
+  const pMin = m.price_min_rub || enriched.price_min_rub;
+  const pMax = m.price_max_rub || enriched.price_max_rub;
+  const img = enriched.image_url;
+  const rating = enriched.rating_max;
+  const reviews = enriched.reviews_total;
+  const stores = enriched.stores_count;
+
+  const priceHtml = (pMin && pMax && pMin !== pMax)
+    ? `<strong>${formatRub(pMin)}</strong> — <strong>${formatRub(pMax)}</strong> ₽`
+    : pMin ? `<strong>${formatRub(pMin)}</strong> ₽`
+    : `<span class="muted">цена уточняется</span>`;
+
+  const metaParts = [];
+  if (rating) metaParts.push(`<span class="rating">★ ${Number(rating).toFixed(1)}</span>`);
+  if (reviews) metaParts.push(`<span class="reviews">${reviews} отзыв.</span>`);
+  if (stores) metaParts.push(`<span class="stores">${stores} магазинов</span>`);
+
+  const links = [];
+  if (enriched.wb && enriched.wb.url) links.push({ label: "Wildberries", url: enriched.wb.url });
+  if (enriched.yamarket && enriched.yamarket.url) links.push({ label: "Я.Маркет", url: enriched.yamarket.url });
+  if (enriched.ozon && enriched.ozon.url) links.push({ label: "OZON", url: enriched.ozon.url });
+  if (enriched.dns && enriched.dns.url) links.push({ label: "DNS", url: enriched.dns.url });
+
+  return el(`
+    <article class="report-model">
+      <div class="report-model-img${img ? "" : " placeholder"}">${img ? `<img src="${_esc(img)}" alt="" loading="lazy">` : ""}</div>
+      <div class="report-model-body">
+        <div class="report-model-brand">${_esc(m.brand || "")}</div>
+        <div class="report-model-name">${_esc(m.model || "")}</div>
+        ${metaParts.length ? `<div class="report-model-meta">${metaParts.join(" · ")}</div>` : ""}
+        <div class="report-model-price">${priceHtml}</div>
+        ${(m.highlights || []).length ? `<div class="report-highlights">✓ ${m.highlights.map(_esc).join(" · ")}</div>` : ""}
+        ${(m.pros || []).length ? `<div class="report-pros">⊕ ${m.pros.slice(0, 3).map(_esc).join(" · ")}</div>` : ""}
+        ${(m.cons || []).length ? `<div class="report-cons">⊖ ${m.cons.slice(0, 2).map(_esc).join(" · ")}</div>` : ""}
+        ${links.length ? `
+          <div class="report-links">
+            ${links.map(l => `<a href="${_esc(l.url)}" target="_blank" rel="noopener noreferrer" class="report-link">${l.label} →</a>`).join("")}
+          </div>
+        ` : ""}
+      </div>
+    </article>
+  `);
+}
+
+function _renderCompareTable(models) {
+  const rows = models.map(m => {
+    const e = m.enriched || {};
+    const p = m.price_min_rub || e.price_min_rub;
+    return `
+      <tr>
+        <td><strong>${_esc(m.brand || "")}</strong> ${_esc(m.model || "")}</td>
+        <td>${p ? formatRub(p) + " ₽" : "—"}</td>
+        <td>${e.reviews_total || "—"}</td>
+        <td>${e.rating_max ? Number(e.rating_max).toFixed(1) : "—"}</td>
+      </tr>
+    `;
+  }).join("");
+
+  return el(`
+    <details class="report-compare" open>
+      <summary>Сравнить модели</summary>
+      <table>
+        <thead>
+          <tr><th>Модель</th><th>Цена от</th><th>Отзывов</th><th>★</th></tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </details>
+  `);
+}
+
+document.getElementById("reportRoot").appendChild(renderReport(MOCK_AI, "ABC12345"));
+</script>
+</body>
+</html>

@@ -1143,22 +1143,189 @@ const Podbor = (function () {
       if (data.error) {
         result.innerHTML = `<div class="error">Ошибка: ${data.error}</div>`;
       } else {
-        result.innerHTML = `
+        // Успех + красивый inline-отчёт под кнопкой
+        const headSuccess = `
           <div class="success">
             <div class="success-icon">${ICONS.check}</div>
             <div>
-              <div class="success-title">Подбор отправлен в чат бота</div>
-              <div class="success-sub">Лид #${(data.id || "").slice(0, 6)} · откройте Telegram</div>
+              <div class="success-title">Подбор готов</div>
+              <div class="success-sub">Лид #${(data.id || "").slice(0, 6)} · также отправлен в Telegram</div>
             </div>
           </div>
         `;
+        result.innerHTML = headSuccess;
+        // Рендер отчёта (если AI вернул by_category)
+        if (data.ai) {
+          const reportNode = renderReport(data.ai, data.id || "");
+          result.appendChild(reportNode);
+        }
         haptic && haptic("success");
+        // Скроллим к отчёту
+        setTimeout(() => result.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
       }
     } catch (e) {
       result.innerHTML = `<div class="error">Сеть: ${e.message}</div>`;
     }
     btn.disabled = false;
     btn.textContent = "Отправить ещё раз";
+  }
+
+  /* ===================== Отчёт (inline, в шаге summary) ===================== */
+
+  function renderReport(ai, leadId) {
+    const summary = ai.summary || "";
+    const byCat = ai.by_category || {};
+    const total = ai.total_price_estimate_rub || {};
+    const budgetStatus = ai.budget_status || "";
+    const warnings = ai.warnings || [];
+
+    const wrap = el(`<section class="report"></section>`);
+
+    // Шапка
+    wrap.appendChild(el(`
+      <div class="report-head">
+        <div class="kicker">Отчёт · ${leadId.slice(0, 8)}</div>
+        ${summary ? `<p class="report-summary">${_esc(summary)}</p>` : ""}
+      </div>
+    `));
+
+    // Категории
+    for (const [catKey, catData] of Object.entries(byCat)) {
+      const catMeta = PODBOR_CATEGORIES.find(c => c.key === catKey);
+      const catLabel = catMeta?.label || catKey;
+      const catIcon = catMeta?.icon;
+      const models = (catData && catData.models) || [];
+      if (!models.length) continue;
+
+      const catNode = el(`
+        <div class="report-cat">
+          <h3 class="report-cat-head">
+            <span class="report-cat-icon">${(catIcon && ICONS[catIcon]) || ""}</span>
+            ${_esc(catLabel)}
+          </h3>
+          <div class="report-models"></div>
+        </div>
+      `);
+      const modelsWrap = catNode.querySelector(".report-models");
+
+      for (const m of models) {
+        modelsWrap.appendChild(_renderModelCard(m));
+      }
+
+      // Сравнение
+      if (models.length >= 2) {
+        modelsWrap.appendChild(_renderCompareTable(models));
+      }
+
+      wrap.appendChild(catNode);
+    }
+
+    // Итого
+    if (total && (total.min || total.max)) {
+      const tmin = total.min, tmax = total.max;
+      const range = (tmin && tmax && tmin !== tmax)
+        ? `${formatRub(tmin)} — ${formatRub(tmax)} ₽`
+        : `${formatRub(tmin || tmax)} ₽`;
+      wrap.appendChild(el(`
+        <div class="report-total">
+          <span class="lbl">ИТОГО</span>
+          <strong>${range}</strong>
+          ${budgetStatus ? `<span class="status">${_esc(budgetStatus)}</span>` : ""}
+        </div>
+      `));
+    }
+
+    // Предупреждения
+    if (warnings.length) {
+      const wn = el(`<div class="report-warnings"></div>`);
+      warnings.forEach(w => wn.appendChild(el(`<div>⚠️ ${_esc(w)}</div>`)));
+      wrap.appendChild(wn);
+    }
+
+    return wrap;
+  }
+
+  function _renderModelCard(m) {
+    const enriched = m.enriched || {};
+    const pMin = m.price_min_rub || enriched.price_min_rub;
+    const pMax = m.price_max_rub || enriched.price_max_rub;
+    const img = enriched.image_url;
+    const rating = enriched.rating_max;
+    const reviews = enriched.reviews_total;
+    const stores = enriched.stores_count;
+
+    const priceHtml = (pMin && pMax && pMin !== pMax)
+      ? `<strong>${formatRub(pMin)}</strong> — <strong>${formatRub(pMax)}</strong> ₽`
+      : pMin ? `<strong>${formatRub(pMin)}</strong> ₽`
+      : `<span class="muted">цена уточняется</span>`;
+
+    const metaParts = [];
+    if (rating) metaParts.push(`<span class="rating">★ ${Number(rating).toFixed(1)}</span>`);
+    if (reviews) metaParts.push(`<span class="reviews">${reviews} отзыв.</span>`);
+    if (stores) metaParts.push(`<span class="stores">${stores} магазинов</span>`);
+
+    const links = [];
+    if (enriched.wb && enriched.wb.url)        links.push({ label: "Wildberries", url: enriched.wb.url });
+    if (enriched.yamarket && enriched.yamarket.url) links.push({ label: "Я.Маркет",  url: enriched.yamarket.url });
+    if (enriched.ozon && enriched.ozon.url)    links.push({ label: "OZON",       url: enriched.ozon.url });
+    if (enriched.dns && enriched.dns.url)      links.push({ label: "DNS",        url: enriched.dns.url });
+
+    const card = el(`
+      <article class="report-model">
+        <div class="report-model-img${img ? "" : " placeholder"}">${img ? `<img src="${_esc(img)}" alt="" loading="lazy">` : ""}</div>
+        <div class="report-model-body">
+          <div class="report-model-brand">${_esc(m.brand || "")}</div>
+          <div class="report-model-name">${_esc(m.model || "")}</div>
+          ${metaParts.length ? `<div class="report-model-meta">${metaParts.join(" · ")}</div>` : ""}
+          <div class="report-model-price">${priceHtml}</div>
+          ${(m.highlights || []).length ? `<div class="report-highlights">✓ ${m.highlights.map(_esc).join(" · ")}</div>` : ""}
+          ${(m.pros || []).length ? `<div class="report-pros">⊕ ${m.pros.slice(0, 3).map(_esc).join(" · ")}</div>` : ""}
+          ${(m.cons || []).length ? `<div class="report-cons">⊖ ${m.cons.slice(0, 2).map(_esc).join(" · ")}</div>` : ""}
+          ${links.length ? `
+            <div class="report-links">
+              ${links.map(l => `<a href="${_esc(l.url)}" target="_blank" rel="noopener noreferrer" class="report-link">${l.label} →</a>`).join("")}
+            </div>
+          ` : ""}
+        </div>
+      </article>
+    `);
+    return card;
+  }
+
+  function _renderCompareTable(models) {
+    const rows = models.map(m => {
+      const e = m.enriched || {};
+      const p = m.price_min_rub || e.price_min_rub;
+      return `
+        <tr>
+          <td><strong>${_esc(m.brand || "")}</strong> ${_esc(m.model || "")}</td>
+          <td>${p ? formatRub(p) + " ₽" : "—"}</td>
+          <td>${e.reviews_total || "—"}</td>
+          <td>${e.rating_max ? Number(e.rating_max).toFixed(1) : "—"}</td>
+        </tr>
+      `;
+    }).join("");
+
+    return el(`
+      <details class="report-compare">
+        <summary>Сравнить модели</summary>
+        <table>
+          <thead>
+            <tr><th>Модель</th><th>Цена от</th><th>Отзывов</th><th>★</th></tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </details>
+    `);
+  }
+
+  function _esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   }
 
   /* ===================== Helpers ===================== */
