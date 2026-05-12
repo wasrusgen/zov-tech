@@ -357,8 +357,8 @@ async function renderStaff(me) {
         <h2 class="display-title">У вас нет<br><span class="accent">прав сотрудника</span></h2>
         <p class="lede">Чтобы получить роль замерщика или сборщика — отправьте куратору ваш Telegram ID.</p>
         <div class="block">
-          <div class="kv"><span>Ваш ID</span><strong><code>${me.user?.tg_id || "—"}</code></strong></div>
-          <div class="kv"><span>Имя</span><strong>${me.user?.full_name || "—"}</strong></div>
+          <div class="kv"><span>Ваш ID</span>&nbsp;<strong><code>${me.user?.tg_id || "—"}</code></strong></div>
+          <div class="kv"><span>Имя</span>&nbsp;<strong>${me.user?.full_name || "—"}</strong></div>
         </div>
         <p class="muted" style="text-align:center;margin-top:16px;">
           В боте отправьте <code>/whoami</code> и перешлите ответ
