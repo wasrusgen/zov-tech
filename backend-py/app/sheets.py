@@ -108,7 +108,87 @@ def find_user(tg_id: int) -> dict[str, Any] | None:
         return None
     full_name = (f"{row.get('first_name', '')} {row.get('last_name', '')}".strip()
                  or row.get("tg_username", ""))
-    return {**row, "full_name": full_name}
+    roles = parse_roles(row.get("role", ""))
+    return {**row, "full_name": full_name, "roles": roles}
+
+
+# ---- Multi-role helpers ----
+
+VALID_ROLES = {"manager", "client", "measurer", "assembler"}
+
+
+def parse_roles(role_str: str) -> list[str]:
+    """Парсит CSV-роли: 'manager,measurer' → ['manager', 'measurer'].
+    Старые однострочные значения тоже работают: 'manager' → ['manager']."""
+    if not role_str:
+        return []
+    parts = [p.strip() for p in str(role_str).split(",") if p.strip()]
+    return [p for p in parts if p in VALID_ROLES]
+
+
+def has_role(user: dict[str, Any] | None, role: str) -> bool:
+    if not user:
+        return False
+    return role in parse_roles(user.get("role", ""))
+
+
+def primary_role(user: dict[str, Any] | None) -> str:
+    """Первая (главная) роль для legacy-кода: manager > measurer > assembler > client."""
+    if not user:
+        return ""
+    roles = parse_roles(user.get("role", ""))
+    for r in ("manager", "measurer", "assembler", "client"):
+        if r in roles:
+            return r
+    return roles[0] if roles else ""
+
+
+def grant_role(tg_id: int, role: str) -> bool:
+    """Добавляет роль пользователю (если её ещё нет). Возвращает True если что-то изменилось."""
+    if role not in VALID_ROLES:
+        return False
+    user = find_user(tg_id)
+    if not user:
+        return False
+    current = parse_roles(user.get("role", ""))
+    if role in current:
+        return False
+    current.append(role)
+    return update_cell_by_key("Users", "tg_id", tg_id, "role", ",".join(current))
+
+
+def revoke_role(tg_id: int, role: str) -> bool:
+    user = find_user(tg_id)
+    if not user:
+        return False
+    current = parse_roles(user.get("role", ""))
+    if role not in current:
+        return False
+    current.remove(role)
+    new_val = ",".join(current) if current else "client"  # fallback роль
+    return update_cell_by_key("Users", "tg_id", tg_id, "role", new_val)
+
+
+def list_users_with_role(role: str) -> list[dict[str, Any]]:
+    """Все пользователи, у которых есть указанная роль (для dropdown «выбрать замерщика»)."""
+    s = sheet("Users")
+    rows = s.get_all_values()
+    if not rows:
+        return []
+    headers = rows[0]
+    out: list[dict[str, Any]] = []
+    for r in rows[1:]:
+        row = dict(zip(headers, r + [""] * (len(headers) - len(r))))
+        if role in parse_roles(row.get("role", "")):
+            full_name = (f"{row.get('first_name', '')} {row.get('last_name', '')}".strip()
+                         or row.get("tg_username", ""))
+            out.append({
+                "tg_id": row.get("tg_id"),
+                "full_name": full_name,
+                "tg_username": row.get("tg_username", ""),
+                "roles": parse_roles(row.get("role", "")),
+            })
+    return out
 
 
 def get_or_create_user(tg_user: dict[str, Any], start_param: str | None,
@@ -122,14 +202,18 @@ def get_or_create_user(tg_user: dict[str, Any], start_param: str | None,
 
     if existing:
         update_cell_by_key("Users", "tg_id", tg_id, "last_seen_at", now_str)
-        # Админ всегда manager
-        if tg_id == admin_id and existing.get("role") != "manager":
-            update_cell_by_key("Users", "tg_id", tg_id, "role", "manager")
+        # Админ всегда имеет роль manager (могут быть и другие)
+        if tg_id == admin_id and not has_role(existing, "manager"):
+            grant_role(tg_id, "manager")
             ensure_admin_manager(tg_user)
-            existing["role"] = "manager"
-        elif explicit_role and tg_id != admin_id and existing.get("role") != explicit_role:
-            update_cell_by_key("Users", "tg_id", tg_id, "role", explicit_role)
-            existing["role"] = explicit_role
+            existing["roles"] = parse_roles((find_user(tg_id) or {}).get("role", ""))
+        # explicit_role из query (?role=manager|client|staff) — не перетираем уже выданные роли,
+        # только добавляем если человек впервые открыл эту секцию
+        elif explicit_role and explicit_role in VALID_ROLES and not has_role(existing, explicit_role):
+            # client/manager — стандартные роли любой может получить через выбор в боте
+            if explicit_role in ("manager", "client"):
+                grant_role(tg_id, explicit_role)
+                existing["roles"] = parse_roles((find_user(tg_id) or {}).get("role", ""))
         return existing
 
     # Новый пользователь
@@ -148,7 +232,7 @@ def get_or_create_user(tg_user: dict[str, Any], start_param: str | None,
         tg_user.get("username", ""),
         tg_user.get("first_name", ""),
         tg_user.get("last_name", ""),
-        role,
+        role,  # хранится как CSV; для новых = одна роль
         now_str,
         now_str,
         invite_code,

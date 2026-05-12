@@ -343,6 +343,72 @@ function buildMenu(items) {
   return menu;
 }
 
+/* ----------------- Staff (замерщик / сборщик) ----------------- */
+function renderStaff(me) {
+  app.innerHTML = "";
+
+  if (me.error === "no_staff_role") {
+    app.appendChild(el(`
+      <div class="staff-no-role">
+        <div class="staff-no-role-ico">🔒</div>
+        <h2 class="display-title">У вас нет<br><span class="accent">прав сотрудника</span></h2>
+        <p class="lede">Чтобы получить роль замерщика или сборщика — отправьте куратору ваш Telegram ID.</p>
+        <div class="block">
+          <div class="kv"><span>Ваш ID</span><strong><code>${me.user?.tg_id || "—"}</code></strong></div>
+          <div class="kv"><span>Имя</span><strong>${me.user?.full_name || "—"}</strong></div>
+        </div>
+        <p class="muted" style="text-align:center;margin-top:16px;">
+          В боте отправьте <code>/whoami</code> и перешлите ответ
+          <a href="https://t.me/wasrusgen" target="_blank">@wasrusgen</a>.
+        </p>
+      </div>
+    `));
+    return;
+  }
+
+  const caps = me.capabilities || {};
+  const labels = [];
+  if (caps.measurer) labels.push("замерщик");
+  if (caps.assembler) labels.push("сборщик");
+  const subtitle = labels.length ? labels.join(" · ") : "сотрудник";
+
+  app.appendChild(el(`
+    <div class="staff-head">
+      <div class="staff-avatar">${me.user?.avatar_initial || "?"}</div>
+      <div>
+        <div class="kicker">${subtitle}</div>
+        <h2 class="display-title">${me.user?.full_name || "Сотрудник"}</h2>
+      </div>
+    </div>
+  `));
+
+  // Заглушка — реальный инбокс заявок будет в следующем коммите
+  const inbox = el(`
+    <section class="block">
+      <div class="block-head">📥 Входящие заявки</div>
+      <div class="empty" style="padding:24px 12px;text-align:center;color:var(--muted);">
+        Пока пусто — менеджеры ещё не назначили вам заявки.<br>
+        Здесь появятся ${caps.measurer ? "замеры" : ""}${caps.measurer && caps.assembler ? " и " : ""}${caps.assembler ? "сборки" : ""}.
+      </div>
+    </section>
+  `);
+  app.appendChild(inbox);
+
+  // Если у сотрудника также есть роль measurer — показываем быструю кнопку «Сделать замер»
+  if (caps.measurer) {
+    const quick = el(`
+      <div class="podbor-cta-row" style="margin-top:16px;">
+        <button class="btn-primary" id="newMeasure">📐 Сделать новый замер</button>
+      </div>
+    `);
+    quick.querySelector("#newMeasure").addEventListener("click", () => {
+      haptic && haptic("impact");
+      location.hash = "#/measure";
+    });
+    app.appendChild(quick);
+  }
+}
+
 function renderError() {
   app.innerHTML = "";
   app.appendChild(el(`
@@ -403,8 +469,13 @@ async function init() {
       hideSplash();
       return;
     }
-    if (me.role === "manager") renderManager(me);
-    else renderClient(me);
+    if (me.role === "staff") {
+      renderStaff(me);
+    } else if (me.role === "manager") {
+      renderManager(me);
+    } else {
+      renderClient(me);
+    }
     hideSplash();
   } catch (e) {
     console.error(e);
@@ -424,7 +495,8 @@ function routeByHash() {
     // Главный экран по роли
     const me = window.__zovMe;
     if (!me) { init(); return; }
-    if (me.role === "manager") renderManager(me);
+    if (me.role === "staff") renderStaff(me);
+    else if (me.role === "manager") renderManager(me);
     else renderClient(me);
   }
 }

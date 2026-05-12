@@ -36,7 +36,7 @@ def _wapp(miniapp_url: str, role: str) -> WebAppInfo:
 
 
 # ============================================================
-# Reply keyboard — выбор роли. Оба кнопки сразу открывают MiniApp.
+# Reply keyboard — выбор роли. Три кнопки, все WebApp.
 # ============================================================
 
 def role_choice_kb(miniapp_url: str) -> ReplyKeyboardMarkup:
@@ -45,6 +45,9 @@ def role_choice_kb(miniapp_url: str) -> ReplyKeyboardMarkup:
             [
                 KeyboardButton(text="👤 Я менеджер", web_app=_wapp(miniapp_url, "manager")),
                 KeyboardButton(text="🏠 Я клиент",   web_app=_wapp(miniapp_url, "client")),
+            ],
+            [
+                KeyboardButton(text="🔧 Я сотрудник", web_app=_wapp(miniapp_url, "staff")),
             ],
         ],
         resize_keyboard=True,
@@ -61,7 +64,8 @@ def role_choice_kb(miniapp_url: str) -> ReplyKeyboardMarkup:
 async def cmd_start(message: Message, config: Config) -> None:
     await message.answer(
         "👋 Здравствуйте, я бот-помощник от Руслана ВАСИЛЬЕВА.\n\n"
-        "Выберите, кто вы — кабинет откроется одним тапом.",
+        "Выберите, кто вы — кабинет откроется одним тапом.\n\n"
+        "<i>«Сотрудник» — для замерщиков и сборщиков ЗОВ. Если вы менеджер или клиент — выбирайте свою роль.</i>",
         reply_markup=role_choice_kb(config.miniapp_url),
     )
 
@@ -74,3 +78,21 @@ async def cmd_menu(message: Message, config: Config) -> None:
 @router.message(Command("hide"))
 async def cmd_hide(message: Message) -> None:
     await message.answer("Клавиатура скрыта. Вернуть — /menu", reply_markup=ReplyKeyboardRemove())
+
+
+# ============================================================
+# /whoami — сотрудник присылает свой ID куратору, чтобы тот выдал роль
+# ============================================================
+
+@router.message(Command("whoami"))
+async def cmd_whoami(message: Message) -> None:
+    user = message.from_user
+    if not user:
+        return
+    await message.answer(
+        f"<b>Ваш Telegram ID:</b> <code>{user.id}</code>\n"
+        f"Username: @{user.username or '—'}\n"
+        f"Имя: {user.first_name or ''} {user.last_name or ''}".strip()
+        + "\n\n"
+        "<i>Перешлите это сообщение куратору @wasrusgen чтобы вам выдали роль замерщика/сборщика.</i>"
+    )

@@ -105,6 +105,8 @@ async def _dispatch_post(request: Request):
         "podbor":        _handle_podbor,
         "clients":       _handle_clients,
         "lead":          _handle_lead,
+        "grant_role":    _handle_grant_role,
+        "staff_list":    _handle_staff_list,
         "ping":          lambda b: {"pong": True, "time": _now_iso()},
         "seed_admin":    lambda b: _handle_seed_admin(),
         "test_ai":       lambda b: _handle_test_ai(),
@@ -175,6 +177,20 @@ async def api_measurements(request: Request):
 async def api_measurement_detail(request: Request):
     body = await _safe_json(request)
     return _handle_measurement_detail(body)
+
+
+@app.post("/api/grant_role")
+async def api_grant_role(request: Request):
+    """Админ выдаёт роль другому пользователю.
+    body: {initData, target_tg_id, role: 'measurer'|'assembler'|'manager'|'client', action: 'grant'|'revoke'}"""
+    body = await _safe_json(request)
+    return _handle_grant_role(body)
+
+
+@app.post("/api/staff_list")
+async def api_staff_list(request: Request):
+    body = await _safe_json(request)
+    return _handle_staff_list(body)
 
 
 @app.get("/api/photo/{measurement_id}/{filename}")
@@ -393,16 +409,48 @@ def _handle_me(body: dict[str, Any]) -> dict[str, Any]:
     tg_user = auth["user"]
     tg_id = tg_user["id"]
     start_param = body.get("startParam") or auth.get("start_param")
-    explicit_role = body.get("role") if body.get("role") in ("manager", "client") else None
+    explicit_role = body.get("role") if body.get("role") in ("manager", "client", "staff") else None
     user = sheets.get_or_create_user(tg_user, start_param, explicit_role)
+    roles = sheets.parse_roles(user.get("role", ""))
 
-    if user.get("role") == "manager":
+    # Staff (замерщик / сборщик) — отдельный кабинет, доступен только тем у кого роль выдана
+    if explicit_role == "staff":
+        has_measurer = "measurer" in roles
+        has_assembler = "assembler" in roles
+        if not (has_measurer or has_assembler):
+            return {
+                "role": "staff",
+                "roles": roles,
+                "error": "no_staff_role",
+                "user": {
+                    "tg_id": tg_id,
+                    "full_name": user.get("full_name", ""),
+                    "avatar_initial": _initial(user.get("full_name") or tg_user.get("first_name", "")),
+                },
+            }
+        full_name = user.get("full_name", "") or tg_user.get("first_name", "")
+        return {
+            "role": "staff",
+            "roles": roles,
+            "user": {
+                "tg_id": tg_id,
+                "full_name": full_name,
+                "avatar_initial": _initial(full_name),
+            },
+            "capabilities": {
+                "measurer": has_measurer,
+                "assembler": has_assembler,
+            },
+        }
+
+    if "manager" in roles:
         m = sheets.get_manager_profile(tg_id) or {
             "full_name": user.get("full_name", ""), "salon": "",
             "is_zov_employee": False, "status": "lapsed", "active_until": None,
         }
         return {
             "role": "manager",
+            "roles": roles,
             "user": {
                 "tg_id": tg_id,
                 "full_name": m.get("full_name") or user.get("full_name", ""),
@@ -429,6 +477,7 @@ def _handle_me(body: dict[str, Any]) -> dict[str, Any]:
     full_name = c.get("full_name") or user.get("full_name", "")
     return {
         "role": "client",
+        "roles": roles,
         "user": {
             "tg_id": tg_id,
             "full_name": full_name,
@@ -762,6 +811,63 @@ def _handle_lead(body: dict[str, Any]) -> dict[str, Any]:
         "ai_text": ai_response if not ai_json else None,
         "status": row.get("status", ""),
     }
+
+
+def _handle_grant_role(body: dict[str, Any]) -> dict[str, Any]:
+    """Только админ может выдавать/отзывать роли."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    if int(tg_id) != int(cfg.admin_tg_id):
+        return {"error": "admin_only"}
+
+    target = body.get("target_tg_id")
+    role = body.get("role", "").strip()
+    action = body.get("action", "grant")
+    if not target or not role:
+        return {"error": "missing_fields"}
+    try:
+        target_int = int(target)
+    except (TypeError, ValueError):
+        return {"error": "bad_target"}
+
+    if role not in sheets.VALID_ROLES:
+        return {"error": "unknown_role", "valid": sorted(sheets.VALID_ROLES)}
+
+    if action == "revoke":
+        changed = sheets.revoke_role(target_int, role)
+    else:
+        changed = sheets.grant_role(target_int, role)
+
+    sheets.log_event("role_changed", tg_id, {"target": target_int, "role": role, "action": action, "changed": changed})
+
+    updated_user = sheets.find_user(target_int) or {}
+    return {
+        "ok": True,
+        "target_tg_id": target_int,
+        "changed": changed,
+        "roles": sheets.parse_roles(updated_user.get("role", "")),
+    }
+
+
+def _handle_staff_list(body: dict[str, Any]) -> dict[str, Any]:
+    """Список сотрудников с указанной ролью — для dropdown «выбрать замерщика»."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user or not sheets.has_role(user, "manager"):
+        return {"error": "only_manager"}
+
+    role = (body.get("role") or "").strip()
+    if role not in sheets.VALID_ROLES:
+        return {"error": "unknown_role"}
+
+    return {"ok": True, "role": role, "staff": sheets.list_users_with_role(role)}
 
 
 def _handle_measurement_detail(body: dict[str, Any]) -> dict[str, Any]:
