@@ -354,14 +354,18 @@ function renderError() {
 }
 
 /* ----------------- Init ----------------- */
+// Засекаем когда стартовали — чтобы splash висел минимум ~700мс
+const _splashStart = Date.now();
 function hideSplash() {
   const splash = document.getElementById("splash");
   if (!splash) return;
-  // Минимум 350мс показа, чтобы не было «вспышки»
+  const elapsed = Date.now() - _splashStart;
+  const minShow = 700; // минимум показа, мс
+  const wait = Math.max(0, minShow - elapsed);
   setTimeout(() => {
     splash.classList.add("hide");
     setTimeout(() => splash.remove(), 450);
-  }, 200);
+  }, wait);
 }
 
 async function init() {
