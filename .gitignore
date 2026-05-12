@@ -68,3 +68,4 @@ yarn-error.log*
 *.proxies.txt
 r.json
 wb.json
+cat_refresh.json
