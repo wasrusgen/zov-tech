@@ -354,6 +354,16 @@ function renderError() {
 }
 
 /* ----------------- Init ----------------- */
+function hideSplash() {
+  const splash = document.getElementById("splash");
+  if (!splash) return;
+  // Минимум 350мс показа, чтобы не было «вспышки»
+  setTimeout(() => {
+    splash.classList.add("hide");
+    setTimeout(() => splash.remove(), 450);
+  }, 200);
+}
+
 async function init() {
   setupTelegram();
   // Hash-роутер: позволяет открывать подэкраны (например подбор) напрямую
@@ -376,21 +386,26 @@ async function init() {
     window.__zovMe = me; // кешируем профиль для подэкранов
     if (location.hash.startsWith("#/podbor")) {
       Podbor.mount(app);
+      hideSplash();
       return;
     }
     if (location.hash.startsWith("#/clients")) {
       Clients.mount(app);
+      hideSplash();
       return;
     }
     if (location.hash.startsWith("#/measure")) {
       Measurements.mount(app);
+      hideSplash();
       return;
     }
     if (me.role === "manager") renderManager(me);
     else renderClient(me);
+    hideSplash();
   } catch (e) {
     console.error(e);
     renderError();
+    hideSplash();
   }
 }
 
