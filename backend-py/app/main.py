@@ -422,22 +422,17 @@ def api_catalog_preview_ai(cats: str = "fridge", tiers: str = ""):
 # =================================================================
 
 def _handle_me(body: dict[str, Any]) -> dict[str, Any]:
-    import sys
-    print(f"[ME] entry: body keys={list(body.keys())} role_in_body={body.get('role')!r}", flush=True, file=sys.stderr)
     cfg = get_config()
     init_data = body.get("initData") or ""
     auth = verify_init_data(init_data, cfg.bot_token)
-    print(f"[ME] auth result: ok={bool(auth)} user_present={bool(auth and auth.get('user'))}", flush=True, file=sys.stderr)
 
     # Fallback для Telegram Desktop side-panel — initData может приходить пустым.
     # Доверяем initDataUnsafe.user (НЕпроверенным данным) — только для UI-режима.
     # Все endpoint-ы, выполняющие действия, продолжают требовать подписанный initData.
     if not auth or not auth.get("user"):
         unsafe = body.get("initDataUnsafe") or {}
-        print(f"[ME] fallback inspect: initDataUnsafe type={type(unsafe).__name__} keys={list(unsafe.keys()) if isinstance(unsafe, dict) else 'N/A'} value={str(unsafe)[:300]}", flush=True, file=sys.stderr)
         unsafe_user = unsafe.get("user") if isinstance(unsafe, dict) else None
         if unsafe_user and unsafe_user.get("id"):
-            print(f"[ME] FALLBACK: using initDataUnsafe.user id={unsafe_user.get('id')}", flush=True, file=sys.stderr)
             auth = {
                 "user": unsafe_user,
                 "auth_date": int(time.time()),
@@ -445,7 +440,6 @@ def _handle_me(body: dict[str, Any]) -> dict[str, Any]:
                 "_unsafe": True,
             }
         else:
-            print(f"[ME] fallback FAILED: unsafe_user={unsafe_user}", flush=True, file=sys.stderr)
             return {"error": "invalid_init_data"}
 
     tg_user = auth["user"]
@@ -456,13 +450,6 @@ def _handle_me(body: dict[str, Any]) -> dict[str, Any]:
     # Берём roles из словаря если они уже распарсены (после grant_role),
     # иначе fallback на парсинг сырой CSV-колонки
     roles = user.get("roles") or sheets.parse_roles(user.get("role", ""))
-    import sys
-    print(
-        f"[ME] tg_id={tg_id} admin_id={cfg.admin_tg_id} "
-        f"explicit_role={explicit_role!r} user.role={user.get('role')!r} "
-        f"roles={roles}",
-        flush=True, file=sys.stderr,
-    )
 
     # Staff (замерщик / сборщик) — отдельный кабинет, доступен только тем у кого роль выдана
     if explicit_role == "staff":
