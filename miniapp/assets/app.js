@@ -359,6 +359,18 @@ async function init() {
   // Hash-роутер: позволяет открывать подэкраны (например подбор) напрямую
   window.addEventListener("hashchange", routeByHash);
 
+  // ?go=podbor|clients|measure — бот может задать стартовый экран через query,
+  // потому что Telegram WebApp не передаёт hash через KeyboardButton.web_app.
+  const qp = new URLSearchParams(window.location.search);
+  const goScreen = qp.get("go");
+  if (goScreen && !location.hash) {
+    const map = { podbor: "#/podbor", clients: "#/clients", measure: "#/measure" };
+    if (map[goScreen]) {
+      // Меняем hash без триггера hashchange (init сам отрендерит правильный экран)
+      history.replaceState(null, "", location.pathname + location.search + map[goScreen]);
+    }
+  }
+
   try {
     const me = await fetchMe();
     window.__zovMe = me; // кешируем профиль для подэкранов
