@@ -224,27 +224,70 @@ async def api_proxy_status():
     return proxy_pool.pool_status()
 
 
-@app.post("/api/catalog/refresh")
-def api_catalog_refresh(cat: str = "", per_brand: int = 2, delay: float = 1.0):
-    """Запускает парсинг каталога (медленно — несколько минут на категорию).
+from fastapi import BackgroundTasks
 
-    Параметры:
-      cat: одна категория (fridge|hob|oven|dw|hood|microwave|coffee|washer)
-           или пусто = все 8 (очень долго)
-      per_brand: сколько моделей сохранять на (brand × category) — default 2
-      delay: задержка между запросами к парсерам, сек — default 1.0
-    """
-    categories = [cat] if cat else None
+
+_CATALOG_REFRESH_STATUS = {"running": False, "last_result": None, "started_at": None}
+
+
+def _bg_refresh(categories, per_brand, delay):
+    """Фоновая задача обновления каталога — пишет статус в глобал."""
+    import datetime as _dt
+    _CATALOG_REFRESH_STATUS["running"] = True
+    _CATALOG_REFRESH_STATUS["started_at"] = _dt.datetime.now(_dt.timezone.utc).isoformat()
     try:
         result = catalog.refresh_catalog(
             categories=categories,
-            per_brand=max(1, min(per_brand, 5)),
-            delay_sec=max(0.0, min(delay, 10.0)),
+            per_brand=per_brand,
+            delay_sec=delay,
         )
-        return result
+        _CATALOG_REFRESH_STATUS["last_result"] = result
     except Exception as e:
-        log.exception("catalog refresh failed")
-        return {"ok": False, "error": str(e)}
+        log.exception("bg catalog refresh failed")
+        _CATALOG_REFRESH_STATUS["last_result"] = {"ok": False, "error": str(e)}
+    finally:
+        _CATALOG_REFRESH_STATUS["running"] = False
+
+
+@app.post("/api/catalog/refresh")
+def api_catalog_refresh(background: BackgroundTasks,
+                        cat: str = "", per_brand: int = 2, delay: float = 1.0):
+    """Запускает refresh в ФОНЕ. Возвращает сразу, статус смотри в /api/catalog/refresh_status.
+
+    Параметры:
+      cat: одна категория или пусто = все 8 (очень долго)
+      per_brand: сколько моделей на (brand × category) — default 2
+      delay: задержка между запросами, сек — default 1.0
+    """
+    if _CATALOG_REFRESH_STATUS["running"]:
+        return {"ok": False, "error": "already running", "started_at": _CATALOG_REFRESH_STATUS["started_at"]}
+
+    categories = [cat] if cat else None
+    background.add_task(
+        _bg_refresh,
+        categories,
+        max(1, min(per_brand, 5)),
+        max(0.0, min(delay, 10.0)),
+    )
+    return {
+        "ok": True,
+        "queued": True,
+        "categories": categories or "all",
+        "hint": "GET /api/catalog/refresh_status — узнать прогресс",
+    }
+
+
+@app.get("/api/catalog/refresh_status")
+def api_catalog_refresh_status():
+    """Статус последнего/текущего refresh'а каталога."""
+    return _CATALOG_REFRESH_STATUS
+
+
+@app.post("/api/catalog/clear")
+def api_catalog_clear(cat: str = ""):
+    """Удаляет всё содержимое каталога (или одной категории)."""
+    removed = catalog.clear_catalog(category=cat or None)
+    return {"ok": True, "removed": removed, "category": cat or "all"}
 
 
 @app.get("/api/catalog/list")

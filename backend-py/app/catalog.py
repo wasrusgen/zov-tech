@@ -49,6 +49,40 @@ CATEGORY_QUERIES = {
     "washer":    "стиральная машина",
 }
 
+# Ключевые слова, которые ДОЛЖНЫ быть в названии для категории
+# (любое из вариантов подойдёт)
+CATEGORY_KEYWORDS = {
+    "fridge":    ["холодильник", "морозильник", "морозильная камера", "холодильная камера"],
+    "hob":       ["варочн", "варочная", "плита", "конфорк", "индукцион"],
+    "oven":      ["духов", "духовка", "духовой"],
+    "dw":        ["посудомоеч", "посудомойк"],
+    "hood":      ["вытяжк"],
+    "microwave": ["микроволнов", "свч"],
+    "coffee":    ["кофемашин", "кофеварк", "эспрессо"],
+    "washer":    ["стиральн", "стиралк"],
+}
+
+# Минимальные цены — отсекают запчасти, аксессуары, мини-приборы
+CATEGORY_MIN_PRICE = {
+    "fridge":    20000,
+    "hob":        8000,
+    "oven":      15000,
+    "dw":        15000,
+    "hood":       5000,
+    "microwave":  3000,
+    "coffee":     5000,
+    "washer":    15000,
+}
+
+# Чёрный список — запчасти и аксессуары
+PART_BLACKLIST = [
+    "фильтр", "лампочк", "запчаст", "ручка двер", "термодатчик", "термостат",
+    "уплотнит", "наклейк", "ткань", "чехол", "коврик", "пылесборник",
+    "тэн ", "тен ", "шланг", "шкив", "конденсатор", "магнетрон",
+    "мешок", "пакет для", "вантуз", "колба", "лед-фильтр",
+    "ремень привода", "помпа", "помп для", "сальник",
+]
+
 
 def refresh_catalog(categories: list[str] | None = None,
                     sources: tuple = ("yamarket", "wb", "citilink"),
@@ -116,13 +150,22 @@ def refresh_catalog(categories: list[str] | None = None,
 
 def _save_results(cat: str, brand: str, tier: str, query: str,
                   enriched: dict, max_items: int) -> int:
-    """Сохраняет до max_items релевантных результатов из enriched."""
+    """Сохраняет до max_items РЕЛЕВАНТНЫХ результатов из enriched.
+
+    Фильтры:
+    - бренд должен упоминаться в названии
+    - название должно содержать слово категории (холодильник / варочн / духов и т.п.)
+    - цена должна быть выше минимума для категории (отсекает запчасти)
+    - чёрный список слов: фильтр, лампочка, термодатчик и т.п.
+    """
     if not enriched:
         return 0
 
     saved = 0
     seen_titles = set()
     sources_priority = ["yamarket", "wb", "citilink", "ozon", "dns"]
+    cat_keywords = CATEGORY_KEYWORDS.get(cat, [])
+    min_price = CATEGORY_MIN_PRICE.get(cat, 0)
 
     for src in sources_priority:
         if saved >= max_items:
@@ -131,14 +174,33 @@ def _save_results(cat: str, brand: str, tier: str, query: str,
         if not item or not item.get("title"):
             continue
 
-        # Фильтр релевантности: бренд должен упоминаться в названии или specs.brand
-        title = (item.get("title") or "").lower()
+        title_raw = item.get("title", "")
+        title_lower = title_raw.lower()
+
+        # 1. Бренд должен упоминаться
         item_brand = (item.get("specs") or {}).get("brand", "").lower()
-        if brand.lower() not in title and brand.lower() not in item_brand:
+        if brand.lower() not in title_lower and brand.lower() not in item_brand:
+            log.debug("Skip (no brand): %s", title_raw[:80])
+            continue
+
+        # 2. Слово категории должно быть в названии
+        if cat_keywords and not any(kw in title_lower for kw in cat_keywords):
+            log.debug("Skip (wrong category): %s", title_raw[:80])
+            continue
+
+        # 3. Не запчасть/аксессуар
+        if any(bad in title_lower for bad in PART_BLACKLIST):
+            log.debug("Skip (part/accessory): %s", title_raw[:80])
+            continue
+
+        # 4. Цена выше минимума
+        price = item.get("price_min_rub")
+        if price and isinstance(price, (int, float)) and price < min_price:
+            log.debug("Skip (price too low %d < %d): %s", price, min_price, title_raw[:80])
             continue
 
         # Дедуп по title в рамках одного (cat, brand)
-        title_key = item["title"][:100].lower().strip()
+        title_key = title_raw[:100].lower().strip()
         if title_key in seen_titles:
             continue
         seen_titles.add(title_key)
@@ -149,7 +211,7 @@ def _save_results(cat: str, brand: str, tier: str, query: str,
                 cat,
                 brand,
                 tier,
-                item["title"][:250],
+                title_raw[:250],
                 query,
                 item.get("price_min_rub") or "",
                 item.get("price_max_rub") or "",
@@ -163,6 +225,39 @@ def _save_results(cat: str, brand: str, tier: str, query: str,
             log.warning("Failed to save row: %s", e)
 
     return saved
+
+
+def clear_catalog(category: str | None = None) -> int:
+    """Удаляет все записи из каталога (или одной категории). Возвращает кол-во удалённых."""
+    try:
+        ws = sheets.ensure_sheet(SHEET_NAME, HEADERS)
+        all_rows = ws.get_all_values()
+        if len(all_rows) <= 1:
+            return 0
+        headers = all_rows[0]
+        cat_idx = headers.index("category") if "category" in headers else None
+
+        if category and cat_idx is not None:
+            # Удаляем только строки нужной категории
+            kept = [headers]
+            removed = 0
+            for r in all_rows[1:]:
+                if len(r) > cat_idx and r[cat_idx] == category:
+                    removed += 1
+                else:
+                    kept.append(r)
+            ws.clear()
+            ws.update("A1", kept)
+            return removed
+        else:
+            # Очищаем всё (оставляем только заголовки)
+            removed = len(all_rows) - 1
+            ws.clear()
+            ws.update("A1", [headers])
+            return removed
+    except Exception as e:
+        log.warning("clear_catalog failed: %s", e)
+        return 0
 
 
 def list_catalog(category: str | None = None, tier: str | None = None,
