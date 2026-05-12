@@ -38,6 +38,24 @@ def sheet(name: str) -> gspread.Worksheet:
     return book.worksheet(name)
 
 
+def ensure_sheet(name: str, headers: list[str]) -> gspread.Worksheet:
+    """Создаёт лист с заголовками если он не существует. Иначе возвращает существующий."""
+    _, book = _client_book()
+    try:
+        ws = book.worksheet(name)
+        try:
+            first = ws.row_values(1)
+        except Exception:
+            first = []
+        if not first:
+            ws.update("A1", [headers])
+        return ws
+    except gspread.exceptions.WorksheetNotFound:
+        ws = book.add_worksheet(title=name, rows=2000, cols=max(20, len(headers)))
+        ws.append_row(headers, value_input_option="USER_ENTERED")
+        return ws
+
+
 def append_row(name: str, row: list[Any]) -> None:
     sheet(name).append_row(row, value_input_option="USER_ENTERED")
 

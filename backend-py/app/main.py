@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 
 from .config import get_config
 from .auth import verify_init_data
-from . import sheets, ai, telegram as tg, proxy_pool
+from . import sheets, ai, telegram as tg, proxy_pool, catalog
 from . import parsers
 from .parsers import dns as parser_dns, wb as parser_wb, ozon as parser_ozon, yamarket as parser_ym, citilink as parser_cl
 
@@ -224,6 +224,55 @@ async def api_proxy_status():
     return proxy_pool.pool_status()
 
 
+@app.post("/api/catalog/refresh")
+def api_catalog_refresh(cat: str = "", per_brand: int = 2, delay: float = 1.0):
+    """Запускает парсинг каталога (медленно — несколько минут на категорию).
+
+    Параметры:
+      cat: одна категория (fridge|hob|oven|dw|hood|microwave|coffee|washer)
+           или пусто = все 8 (очень долго)
+      per_brand: сколько моделей сохранять на (brand × category) — default 2
+      delay: задержка между запросами к парсерам, сек — default 1.0
+    """
+    categories = [cat] if cat else None
+    try:
+        result = catalog.refresh_catalog(
+            categories=categories,
+            per_brand=max(1, min(per_brand, 5)),
+            delay_sec=max(0.0, min(delay, 10.0)),
+        )
+        return result
+    except Exception as e:
+        log.exception("catalog refresh failed")
+        return {"ok": False, "error": str(e)}
+
+
+@app.get("/api/catalog/list")
+def api_catalog_list(cat: str = "", tier: str = "", brand: str = "", limit: int = 100):
+    """Читает каталог моделей из Sheets с фильтрами."""
+    items = catalog.list_catalog(
+        category=cat or None,
+        tier=tier or None,
+        brand=brand or None,
+        limit=min(limit, 500),
+    )
+    return {
+        "ok": True,
+        "filters": {"category": cat, "tier": tier, "brand": brand},
+        "count": len(items),
+        "items": items,
+    }
+
+
+@app.get("/api/catalog/preview_ai")
+def api_catalog_preview_ai(cats: str = "fridge", tiers: str = ""):
+    """Превью того, что AI получит в prompt (для отладки)."""
+    cat_list = [c.strip() for c in cats.split(",") if c.strip()]
+    tier_list = [t.strip() for t in tiers.split(",") if t.strip()] or None
+    text = catalog.list_for_ai(cat_list, tiers=tier_list, limit_per_cat=30)
+    return {"text": text, "length_chars": len(text)}
+
+
 # =================================================================
 # Handlers
 # =================================================================
@@ -354,10 +403,20 @@ def _handle_podbor(body: dict[str, Any]) -> dict[str, Any]:
         "", "", 0, False, "new", 0,
     ])
 
+    # Загружаем релевантный каталог моделей и передаём AI как «доступный пул»
+    catalog_text = _build_catalog_context(checklist)
+
     user_prompt = (
         f"Подбери технику для следующего клиента:\n\n"
         f"{json.dumps({'client': {'name': client_name}, 'checklist': checklist}, ensure_ascii=False, indent=2)}"
     )
+    if catalog_text:
+        user_prompt += (
+            "\n\n═══ ДОСТУПНЫЙ КАТАЛОГ МОДЕЛЕЙ (выбирай ТОЛЬКО из этого списка) ═══\n"
+            + catalog_text
+            + "\n\nВАЖНО: если модель не из этого списка — НЕ возвращай её. "
+              "Каталог собран парсерами с реальных маркетплейсов РФ — это гарантия что артикул существует."
+        )
     ai_result = ai.call_ai(user_prompt)
 
     # Обогащение моделей данными с маркетплейсов (WB / Я.Маркет / OZON / DNS)
@@ -380,6 +439,33 @@ def _handle_podbor(body: dict[str, Any]) -> dict[str, Any]:
 
     sheets.log_event("podbor_completed", tg_id, {"id": lead_id, "tokens": ai_result.get("tokens", 0)})
     return {"ok": True, "id": lead_id, "summary": summary_text, "ai": ai_result.get("json")}
+
+
+def _build_catalog_context(checklist: dict[str, Any]) -> str:
+    """Готовит компактный текст-каталог для AI prompt.
+
+    Берёт только релевантные категории + тиры (по budget_preset).
+    """
+    cats = checklist.get("categories") or []
+    if not cats:
+        return ""
+
+    # Маппинг бюджет-пресета → тиры каталога
+    bp = checklist.get("budget_preset") or ""
+    tier_map = {
+        "luxe":    ["premium"],
+        "premium": ["premium", "middle"],
+        "middle":  ["middle"],
+        "budget":  ["middle", "budget"],  # средний и ниже
+        "exact":   None,
+    }
+    tiers = tier_map.get(bp)  # None = все тиры
+
+    try:
+        return catalog.list_for_ai(cats, tiers=tiers, limit_per_cat=25)
+    except Exception as e:
+        log.warning("Cannot build catalog context: %s", e)
+        return ""
 
 
 def _enrich_ai_marketplaces(ai_result: dict[str, Any]) -> None:
