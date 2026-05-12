@@ -1780,5 +1780,12 @@ ${reportEl.outerHTML}
     });
   }
 
-  return { mount, go, getState: () => state, reset: () => { state = defaultState(); saveState(); render(); } };
+  return {
+    mount,
+    go,
+    getState: () => state,
+    reset: () => { state = defaultState(); saveState(); render(); },
+    // Внешний API для рендеринга сохранённого отчёта (используется в Clients)
+    renderSavedReport: (ai, leadId) => renderReport(ai, leadId || ""),
+  };
 })();
