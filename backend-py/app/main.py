@@ -107,6 +107,9 @@ async def _dispatch_post(request: Request):
         "lead":          _handle_lead,
         "grant_role":    _handle_grant_role,
         "staff_list":    _handle_staff_list,
+        "measurement_request":  _handle_measurement_request,
+        "measurement_inbox":    _handle_measurement_inbox,
+        "measurement_schedule": _handle_measurement_schedule,
         "ping":          lambda b: {"pong": True, "time": _now_iso()},
         "seed_admin":    lambda b: _handle_seed_admin(),
         "test_ai":       lambda b: _handle_test_ai(),
@@ -177,6 +180,24 @@ async def api_measurements(request: Request):
 async def api_measurement_detail(request: Request):
     body = await _safe_json(request)
     return _handle_measurement_detail(body)
+
+
+@app.post("/api/measurement_request")
+async def api_measurement_request(request: Request):
+    body = await _safe_json(request)
+    return _handle_measurement_request(body)
+
+
+@app.post("/api/measurement_inbox")
+async def api_measurement_inbox(request: Request):
+    body = await _safe_json(request)
+    return _handle_measurement_inbox(body)
+
+
+@app.post("/api/measurement_schedule")
+async def api_measurement_schedule(request: Request):
+    body = await _safe_json(request)
+    return _handle_measurement_schedule(body)
 
 
 @app.post("/api/grant_role")
@@ -518,7 +539,55 @@ def _save_measurement_photo(measurement_id: str, idx: int, data_url: str) -> str
         return None
 
 
+def _measurement_columns() -> list[str]:
+    """Гарантирует что у листа Measurements есть все нужные колонки (расширенный набор)."""
+    return [
+        "id", "ts", "client_tg_id", "manager_tg_id", "filled_by",
+        "layout", "area_m2", "ceiling_mm", "walls", "openings", "infra", "niches",
+        "photos", "notes", "status",
+        # Новые поля (Commit B)
+        "assigned_to_tg_id", "requested_by_tg_id", "scheduled_at",
+        "address", "client_name", "client_phone",
+    ]
+
+
+def _ensure_measurements_sheet() -> None:
+    """Один раз догоняет схему Measurements — добавляет недостающие колонки."""
+    try:
+        ws = sheets.sheet("Measurements")
+        existing = ws.row_values(1)
+    except Exception:
+        sheets.ensure_sheet("Measurements", _measurement_columns())
+        return
+    want = _measurement_columns()
+    missing = [c for c in want if c not in existing]
+    if missing:
+        new_headers = existing + missing
+        ws.update("A1", [new_headers])
+        log.info("Measurements: дополнили колонки: %s", missing)
+
+
+def _row_for_measurement(measurement_id: str, ts: str, **fields) -> list[str]:
+    """Собирает строку в нужном порядке колонок (для append_row)."""
+    cols = _measurement_columns()
+    base = {
+        "id": measurement_id, "ts": ts,
+        "client_tg_id": "", "manager_tg_id": "", "filled_by": "",
+        "layout": "", "area_m2": "", "ceiling_mm": "",
+        "walls": "{}", "openings": "{}", "infra": "{}", "niches": "{}",
+        "photos": "", "notes": "", "status": "submitted",
+        "assigned_to_tg_id": "", "requested_by_tg_id": "", "scheduled_at": "",
+        "address": "", "client_name": "", "client_phone": "",
+    }
+    base.update(fields)
+    return [str(base.get(c, "")) for c in cols]
+
+
 def _handle_measurement(body: dict[str, Any]) -> dict[str, Any]:
+    """Полная сдача замера (когда форма заполнена). Поддерживает 2 режима:
+    1. Создать новый замер с данными (старый MVP-режим — сам менеджер сделал замер)
+    2. Обновить существующий request — статус → completed (для замерщика после посещения)
+    """
     cfg = get_config()
     auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
     if not auth or not auth.get("user"):
@@ -528,22 +597,55 @@ def _handle_measurement(body: dict[str, Any]) -> dict[str, Any]:
     if not user:
         return {"error": "user_not_found"}
 
+    _ensure_measurements_sheet()
     m = body.get("measurement") or {}
-    measurement_id = _short_id()
-    filled_by = "manager_for_client" if user.get("role") == "manager" else "client_self"
+    existing_id = (m.get("measurement_id") or body.get("measurement_id") or "").strip()
+    update_mode = bool(existing_id)
+    is_manager = sheets.has_role(user, "manager")
+    is_measurer = sheets.has_role(user, "measurer")
 
-    client_tg_id = m.get("client_tg_id") if user.get("role") == "manager" else tg_id
-    manager_tg_id = tg_id if user.get("role") == "manager" else (
-        sheets.find_row("Clients", "tg_id", tg_id) or {}
-    ).get("manager_tg_id", "")
+    measurement_id = existing_id or _short_id()
+    if is_manager and not is_measurer:
+        filled_by = "manager_for_client"
+    elif is_measurer:
+        filled_by = "measurer"
+    else:
+        filled_by = "client_self"
 
-    # Прикрепляем имя/телефон клиента к notes если client_tg_id нет (новый клиент)
+    # При update-mode загружаем существующую заявку и проверяем права
+    existing_row = None
+    if update_mode:
+        existing_row = sheets.find_row("Measurements", "id", measurement_id)
+        if not existing_row:
+            return {"error": "measurement_not_found"}
+        # Только назначенный замерщик или менеджер-владелец могут завершить
+        if str(existing_row.get("assigned_to_tg_id")) != str(tg_id) and \
+           str(existing_row.get("manager_tg_id")) != str(tg_id):
+            return {"error": "forbidden"}
+
+    client_tg_id = (existing_row or {}).get("client_tg_id") or \
+                   (m.get("client_tg_id") if is_manager else tg_id) or ""
+    manager_tg_id = (existing_row or {}).get("manager_tg_id") or (
+        tg_id if is_manager else
+        (sheets.find_row("Clients", "tg_id", tg_id) or {}).get("manager_tg_id", "")
+    )
+
+    client_name = m.get("client_name") or (existing_row or {}).get("client_name", "")
+    client_phone = m.get("client_phone") or (existing_row or {}).get("client_phone", "")
+    address = m.get("address") or (existing_row or {}).get("address", "")
+    assigned_to = (existing_row or {}).get("assigned_to_tg_id", "")
+    requested_by = (existing_row or {}).get("requested_by_tg_id", manager_tg_id or "")
+    scheduled_at = (existing_row or {}).get("scheduled_at", "")
+
+    # Прикрепляем имя/телефон/адрес к notes (для совместимости со старым кодом)
     notes_full = m.get("notes", "")
     extras = []
-    if m.get("client_name"):
-        extras.append(f"Клиент: {m['client_name']}")
-    if m.get("client_phone"):
-        extras.append(f"Тел: {m['client_phone']}")
+    if client_name:
+        extras.append(f"Клиент: {client_name}")
+    if client_phone:
+        extras.append(f"Тел: {client_phone}")
+    if address:
+        extras.append(f"Адрес: {address}")
     if extras:
         notes_full = " · ".join(extras) + ("\n" + notes_full if notes_full else "")
 
@@ -560,23 +662,71 @@ def _handle_measurement(body: dict[str, Any]) -> dict[str, Any]:
                 # уже готовое имя/URL — пропускаем как есть
                 saved_photos.append(p)
 
-    sheets.append_row("Measurements", [
-        measurement_id, _now_iso(), client_tg_id or "", manager_tg_id or "",
-        filled_by,
-        m.get("layout", ""), m.get("area_m2", ""), m.get("ceiling_mm", ""),
-        json.dumps(m.get("walls") or {}, ensure_ascii=False),
-        json.dumps(m.get("openings") or {}, ensure_ascii=False),
-        json.dumps(m.get("infra") or {}, ensure_ascii=False),
-        json.dumps(m.get("niches") or {}, ensure_ascii=False),
-        ",".join(saved_photos),
-        notes_full,
-        "submitted",
-    ])
+    status_new = "completed"
+    walls_json = json.dumps(m.get("walls") or {}, ensure_ascii=False)
+    openings_json = json.dumps(m.get("openings") or {}, ensure_ascii=False)
+    infra_json = json.dumps(m.get("infra") or {}, ensure_ascii=False)
+    niches_json = json.dumps(m.get("niches") or {}, ensure_ascii=False)
+    photos_str = ",".join(saved_photos)
+
+    if update_mode:
+        # Обновляем существующую заявку — статус → completed, плюс заполняем поля
+        updates = {
+            "filled_by": filled_by,
+            "layout": m.get("layout", ""),
+            "area_m2": m.get("area_m2", ""),
+            "ceiling_mm": m.get("ceiling_mm", ""),
+            "walls": walls_json,
+            "openings": openings_json,
+            "infra": infra_json,
+            "niches": niches_json,
+            "photos": photos_str,
+            "notes": notes_full,
+            "status": status_new,
+        }
+        for col, val in updates.items():
+            sheets.update_cell_by_key("Measurements", "id", measurement_id, col, val)
+    else:
+        sheets.append_row("Measurements", _row_for_measurement(
+            measurement_id, _now_iso(),
+            client_tg_id=client_tg_id or "",
+            manager_tg_id=manager_tg_id or "",
+            filled_by=filled_by,
+            layout=m.get("layout", ""),
+            area_m2=m.get("area_m2", ""),
+            ceiling_mm=m.get("ceiling_mm", ""),
+            walls=walls_json,
+            openings=openings_json,
+            infra=infra_json,
+            niches=niches_json,
+            photos=photos_str,
+            notes=notes_full,
+            status=status_new,
+            assigned_to_tg_id=assigned_to,
+            requested_by_tg_id=requested_by,
+            scheduled_at=scheduled_at,
+            address=address,
+            client_name=client_name,
+            client_phone=client_phone,
+        ))
 
     if client_tg_id:
         sheets.update_cell_by_key("Clients", "tg_id", client_tg_id, "last_measurement_id", measurement_id)
 
-    if filled_by == "client_self" and manager_tg_id:
+    # Уведомления
+    if update_mode and existing_row:
+        # Замерщик завершил — пишем менеджеру который создавал заявку
+        notify_to = requested_by or manager_tg_id
+        if notify_to and str(notify_to) != str(tg_id):
+            tg.send_message(
+                notify_to,
+                f"✅ <b>Замер выполнен</b>\n"
+                f"Клиент: <b>{client_name or '—'}</b>\n"
+                f"Замерщик: {user.get('full_name') or tg_id}\n"
+                f"Фото: {len(saved_photos)} шт · площадь {m.get('area_m2') or '—'} м²\n\n"
+                f"Откройте кабинет — можно запускать подбор техники."
+            )
+    elif filled_by == "client_self" and manager_tg_id:
         tg.send_message(
             manager_tg_id,
             f"📐 Новый замер от клиента <b>{user.get('full_name') or tg_id}</b>.\n"
@@ -584,8 +734,10 @@ def _handle_measurement(body: dict[str, Any]) -> dict[str, Any]:
             f"Открыть в кабинете для просмотра."
         )
 
-    sheets.log_event("measurement_submitted", tg_id, {"id": measurement_id, "filled_by": filled_by})
-    return {"ok": True, "id": measurement_id, "photos": saved_photos}
+    sheets.log_event("measurement_submitted", tg_id, {
+        "id": measurement_id, "filled_by": filled_by, "update_mode": update_mode,
+    })
+    return {"ok": True, "id": measurement_id, "photos": saved_photos, "status": status_new}
 
 
 def _handle_podbor(body: dict[str, Any]) -> dict[str, Any]:
@@ -870,6 +1022,177 @@ def _handle_staff_list(body: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True, "role": role, "staff": sheets.list_users_with_role(role)}
 
 
+def _handle_measurement_request(body: dict[str, Any]) -> dict[str, Any]:
+    """Менеджер создаёт ЗАЯВКУ на замер (без замеров — пустая заготовка).
+    body: {initData, client_name, client_phone, address, assigned_to_tg_id?, notes?}"""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user or not sheets.has_role(user, "manager"):
+        return {"error": "only_manager"}
+
+    _ensure_measurements_sheet()
+    client_name = (body.get("client_name") or "").strip()
+    client_phone = (body.get("client_phone") or "").strip()
+    address = (body.get("address") or "").strip()
+    assigned_to = str(body.get("assigned_to_tg_id") or "").strip()
+    notes = (body.get("notes") or "").strip()
+
+    if not client_name or not client_phone:
+        return {"error": "missing_client_info", "hint": "client_name and client_phone are required"}
+
+    # Если назначен — проверим что у него есть роль measurer
+    if assigned_to:
+        try:
+            assigned_user = sheets.find_user(int(assigned_to))
+        except (TypeError, ValueError):
+            assigned_user = None
+        if not assigned_user or not sheets.has_role(assigned_user, "measurer"):
+            return {"error": "assigned_not_measurer"}
+
+    measurement_id = _short_id()
+    sheets.append_row("Measurements", _row_for_measurement(
+        measurement_id, _now_iso(),
+        manager_tg_id=tg_id,
+        filled_by="request",
+        status="requested",
+        assigned_to_tg_id=assigned_to,
+        requested_by_tg_id=tg_id,
+        address=address,
+        client_name=client_name,
+        client_phone=client_phone,
+        notes=notes,
+    ))
+
+    # Уведомление назначенному замерщику
+    if assigned_to:
+        tg.send_message(
+            int(assigned_to),
+            f"📐 <b>Новая заявка на замер</b>\n\n"
+            f"Клиент: <b>{client_name}</b>\n"
+            f"Телефон: <code>{client_phone}</code>\n"
+            f"Адрес: {address or '—'}\n"
+            f"От менеджера: {user.get('full_name') or tg_id}\n\n"
+            f"{notes if notes else ''}\n"
+            f"Откройте кабинет — назначьте дату."
+        )
+
+    sheets.log_event("measurement_requested", tg_id, {
+        "id": measurement_id, "assigned_to": assigned_to, "client": client_name,
+    })
+    return {"ok": True, "id": measurement_id, "status": "requested", "assigned_to_tg_id": assigned_to}
+
+
+def _handle_measurement_inbox(body: dict[str, Any]) -> dict[str, Any]:
+    """Замерщик: список назначенных мне заявок (requested/scheduled/in_progress)."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user or not sheets.has_role(user, "measurer"):
+        return {"error": "only_measurer"}
+
+    _ensure_measurements_sheet()
+    try:
+        ws = sheets.sheet("Measurements")
+        rows = ws.get_all_values()
+    except Exception as e:
+        log.warning("inbox read failed: %s", e)
+        return {"ok": True, "measurements": []}
+
+    if not rows or len(rows) < 2:
+        return {"ok": True, "measurements": []}
+    headers = rows[0]
+    active_statuses = {"requested", "scheduled", "in_progress"}
+    out: list[dict[str, Any]] = []
+    for r in rows[1:]:
+        row = dict(zip(headers, r + [""] * (len(headers) - len(r))))
+        if str(row.get("assigned_to_tg_id", "")) != str(tg_id):
+            continue
+        if row.get("status") not in active_statuses:
+            continue
+        out.append({
+            "id": row.get("id"),
+            "created_at": row.get("ts"),
+            "status": row.get("status"),
+            "scheduled_at": row.get("scheduled_at", ""),
+            "client_name": row.get("client_name", ""),
+            "client_phone": row.get("client_phone", ""),
+            "address": row.get("address", ""),
+            "notes": row.get("notes", ""),
+            "manager_tg_id": row.get("manager_tg_id", ""),
+            "requested_by_tg_id": row.get("requested_by_tg_id", ""),
+        })
+    # Назначенная дата → первая; затем requested без даты
+    def _sort_key(item):
+        sched = item.get("scheduled_at") or ""
+        return (0 if sched else 1, sched, item.get("created_at") or "")
+    out.sort(key=_sort_key)
+    return {"ok": True, "count": len(out), "measurements": out}
+
+
+def _handle_measurement_schedule(body: dict[str, Any]) -> dict[str, Any]:
+    """Замерщик назначает дату посещения. body: {initData, measurement_id, scheduled_at}"""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user or not sheets.has_role(user, "measurer"):
+        return {"error": "only_measurer"}
+
+    measurement_id = (body.get("measurement_id") or "").strip()
+    scheduled_at = (body.get("scheduled_at") or "").strip()
+    if not measurement_id or not scheduled_at:
+        return {"error": "missing_fields"}
+
+    row = sheets.find_row("Measurements", "id", measurement_id)
+    if not row:
+        return {"error": "measurement_not_found"}
+    if str(row.get("assigned_to_tg_id")) != str(tg_id):
+        return {"error": "forbidden"}
+
+    sheets.update_cell_by_key("Measurements", "id", measurement_id, "scheduled_at", scheduled_at)
+    sheets.update_cell_by_key("Measurements", "id", measurement_id, "status", "scheduled")
+
+    # Уведомляем менеджера
+    notify_to = row.get("requested_by_tg_id") or row.get("manager_tg_id")
+    if notify_to and str(notify_to) != str(tg_id):
+        try:
+            tg.send_message(
+                int(notify_to),
+                f"📅 <b>Замер назначен</b>\n\n"
+                f"Клиент: <b>{row.get('client_name') or '—'}</b>\n"
+                f"Дата: {_format_date_human(scheduled_at)}\n"
+                f"Замерщик: {user.get('full_name') or tg_id}\n"
+                f"Адрес: {row.get('address') or '—'}"
+            )
+        except Exception:
+            pass
+
+    sheets.log_event("measurement_scheduled", tg_id, {
+        "id": measurement_id, "scheduled_at": scheduled_at,
+    })
+    return {"ok": True, "id": measurement_id, "status": "scheduled", "scheduled_at": scheduled_at}
+
+
+def _format_date_human(iso: str) -> str:
+    """ISO datetime → '15.05.2026 14:00' для уведомлений."""
+    if not iso:
+        return "—"
+    try:
+        d = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+        return d.strftime("%d.%m.%Y %H:%M")
+    except Exception:
+        return iso
+
+
 def _handle_measurement_detail(body: dict[str, Any]) -> dict[str, Any]:
     """Возвращает один замер целиком — для детальной страницы и печати."""
     cfg = get_config()
@@ -922,6 +1245,13 @@ def _handle_measurement_detail(body: dict[str, Any]) -> dict[str, Any]:
         "photos": photo_files,
         "notes": row.get("notes", ""),
         "status": row.get("status", ""),
+        # Новые поля (Commit B)
+        "assigned_to_tg_id": row.get("assigned_to_tg_id", ""),
+        "requested_by_tg_id": row.get("requested_by_tg_id", ""),
+        "scheduled_at": row.get("scheduled_at", ""),
+        "address": row.get("address", ""),
+        "client_name": row.get("client_name", ""),
+        "client_phone": row.get("client_phone", ""),
     }
 
 

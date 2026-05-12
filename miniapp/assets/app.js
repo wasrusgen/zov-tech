@@ -177,10 +177,10 @@ function renderManagerHome(me) {
 
   // Quick actions
   const quickActions = [
-    { icon: "user",    title: "Клиенты",       subtitle: "История подборов", href: "#/clients" },
-    { icon: "package", title: "Подбор техники", subtitle: "Встройка + AI", href: "#/podbor" },
-    { icon: "camera",  title: "Новый замер",   subtitle: "Кухня клиента",  href: "#/measure" },
-    { icon: "cube",    title: "3D просмотр",   subtitle: "Проекты",         href: null },
+    { icon: "user",    title: "Клиенты",       subtitle: "История подборов",   href: "#/clients" },
+    { icon: "package", title: "Подбор техники", subtitle: "Встройка + AI",      href: "#/podbor" },
+    { icon: "ruler",   title: "Заказать замер", subtitle: "Назначить замерщика", href: "#/request" },
+    { icon: "camera",  title: "Замер сейчас",  subtitle: "Заполнить вручную",  href: "#/measure" },
   ];
   app.appendChild(el(`<div class="section-head"><span class="label">Быстрые действия</span></div>`));
   const grid = el(`<div class="quick-grid"></div>`);
@@ -344,7 +344,7 @@ function buildMenu(items) {
 }
 
 /* ----------------- Staff (замерщик / сборщик) ----------------- */
-function renderStaff(me) {
+async function renderStaff(me) {
   app.innerHTML = "";
 
   if (me.error === "no_staff_role") {
@@ -382,23 +382,53 @@ function renderStaff(me) {
     </div>
   `));
 
-  // Заглушка — реальный инбокс заявок будет в следующем коммите
-  const inbox = el(`
+  // Реальный инбокс — загружаем из /api/measurement_inbox
+  const inboxSection = el(`
     <section class="block">
-      <div class="block-head">📥 Входящие заявки</div>
-      <div class="empty" style="padding:24px 12px;text-align:center;color:var(--muted);">
-        Пока пусто — менеджеры ещё не назначили вам заявки.<br>
-        Здесь появятся ${caps.measurer ? "замеры" : ""}${caps.measurer && caps.assembler ? " и " : ""}${caps.assembler ? "сборки" : ""}.
-      </div>
+      <div class="block-head">📥 Входящие заявки на замер</div>
+      <div id="inboxList"><div class="loader-inline"><div class="spinner"></div></div></div>
     </section>
   `);
-  app.appendChild(inbox);
+  app.appendChild(inboxSection);
 
-  // Если у сотрудника также есть роль measurer — показываем быструю кнопку «Сделать замер»
+  if (caps.measurer) {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/measurement_inbox`, {
+        method: "POST",
+        body: JSON.stringify({ initData: tg?.initData || "" }),
+      });
+      const data = await res.json();
+      const list = document.getElementById("inboxList");
+      if (!list) return;
+      if (data.error) {
+        list.innerHTML = `<div class="error">Ошибка: ${data.error}</div>`;
+      } else if (!data.measurements || !data.measurements.length) {
+        list.innerHTML = `
+          <div class="empty" style="padding:18px 12px;text-align:center;color:var(--muted);">
+            Заявок пока нет. Когда менеджер назначит замер — увидите здесь.
+          </div>
+        `;
+      } else {
+        list.innerHTML = "";
+        data.measurements.forEach(m => list.appendChild(renderInboxItem(m)));
+      }
+    } catch (e) {
+      const list = document.getElementById("inboxList");
+      if (list) list.innerHTML = `<div class="error">Сеть: ${e.message}</div>`;
+    }
+  } else {
+    document.getElementById("inboxList").innerHTML = `
+      <div class="empty" style="padding:18px 12px;text-align:center;color:var(--muted);">
+        У вас только роль «сборщик» — инбокс заявок на сборку появится позже.
+      </div>
+    `;
+  }
+
+  // Quick action — заполнить замер без заявки (вне очереди)
   if (caps.measurer) {
     const quick = el(`
       <div class="podbor-cta-row" style="margin-top:16px;">
-        <button class="btn-primary" id="newMeasure">📐 Сделать новый замер</button>
+        <button class="btn-secondary" id="newMeasure">📐 Замер без заявки (вручную)</button>
       </div>
     `);
     quick.querySelector("#newMeasure").addEventListener("click", () => {
@@ -407,6 +437,195 @@ function renderStaff(me) {
     });
     app.appendChild(quick);
   }
+}
+
+function renderInboxItem(m) {
+  const statusLabel = ({
+    requested:   "🟡 ждёт даты",
+    scheduled:   "📅 назначен",
+    in_progress: "🔵 в работе",
+  })[m.status] || m.status;
+  const sched = m.scheduled_at ? formatDateHuman(m.scheduled_at) : "дата не назначена";
+
+  const item = el(`
+    <button class="lead-item" style="text-align:left;">
+      <div style="flex:1; min-width:0;">
+        <div class="lead-date" style="font-weight:600; color:var(--ink);">${escHtml(m.client_name || "—")}</div>
+        <div class="lead-id" style="font-size:12px; color:var(--muted); margin-top:2px;">
+          ${escHtml(m.address || "адрес не указан")}
+        </div>
+        <div class="lead-id" style="font-size:11px; color:var(--muted); margin-top:2px;">
+          ${escHtml(sched)} · ${statusLabel}
+        </div>
+      </div>
+      <div class="lead-arrow">${ICONS.chevron || "›"}</div>
+    </button>
+  `);
+  item.addEventListener("click", () => {
+    haptic && haptic("impact");
+    location.hash = `#/inbox/${m.id}`;
+  });
+  return item;
+}
+
+function formatDateHuman(iso) {
+  if (!iso) return "—";
+  try {
+    const d = new Date(iso);
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yy = d.getFullYear();
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mi = String(d.getMinutes()).padStart(2, "0");
+    return `${dd}.${mm}.${yy} ${hh}:${mi}`;
+  } catch (e) { return iso; }
+}
+
+function escHtml(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/* ----------------- Карточка заявки для замерщика ----------------- */
+async function renderInboxDetail(measurementId) {
+  app.innerHTML = "";
+  document.body.classList.remove("has-bottom-nav");
+  const oldNav = document.getElementById("bottom-nav");
+  if (oldNav) oldNav.remove();
+
+  // header
+  const header = el(`
+    <header class="podbor-header">
+      <button class="podbor-back" aria-label="Назад">${ICONS.arrow_left || "‹"}</button>
+      <div class="podbor-title">Заявка на замер</div>
+      <div style="width:28px"></div>
+    </header>
+  `);
+  header.querySelector(".podbor-back").addEventListener("click", () => {
+    location.hash = "";
+    if (!location.hash) location.reload();
+  });
+  app.appendChild(header);
+
+  const loading = el(`<div class="loader-inline"><div class="spinner"></div></div>`);
+  app.appendChild(loading);
+
+  let m;
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/measurement_detail`, {
+      method: "POST",
+      body: JSON.stringify({ initData: tg?.initData || "", measurement_id: measurementId }),
+    });
+    m = await res.json();
+  } catch (e) {
+    loading.remove();
+    app.appendChild(el(`<div class="error">Сеть: ${e.message}</div>`));
+    return;
+  }
+  loading.remove();
+  if (m.error) {
+    app.appendChild(el(`<div class="error">${m.error}</div>`));
+    return;
+  }
+
+  // Шапка
+  app.appendChild(el(`
+    <div class="measurement-detail-head">
+      <div class="kicker">Заявка #${(m.id || "").slice(0, 8)}</div>
+      <h2 class="display-title">${escHtml(m.client_name || "Без имени")}</h2>
+      <div class="measurement-detail-meta">
+        <span>📞 ${escHtml(m.client_phone || "—")}</span>
+        <span>📍 ${escHtml(m.address || "адрес не указан")}</span>
+      </div>
+    </div>
+  `));
+
+  // Заметки от менеджера
+  if (m.notes) {
+    app.appendChild(el(`
+      <section class="block">
+        <div class="block-head">Заметки от менеджера</div>
+        <div style="padding:12px 4px;color:var(--ink-2);font-size:14px;">${escHtml(m.notes).replace(/\n/g, "<br>")}</div>
+      </section>
+    `));
+  }
+
+  // Блок «назначить дату» (если ещё requested) или «изменить дату» (если scheduled)
+  const isScheduled = m.status === "scheduled";
+  const schedSection = el(`
+    <section class="block">
+      <div class="block-head">${isScheduled ? "Дата замера" : "Назначить дату"}</div>
+      <div style="padding:6px 0 0;">
+        <div class="form-row">
+          <label class="field">
+            <span class="field-label">Дата и время визита</span>
+            <input type="datetime-local" id="schedInput" value="${m.scheduled_at ? toDatetimeLocalValue(m.scheduled_at) : ""}">
+            <span class="field-hint" id="schedHint">${isScheduled ? "Согласовано — можно изменить" : "Согласуйте с клиентом, потом выберите тут"}</span>
+            <span class="field-error" id="schedError"></span>
+          </label>
+        </div>
+        <div class="podbor-cta-row">
+          <button class="btn-primary" id="saveSched">${isScheduled ? "Изменить дату" : "Назначить"}</button>
+        </div>
+      </div>
+    </section>
+  `);
+  app.appendChild(schedSection);
+
+  schedSection.querySelector("#saveSched").addEventListener("click", async () => {
+    const input = schedSection.querySelector("#schedInput");
+    const errorEl = schedSection.querySelector("#schedError");
+    errorEl.textContent = "";
+    const val = input.value;
+    if (!val) {
+      errorEl.textContent = "Укажите дату и время";
+      return;
+    }
+    const iso = new Date(val).toISOString();
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/measurement_schedule`, {
+        method: "POST",
+        body: JSON.stringify({
+          initData: tg?.initData || "",
+          measurement_id: measurementId,
+          scheduled_at: iso,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        errorEl.textContent = "Ошибка: " + data.error;
+        return;
+      }
+      haptic && haptic("success");
+      tg?.showAlert?.("Дата назначена — менеджер уведомлён.");
+      renderInboxDetail(measurementId); // перерисовать
+    } catch (e) {
+      errorEl.textContent = "Сеть: " + e.message;
+    }
+  });
+
+  // Кнопка «Сделать замер» (только если назначено или прямо сейчас)
+  const measureBtn = el(`
+    <div class="podbor-cta-row" style="margin-top:16px;">
+      <button class="btn-primary" id="goMeasure">📐 Сделать замер сейчас</button>
+    </div>
+  `);
+  measureBtn.querySelector("#goMeasure").addEventListener("click", () => {
+    haptic && haptic("impact");
+    // Передаём measurement_id чтобы wizard работал в update-mode
+    location.hash = `#/measure?id=${measurementId}`;
+  });
+  app.appendChild(measureBtn);
+}
+
+function toDatetimeLocalValue(iso) {
+  // ISO → YYYY-MM-DDTHH:MM для <input type="datetime-local">
+  try {
+    const d = new Date(iso);
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  } catch (e) { return ""; }
 }
 
 function renderError() {
@@ -439,12 +658,17 @@ async function init() {
   // Hash-роутер: позволяет открывать подэкраны (например подбор) напрямую
   window.addEventListener("hashchange", routeByHash);
 
-  // ?go=podbor|clients|measure — бот может задать стартовый экран через query,
+  // ?go=podbor|clients|measure|request — бот может задать стартовый экран через query,
   // потому что Telegram WebApp не передаёт hash через KeyboardButton.web_app.
   const qp = new URLSearchParams(window.location.search);
   const goScreen = qp.get("go");
   if (goScreen && !location.hash) {
-    const map = { podbor: "#/podbor", clients: "#/clients", measure: "#/measure" };
+    const map = {
+      podbor:  "#/podbor",
+      clients: "#/clients",
+      measure: "#/measure",
+      request: "#/request",
+    };
     if (map[goScreen]) {
       // Меняем hash без триггера hashchange (init сам отрендерит правильный экран)
       history.replaceState(null, "", location.pathname + location.search + map[goScreen]);
@@ -466,6 +690,17 @@ async function init() {
     }
     if (location.hash.startsWith("#/measure")) {
       Measurements.mount(app);
+      hideSplash();
+      return;
+    }
+    if (location.hash.startsWith("#/request")) {
+      MeasurementRequest.mount(app);
+      hideSplash();
+      return;
+    }
+    if (location.hash.startsWith("#/inbox/")) {
+      const id = location.hash.replace("#/inbox/", "");
+      renderInboxDetail(id);
       hideSplash();
       return;
     }
@@ -491,6 +726,10 @@ function routeByHash() {
     Clients.mount(app);
   } else if (location.hash.startsWith("#/measure")) {
     Measurements.mount(app);
+  } else if (location.hash.startsWith("#/request")) {
+    MeasurementRequest.mount(app);
+  } else if (location.hash.startsWith("#/inbox/")) {
+    renderInboxDetail(location.hash.replace("#/inbox/", ""));
   } else {
     // Главный экран по роли
     const me = window.__zovMe;

@@ -21,6 +21,7 @@ const Measurements = (function () {
   let state = loadState();
   let root = null;
   let currentStep = "client";
+  let measurementId = ""; // если задан — wizard работает в update-mode (закрывает заявку)
 
   function loadState() {
     try {
@@ -71,7 +72,48 @@ const Measurements = (function () {
     if (oldNav) oldNav.remove();
     currentStep = "client";
     photos = []; // на старте нового замера — чистый список
+
+    // Если URL содержит ?id=<measurement_id> или fragment #/measure?id=... — это update-mode:
+    // wizard закрывает существующую заявку. Подтягиваем данные заявки и сразу прыгаем на layout.
+    measurementId = "";
+    const hashMatch = (location.hash.split("?")[1] || "");
+    const fragQp = new URLSearchParams(hashMatch);
+    const mid = fragQp.get("id") || new URLSearchParams(location.search).get("measurement_id") || "";
+    if (mid) {
+      measurementId = mid;
+      loadRequestAndStart();
+      return;
+    }
     render();
+  }
+
+  async function loadRequestAndStart() {
+    // Загружаем существующую заявку и пред-заполняем client_name/phone/address
+    root.innerHTML = "";
+    root.appendChild(el(`<div class="loader-inline"><div class="spinner"></div></div>`));
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/measurement_detail`, {
+        method: "POST",
+        body: JSON.stringify({ initData: tg?.initData || "", measurement_id: measurementId }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        root.innerHTML = `<div class="error">${data.error}</div>`;
+        return;
+      }
+      // Pre-fill state с данными из заявки
+      state = {
+        ...defaultState(),
+        client_name: data.client_name || "",
+        client_phone: data.client_phone || "",
+      };
+      saveState();
+      // Сразу прыгаем на форму (client уже заполнен)
+      currentStep = "layout";
+      render();
+    } catch (e) {
+      root.innerHTML = `<div class="error">Сеть: ${e.message}</div>`;
+    }
   }
 
   function go(step) {
@@ -511,6 +553,8 @@ const Measurements = (function () {
       // Контакт клиента — заносим в заметки если он не зарегистрирован в системе
       client_name: state.client_name,
       client_phone: state.client_phone,
+      // Если задан — backend обновит существующую заявку (update-mode)
+      measurement_id: measurementId || undefined,
     };
 
     try {
