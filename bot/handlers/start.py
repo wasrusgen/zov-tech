@@ -3,8 +3,6 @@ import time
 from aiogram import F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.types import (
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
     KeyboardButton,
     Message,
     ReplyKeyboardMarkup,
@@ -16,6 +14,10 @@ from config import Config
 
 router = Router(name="start")
 
+
+# ============================================================
+# URL helpers
+# ============================================================
 
 def _bust_cache(url: str) -> str:
     """Append unique timestamp to MiniApp URL so Telegram WebView can't cache between sessions."""
@@ -30,42 +32,41 @@ def _with_query(url: str, **params: str) -> str:
     return f"{url}{sep}{pairs}" if pairs else url
 
 
-def role_choice_kb(miniapp_url: str) -> InlineKeyboardMarkup:
-    """Two WebApp buttons — one tap opens the cabinet directly, no intermediate step."""
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="👤 Менеджер",
-                    web_app=WebAppInfo(url=_bust_cache(_with_query(miniapp_url, role="manager"))),
-                ),
-                InlineKeyboardButton(
-                    text="🏠 Клиент",
-                    web_app=WebAppInfo(url=_bust_cache(_with_query(miniapp_url, role="client"))),
-                ),
-            ]
-        ]
-    )
+def _wapp(miniapp_url: str, role: str, go: str = "") -> WebAppInfo:
+    """Build a WebAppInfo with role + optional ?go=<screen>."""
+    return WebAppInfo(url=_bust_cache(_with_query(miniapp_url, role=role, go=go)))
 
 
-def manager_reply_kb(miniapp_url: str) -> ReplyKeyboardMarkup:
-    """Persistent bottom keyboard — fast access to key MiniApp screens + info text actions.
-    Reply-keyboard `web_app` buttons открывают MiniApp с указанным URL/query."""
-    def wapp(go: str) -> WebAppInfo:
-        return WebAppInfo(url=_bust_cache(_with_query(miniapp_url, role="manager", go=go)))
+# ============================================================
+# Reply keyboards (3 уровня)
+# ============================================================
 
+# Уровень 1 — выбор роли (плоские текстовые кнопки внизу)
+def role_choice_kb() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
             [
-                KeyboardButton(text="🤖 Подбор техники", web_app=wapp("podbor")),
-                KeyboardButton(text="📐 Новый замер", web_app=wapp("measure")),
+                KeyboardButton(text="👤 Я менеджер"),
+                KeyboardButton(text="🏠 Я клиент"),
+            ],
+        ],
+        resize_keyboard=True,
+        is_persistent=True,
+        input_field_placeholder="Выберите кто вы…",
+    )
+
+
+# Уровень 2a — меню менеджера (WebApp + текст)
+def manager_kb(miniapp_url: str) -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [
+                KeyboardButton(text="🤖 Подбор техники", web_app=_wapp(miniapp_url, "manager", "podbor")),
+                KeyboardButton(text="📐 Новый замер",   web_app=_wapp(miniapp_url, "manager", "measure")),
             ],
             [
-                KeyboardButton(text="👥 Мои клиенты", web_app=wapp("clients")),
-                KeyboardButton(
-                    text="🏠 Кабинет",
-                    web_app=WebAppInfo(url=_bust_cache(_with_query(miniapp_url, role="manager"))),
-                ),
+                KeyboardButton(text="👥 Мои клиенты",   web_app=_wapp(miniapp_url, "manager", "clients")),
+                KeyboardButton(text="🏠 Кабинет",        web_app=_wapp(miniapp_url, "manager")),
             ],
             [
                 KeyboardButton(text="ℹ️ Что умеет бот?"),
@@ -73,6 +74,7 @@ def manager_reply_kb(miniapp_url: str) -> ReplyKeyboardMarkup:
             ],
             [
                 KeyboardButton(text="📋 Чек-лист встречи"),
+                KeyboardButton(text="⬅️ Сменить роль"),
             ],
         ],
         resize_keyboard=True,
@@ -81,42 +83,82 @@ def manager_reply_kb(miniapp_url: str) -> ReplyKeyboardMarkup:
     )
 
 
-# ---------- /start ----------
+# Уровень 2b — меню клиента (WebApp + текст)
+def client_kb(miniapp_url: str) -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [
+                KeyboardButton(text="🏠 Мой кабинет",    web_app=_wapp(miniapp_url, "client")),
+                KeyboardButton(text="📐 Мой замер",      web_app=_wapp(miniapp_url, "client", "measure")),
+            ],
+            [
+                KeyboardButton(text="📞 Связь с менеджером"),
+                KeyboardButton(text="ℹ️ О сервисе"),
+            ],
+            [
+                KeyboardButton(text="⬅️ Сменить роль"),
+            ],
+        ],
+        resize_keyboard=True,
+        is_persistent=True,
+        input_field_placeholder="Выберите действие…",
+    )
+
+
+# ============================================================
+# Commands
+# ============================================================
 
 @router.message(CommandStart())
 async def cmd_start(message: Message, config: Config) -> None:
-    # Сразу даём постоянную клавиатуру + inline-выбор роли. Менеджер будет
-    # видеть нижнюю клавиатуру после первого тапа на роль.
     await message.answer(
         "👋 Здравствуйте, я бот-помощник от Руслана ВАСИЛЬЕВА.\n\n"
-        "Кто вы?",
-        reply_markup=role_choice_kb(config.miniapp_url),
-    )
-    # Постоянная клавиатура снизу — для быстрого доступа из любого экрана чата
-    await message.answer(
-        "📲 Внизу появилась панель быстрого доступа — открывайте кабинет или нужный экран одним тапом.",
-        reply_markup=manager_reply_kb(config.miniapp_url),
+        "Выберите, кто вы — внизу появилась панель.",
+        reply_markup=role_choice_kb(),
     )
 
-
-# ---------- /menu (вернуть клавиатуру если она была скрыта) ----------
 
 @router.message(Command("menu"))
-async def cmd_menu(message: Message, config: Config) -> None:
-    await message.answer(
-        "📲 Панель быстрого доступа:",
-        reply_markup=manager_reply_kb(config.miniapp_url),
-    )
+async def cmd_menu(message: Message) -> None:
+    """Возвращает к выбору роли."""
+    await message.answer("Выберите роль:", reply_markup=role_choice_kb())
 
-
-# ---------- /hide (убрать клавиатуру) ----------
 
 @router.message(Command("hide"))
 async def cmd_hide(message: Message) -> None:
     await message.answer("Клавиатура скрыта. Вернуть — /menu", reply_markup=ReplyKeyboardRemove())
 
 
-# ---------- Текстовые кнопки нижней клавиатуры ----------
+# ============================================================
+# Уровень 1 → 2: выбор роли
+# ============================================================
+
+@router.message(F.text == "👤 Я менеджер")
+async def role_manager(message: Message, config: Config) -> None:
+    await message.answer(
+        "<b>Меню менеджера</b>\n\n"
+        "Выбирайте действие — большинство кнопок открывают кабинет на нужном экране одним тапом.",
+        reply_markup=manager_kb(config.miniapp_url),
+    )
+
+
+@router.message(F.text == "🏠 Я клиент")
+async def role_client(message: Message, config: Config) -> None:
+    await message.answer(
+        "<b>Меню клиента</b>\n\n"
+        "Здесь видны ваш замер и личный кабинет от менеджера ЗОВ.",
+        reply_markup=client_kb(config.miniapp_url),
+    )
+
+
+@router.message(F.text == "⬅️ Сменить роль")
+async def back_to_role(message: Message) -> None:
+    await message.answer("Выберите роль:", reply_markup=role_choice_kb())
+
+
+# ============================================================
+# Текстовые кнопки меню менеджера
+# ============================================================
 
 @router.message(F.text == "ℹ️ Что умеет бот?")
 async def kb_about(message: Message) -> None:
@@ -134,7 +176,7 @@ async def kb_about(message: Message) -> None:
 
 
 @router.message(F.text == "📞 Связь с куратором")
-async def kb_contact(message: Message) -> None:
+async def kb_contact_curator(message: Message) -> None:
     await message.answer(
         "<b>Куратор сети:</b>\n\n"
         "👤 Руслан Васильев\n"
@@ -164,4 +206,32 @@ async def kb_checklist(message: Message) -> None:
         "• Скачать PDF подбора → отправить клиенту\n"
         "• Поставить замер и подбор в карточку клиента\n"
         "• Следующий шаг: дизайн-проект кухни ЗОВ"
+    )
+
+
+# ============================================================
+# Текстовые кнопки меню клиента
+# ============================================================
+
+@router.message(F.text == "📞 Связь с менеджером")
+async def kb_contact_manager(message: Message) -> None:
+    await message.answer(
+        "<b>Ваш менеджер ЗОВ:</b>\n\n"
+        "Связаться с менеджером можно через ваш кабинет — там указаны контакты "
+        "сотрудника, который ведёт ваш проект.\n\n"
+        "Если кабинет ещё не открывался — попросите менеджера прислать "
+        "приглашение или напишите куратору сети @wasrusgen."
+    )
+
+
+@router.message(F.text == "ℹ️ О сервисе")
+async def kb_about_service(message: Message) -> None:
+    await message.answer(
+        "<b>О сервисе ЗОВ</b>\n\n"
+        "ЗОВ — фабрика кухонной мебели премиум-сегмента из Беларуси.\n\n"
+        "Этот бот помогает менеджерам ЗОВ:\n"
+        "• сделать замер вашей кухни\n"
+        "• подобрать встраиваемую технику под ваш бюджет и образ жизни\n"
+        "• сохранить всё в одном кабинете для совместной работы\n\n"
+        "🌐 zov.by · 📍 СПб / Москва · 💬 @wasrusgen1"
     )
