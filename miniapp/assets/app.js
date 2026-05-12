@@ -63,6 +63,9 @@ async function fetchMe() {
     method: "POST",
     body: JSON.stringify({
       initData: tg?.initData || "",
+      // Fallback для Telegram Desktop side-panel где initData может приходить пустым.
+      // Backend проверит подпись initData первым; если её нет — упадёт сюда. UNSAFE!
+      initDataUnsafe: tg?.initDataUnsafe || null,
       startParam: tg?.initDataUnsafe?.start_param || null,
       role: explicitRole,
     }),

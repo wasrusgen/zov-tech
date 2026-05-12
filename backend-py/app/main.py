@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import re
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -427,8 +428,23 @@ def _handle_me(body: dict[str, Any]) -> dict[str, Any]:
     init_data = body.get("initData") or ""
     auth = verify_init_data(init_data, cfg.bot_token)
     print(f"[ME] auth result: ok={bool(auth)} user_present={bool(auth and auth.get('user'))}", flush=True, file=sys.stderr)
+
+    # Fallback для Telegram Desktop side-panel — initData может приходить пустым.
+    # Доверяем initDataUnsafe.user (НЕпроверенным данным) — только для UI-режима.
+    # Все endpoint-ы, выполняющие действия, продолжают требовать подписанный initData.
     if not auth or not auth.get("user"):
-        return {"error": "invalid_init_data"}
+        unsafe = body.get("initDataUnsafe") or {}
+        unsafe_user = unsafe.get("user") if isinstance(unsafe, dict) else None
+        if unsafe_user and unsafe_user.get("id"):
+            print(f"[ME] FALLBACK: using initDataUnsafe.user id={unsafe_user.get('id')}", flush=True, file=sys.stderr)
+            auth = {
+                "user": unsafe_user,
+                "auth_date": int(time.time()),
+                "start_param": unsafe.get("start_param"),
+                "_unsafe": True,
+            }
+        else:
+            return {"error": "invalid_init_data"}
 
     tg_user = auth["user"]
     tg_id = tg_user["id"]
