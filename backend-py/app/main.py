@@ -432,7 +432,9 @@ def _handle_me(body: dict[str, Any]) -> dict[str, Any]:
     start_param = body.get("startParam") or auth.get("start_param")
     explicit_role = body.get("role") if body.get("role") in ("manager", "client", "staff") else None
     user = sheets.get_or_create_user(tg_user, start_param, explicit_role)
-    roles = sheets.parse_roles(user.get("role", ""))
+    # Берём roles из словаря если они уже распарсены (после grant_role),
+    # иначе fallback на парсинг сырой CSV-колонки
+    roles = user.get("roles") or sheets.parse_roles(user.get("role", ""))
 
     # Staff (замерщик / сборщик) — отдельный кабинет, доступен только тем у кого роль выдана
     if explicit_role == "staff":

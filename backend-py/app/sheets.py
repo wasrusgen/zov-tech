@@ -206,14 +206,18 @@ def get_or_create_user(tg_user: dict[str, Any], start_param: str | None,
         if tg_id == admin_id and not has_role(existing, "manager"):
             grant_role(tg_id, "manager")
             ensure_admin_manager(tg_user)
-            existing["roles"] = parse_roles((find_user(tg_id) or {}).get("role", ""))
+            fresh = find_user(tg_id) or {}
+            existing["role"] = fresh.get("role", existing.get("role", ""))
+            existing["roles"] = fresh.get("roles", [])
         # explicit_role из query (?role=manager|client|staff) — не перетираем уже выданные роли,
         # только добавляем если человек впервые открыл эту секцию
         elif explicit_role and explicit_role in VALID_ROLES and not has_role(existing, explicit_role):
             # client/manager — стандартные роли любой может получить через выбор в боте
             if explicit_role in ("manager", "client"):
                 grant_role(tg_id, explicit_role)
-                existing["roles"] = parse_roles((find_user(tg_id) or {}).get("role", ""))
+                fresh = find_user(tg_id) or {}
+                existing["role"] = fresh.get("role", existing.get("role", ""))
+                existing["roles"] = fresh.get("roles", [])
         return existing
 
     # Новый пользователь
