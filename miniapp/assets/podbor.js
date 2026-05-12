@@ -1115,11 +1115,11 @@ const Podbor = (function () {
   function renderInfra() {
     const cats = state.categories || [];
     const askStove = cats.includes("hob");
-    const askVent  = cats.includes("hood");
+    // Вытяжка НЕ спрашиваем здесь — у hood-категории уже есть шаг "Подключение"
+    // (Отвод в вентшахту / Рециркуляция / Универсальная) — это дубль.
 
-    // Если ни одна из релевантных категорий не выбрана — пропускаем шаг
-    if (!askStove && !askVent) {
-      // Автопереход на summary через микропаузу (чтобы пользователь увидел)
+    // Если варочная не выбрана — пропускаем шаг полностью
+    if (!askStove) {
       setTimeout(() => { go("summary"); }, 50);
       return el(`
         <section class="podbor-step">
@@ -1130,41 +1130,18 @@ const Podbor = (function () {
       `);
     }
 
-    const stoveBlock = askStove ? `
-      <div class="block">
-        <div class="block-head">Подключение варочной</div>
-        <div class="opt-list">
-          ${PODBOR_INFRA.stove.map(o => `
-            <button class="opt${state.infra.stove === o.key ? " on" : ""}" data-infra="stove" data-val="${o.key}">${o.label}</button>
-          `).join("")}
-        </div>
-      </div>
-    ` : "";
-
-    const ventBlock = askVent ? `
-      <div class="block">
-        <div class="block-head">Вытяжка → внутридомовая вентиляция?</div>
-        <div class="opt-list">
-          ${PODBOR_INFRA.vent.map(o => `
-            <button class="opt${state.infra.vent === o.key ? " on" : ""}" data-infra="vent" data-val="${o.key}">${o.label}</button>
-          `).join("")}
-        </div>
-        <div class="hint">Если «Нет» — менеджер закладывает угольный фильтр. Если «Да» — заранее планируем выводы.</div>
-      </div>
-    ` : "";
-
-    const lede = (askStove && askVent)
-      ? "Газ или электрика — определит тип варочной. Подключение вытяжки — нужны ли выводы или угольный фильтр."
-      : askStove
-      ? "Газ или электрика — определит тип варочной (индукция / стеклокерамика / газ)."
-      : "Подключение вытяжки — нужны ли выводы в вентшахту или угольный фильтр.";
-
     const node = el(`
       <section class="podbor-step">
         <h2 class="display-title">Инфраструктура<br><span class="accent">кухни</span></h2>
-        <p class="lede">${lede}</p>
-        ${stoveBlock}
-        ${ventBlock}
+        <p class="lede">Газ или электрика — определит тип варочной (индукция требует 380В, обычная электро 220В).</p>
+        <div class="block">
+          <div class="block-head">Подключение варочной</div>
+          <div class="opt-list">
+            ${PODBOR_INFRA.stove.map(o => `
+              <button class="opt${state.infra.stove === o.key ? " on" : ""}" data-infra="stove" data-val="${o.key}">${o.label}</button>
+            `).join("")}
+          </div>
+        </div>
         <div class="podbor-cta-row">
           <button class="btn-secondary" data-go="strategy">Назад</button>
           <button class="btn-primary" data-go="summary">Дальше</button>
@@ -1228,7 +1205,6 @@ const Podbor = (function () {
           <div class="kv"><span>Бюджет</span><strong>${budgetLabel}</strong></div>
           <div class="kv"><span>Стратегия</span><strong>${strategyLabels || "—"}</strong></div>
           ${state.categories.includes("hob") ? `<div class="kv"><span>Подключение</span><strong>${PODBOR_INFRA.stove.find(f => f.key === state.infra.stove)?.label || "—"}</strong></div>` : ""}
-          ${state.categories.includes("hood") ? `<div class="kv"><span>Вентиляция</span><strong>${PODBOR_INFRA.vent.find(f => f.key === state.infra.vent)?.label || "—"}</strong></div>` : ""}
         </div>
 
         <label class="field">
@@ -1249,7 +1225,9 @@ const Podbor = (function () {
     // Кнопка "Назад" — обходим infra если она авто-пропускается
     node.querySelector("#summaryBack").addEventListener("click", () => {
       const cats = state.categories || [];
-      const goTo = (cats.includes("hob") || cats.includes("hood")) ? "infra" : "strategy";
+      // Infra-шаг показывается только если выбрана варочная (для электро/газ).
+      // Вытяжка задаёт свою вентиляцию в hood-step "Подключение".
+      const goTo = cats.includes("hob") ? "infra" : "strategy";
       go(goTo);
     });
     node.querySelector("#submitBtn").addEventListener("click", () => onSubmit(node));
