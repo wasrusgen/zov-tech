@@ -87,6 +87,8 @@ async def _dispatch_post(request: Request):
         "me":            _handle_me,
         "measurement":   _handle_measurement,
         "podbor":        _handle_podbor,
+        "clients":       _handle_clients,
+        "lead":          _handle_lead,
         "ping":          lambda b: {"pong": True, "time": _now_iso()},
         "seed_admin":    lambda b: _handle_seed_admin(),
         "test_ai":       lambda b: _handle_test_ai(),
@@ -133,6 +135,18 @@ async def api_podbor(request: Request):
     # _handle_podbor использует Playwright sync API — выполняем в threadpool
     import asyncio
     return await asyncio.to_thread(_handle_podbor, body)
+
+
+@app.post("/api/clients")
+async def api_clients(request: Request):
+    body = await _safe_json(request)
+    return _handle_clients(body)
+
+
+@app.post("/api/lead")
+async def api_lead(request: Request):
+    body = await _safe_json(request)
+    return _handle_lead(body)
 
 
 @app.get("/api/test_ai")
@@ -524,6 +538,127 @@ def _enrich_ai_marketplaces(ai_result: dict[str, Any]) -> None:
             continue
         models = cat_data.get("models") or []
         cat_data["models"] = parsers.enrich_models(models, delay_sec=0.4)
+
+
+def _handle_clients(body: dict[str, Any]) -> dict[str, Any]:
+    """Возвращает список клиентов менеджера со сводкой по подборам."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user or user.get("role") != "manager":
+        return {"error": "only_manager"}
+
+    try:
+        ws = sheets.sheet("Leads")
+        rows = ws.get_all_values()
+    except Exception as e:
+        log.warning("Failed to read Leads: %s", e)
+        return {"ok": True, "clients": []}
+
+    if not rows or len(rows) < 2:
+        return {"ok": True, "clients": []}
+
+    headers = rows[0]
+    by_client: dict[str, dict[str, Any]] = {}
+
+    for r in rows[1:]:
+        row = dict(zip(headers, r + [""] * (len(headers) - len(r))))
+        if str(row.get("manager_tg_id", "")) != str(tg_id):
+            continue
+        client_name = (row.get("client_name") or "").strip()
+        client_tg_id = (row.get("client_tg_id") or "").strip()
+        # Ключ для группировки: tg_id если есть, иначе имя
+        key = client_tg_id or client_name.lower()
+        if not key:
+            continue
+        if key not in by_client:
+            by_client[key] = {
+                "client_name": client_name,
+                "client_tg_id": client_tg_id or None,
+                "client_phone": "",
+                "leads_count": 0,
+                "last_lead_at": "",
+                "last_lead_id": "",
+                "leads": [],
+            }
+        c = by_client[key]
+        c["leads_count"] += 1
+        lead_id = row.get("id", "")
+        created_at = row.get("created_at", "")
+        status = row.get("status", "")
+        c["leads"].append({
+            "id": lead_id,
+            "created_at": created_at,
+            "status": status,
+        })
+        # Обновляем «последний»
+        if created_at > c["last_lead_at"]:
+            c["last_lead_at"] = created_at
+            c["last_lead_id"] = lead_id
+            # Достаём телефон из checklist JSON
+            checklist_str = row.get("checklist", "")
+            if checklist_str:
+                try:
+                    cl = json.loads(checklist_str)
+                    if cl.get("client_phone"):
+                        c["client_phone"] = cl["client_phone"]
+                except (ValueError, TypeError):
+                    pass
+
+    # Сортируем по дате последнего подбора (новые сверху)
+    clients = sorted(by_client.values(), key=lambda x: x["last_lead_at"], reverse=True)
+    # Внутри каждого клиента — leads тоже по дате desc
+    for c in clients:
+        c["leads"].sort(key=lambda x: x.get("created_at", ""), reverse=True)
+
+    return {"ok": True, "count": len(clients), "clients": clients}
+
+
+def _handle_lead(body: dict[str, Any]) -> dict[str, Any]:
+    """Возвращает детали одного лида (включая AI-ответ и checklist)."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+
+    lead_id = body.get("lead_id") or body.get("id")
+    if not lead_id:
+        return {"error": "missing_lead_id"}
+
+    row = sheets.find_row("Leads", "id", lead_id)
+    if not row:
+        return {"error": "lead_not_found"}
+
+    # Проверяем что это лид этого менеджера
+    if str(row.get("manager_tg_id", "")) != str(tg_id):
+        return {"error": "forbidden"}
+
+    # Парсим JSONы
+    try:
+        checklist = json.loads(row.get("checklist") or "{}")
+    except (ValueError, TypeError):
+        checklist = {}
+    ai_response = row.get("ai_response") or ""
+    try:
+        ai_json = json.loads(ai_response) if ai_response else None
+    except (ValueError, TypeError):
+        ai_json = None
+
+    return {
+        "ok": True,
+        "id": lead_id,
+        "created_at": row.get("created_at"),
+        "client_name": row.get("client_name"),
+        "client_tg_id": row.get("client_tg_id"),
+        "checklist": checklist,
+        "ai": ai_json,
+        "ai_text": ai_response if not ai_json else None,
+        "status": row.get("status", ""),
+    }
 
 
 def _handle_test_ai() -> dict[str, Any]:
