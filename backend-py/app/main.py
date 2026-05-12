@@ -421,9 +421,12 @@ def api_catalog_preview_ai(cats: str = "fridge", tiers: str = ""):
 # =================================================================
 
 def _handle_me(body: dict[str, Any]) -> dict[str, Any]:
+    import sys
+    print(f"[ME] entry: body keys={list(body.keys())} role_in_body={body.get('role')!r}", flush=True, file=sys.stderr)
     cfg = get_config()
     init_data = body.get("initData") or ""
     auth = verify_init_data(init_data, cfg.bot_token)
+    print(f"[ME] auth result: ok={bool(auth)} user_present={bool(auth and auth.get('user'))}", flush=True, file=sys.stderr)
     if not auth or not auth.get("user"):
         return {"error": "invalid_init_data"}
 
