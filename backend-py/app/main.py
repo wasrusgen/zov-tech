@@ -86,6 +86,7 @@ async def _dispatch_post(request: Request):
     handlers = {
         "me":            _handle_me,
         "measurement":   _handle_measurement,
+        "measurements":  _handle_measurements_list,
         "podbor":        _handle_podbor,
         "clients":       _handle_clients,
         "lead":          _handle_lead,
@@ -147,6 +148,12 @@ async def api_clients(request: Request):
 async def api_lead(request: Request):
     body = await _safe_json(request)
     return _handle_lead(body)
+
+
+@app.post("/api/measurements")
+async def api_measurements(request: Request):
+    body = await _safe_json(request)
+    return _handle_measurements_list(body)
 
 
 @app.get("/api/test_ai")
@@ -408,6 +415,16 @@ def _handle_measurement(body: dict[str, Any]) -> dict[str, Any]:
         sheets.find_row("Clients", "tg_id", tg_id) or {}
     ).get("manager_tg_id", "")
 
+    # Прикрепляем имя/телефон клиента к notes если client_tg_id нет (новый клиент)
+    notes_full = m.get("notes", "")
+    extras = []
+    if m.get("client_name"):
+        extras.append(f"Клиент: {m['client_name']}")
+    if m.get("client_phone"):
+        extras.append(f"Тел: {m['client_phone']}")
+    if extras:
+        notes_full = " · ".join(extras) + ("\n" + notes_full if notes_full else "")
+
     sheets.append_row("Measurements", [
         measurement_id, _now_iso(), client_tg_id or "", manager_tg_id or "",
         filled_by,
@@ -417,7 +434,7 @@ def _handle_measurement(body: dict[str, Any]) -> dict[str, Any]:
         json.dumps(m.get("infra") or {}, ensure_ascii=False),
         json.dumps(m.get("niches") or {}, ensure_ascii=False),
         ",".join(m.get("photos") or []),
-        m.get("notes", ""),
+        notes_full,
         "submitted",
     ])
 
@@ -659,6 +676,60 @@ def _handle_lead(body: dict[str, Any]) -> dict[str, Any]:
         "ai_text": ai_response if not ai_json else None,
         "status": row.get("status", ""),
     }
+
+
+def _handle_measurements_list(body: dict[str, Any]) -> dict[str, Any]:
+    """Список замеров менеджера, опционально отфильтрованный по client_tg_id / client_name."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user or user.get("role") != "manager":
+        return {"error": "only_manager"}
+
+    client_tg_id = body.get("client_tg_id") or ""
+    client_name = (body.get("client_name") or "").strip().lower()
+
+    try:
+        ws = sheets.sheet("Measurements")
+        rows = ws.get_all_values()
+    except Exception as e:
+        log.warning("Failed to read Measurements: %s", e)
+        return {"ok": True, "measurements": []}
+
+    if not rows or len(rows) < 2:
+        return {"ok": True, "measurements": []}
+
+    headers = rows[0]
+    out = []
+    for r in rows[1:]:
+        row = dict(zip(headers, r + [""] * (len(headers) - len(r))))
+        if str(row.get("manager_tg_id", "")) != str(tg_id):
+            continue
+        # Опциональные фильтры по клиенту
+        if client_tg_id and str(row.get("client_tg_id", "")) != str(client_tg_id):
+            continue
+        # Из notes / других JSON-полей вытащим client_name если был передан в measurement
+        # (он не сохраняется в отдельной колонке — только в JSON-обвязке)
+        # Для MVP — фильтр по имени делаем после парсинга JSON-полей
+        out.append({
+            "id": row.get("id", ""),
+            "created_at": row.get("ts") or row.get("created_at", ""),
+            "client_tg_id": row.get("client_tg_id", ""),
+            "manager_tg_id": row.get("manager_tg_id", ""),
+            "filled_by": row.get("filled_by", ""),
+            "layout": row.get("layout", ""),
+            "area_m2": row.get("area_m2", ""),
+            "ceiling_mm": row.get("ceiling_mm", ""),
+            "notes": row.get("notes", ""),
+            "status": row.get("status", ""),
+        })
+
+    # Сортируем по дате desc
+    out.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+    return {"ok": True, "count": len(out), "measurements": out}
 
 
 def _handle_test_ai() -> dict[str, Any]:

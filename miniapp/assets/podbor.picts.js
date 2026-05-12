@@ -921,6 +921,117 @@ const PODBOR_PICTS = {
     </svg>
   `,
 
+  /* ===== Планировка кухни · 5 типов (top-down вид) ===== */
+
+  layout_linear: `
+    <svg viewBox="0 0 96 128">
+      <!-- Стены комнаты пунктиром -->
+      <rect x="10" y="20" width="76" height="84" rx="2" fill="none" stroke="#6B4A2B" stroke-width="0.8" stroke-dasharray="3 2" opacity="0.4"/>
+      <!-- Подпись -->
+      <text x="48" y="14" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#6B4A2B" stroke="none">ПРЯМАЯ</text>
+      <!-- Кухонный гарнитур вдоль одной стены -->
+      <rect x="14" y="84" width="68" height="16" rx="2" fill="url(#g-twoch)" stroke="#6B4A2B" stroke-width="1.4"/>
+      <rect x="14" y="84" width="68" height="16" rx="2" fill="url(#g-sheen)"/>
+      <!-- Конфорки на гарнитуре (намёк) -->
+      <circle cx="28" cy="92" r="2.5" fill="none" stroke="#6B4A2B" stroke-width="0.7" opacity="0.6"/>
+      <circle cx="36" cy="92" r="2.5" fill="none" stroke="#6B4A2B" stroke-width="0.7" opacity="0.6"/>
+      <!-- Раковина -->
+      <rect x="56" y="88" width="14" height="8" rx="1" fill="none" stroke="#6B4A2B" stroke-width="0.7" opacity="0.6"/>
+      <!-- Длина -->
+      <line x1="14" y1="106" x2="82" y2="106" stroke="#6B4A2B" stroke-width="0.6" opacity="0.5"/>
+      <text x="48" y="116" text-anchor="middle" font-family="JetBrains Mono" font-size="7" fill="#6B4A2B" stroke="none" opacity="0.6">L · одна стена</text>
+    </svg>
+  `,
+
+  layout_l_shape: `
+    <svg viewBox="0 0 96 128">
+      <rect x="10" y="20" width="76" height="84" rx="2" fill="none" stroke="#6B4A2B" stroke-width="0.8" stroke-dasharray="3 2" opacity="0.4"/>
+      <text x="48" y="14" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#6B4A2B" stroke="none">Г-ОБРАЗНАЯ</text>
+      <!-- Вертикальная стена -->
+      <rect x="14" y="24" width="16" height="76" rx="2" fill="url(#g-twoch)" stroke="#6B4A2B" stroke-width="1.4"/>
+      <rect x="14" y="24" width="16" height="76" rx="2" fill="url(#g-sheen)"/>
+      <!-- Горизонтальная стена -->
+      <rect x="14" y="84" width="68" height="16" rx="2" fill="url(#g-twoch)" stroke="#6B4A2B" stroke-width="1.4"/>
+      <rect x="14" y="84" width="68" height="16" rx="2" fill="url(#g-sheen)"/>
+      <!-- Угол подсвечен -->
+      <rect x="14" y="84" width="16" height="16" fill="#6B4A2B" opacity="0.15"/>
+      <!-- Конфорки -->
+      <circle cx="22" cy="36" r="2.5" fill="none" stroke="#6B4A2B" stroke-width="0.7" opacity="0.6"/>
+      <circle cx="22" cy="48" r="2.5" fill="none" stroke="#6B4A2B" stroke-width="0.7" opacity="0.6"/>
+      <!-- Раковина -->
+      <rect x="56" y="88" width="14" height="8" rx="1" fill="none" stroke="#6B4A2B" stroke-width="0.7" opacity="0.6"/>
+      <text x="48" y="116" text-anchor="middle" font-family="JetBrains Mono" font-size="7" fill="#6B4A2B" stroke="none" opacity="0.6">две стены · угол</text>
+    </svg>
+  `,
+
+  layout_u_shape: `
+    <svg viewBox="0 0 96 128">
+      <rect x="10" y="20" width="76" height="84" rx="2" fill="none" stroke="#6B4A2B" stroke-width="0.8" stroke-dasharray="3 2" opacity="0.4"/>
+      <text x="48" y="14" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#6B4A2B" stroke="none">П-ОБРАЗНАЯ</text>
+      <!-- Левая стена -->
+      <rect x="14" y="24" width="16" height="76" rx="2" fill="url(#g-twoch)" stroke="#6B4A2B" stroke-width="1.4"/>
+      <rect x="14" y="24" width="16" height="76" rx="2" fill="url(#g-sheen)"/>
+      <!-- Правая стена -->
+      <rect x="66" y="24" width="16" height="76" rx="2" fill="url(#g-twoch)" stroke="#6B4A2B" stroke-width="1.4"/>
+      <rect x="66" y="24" width="16" height="76" rx="2" fill="url(#g-sheen)"/>
+      <!-- Нижняя стена -->
+      <rect x="14" y="84" width="68" height="16" rx="2" fill="url(#g-twoch)" stroke="#6B4A2B" stroke-width="1.4"/>
+      <rect x="14" y="84" width="68" height="16" rx="2" fill="url(#g-sheen)"/>
+      <!-- Углы -->
+      <rect x="14" y="84" width="16" height="16" fill="#6B4A2B" opacity="0.15"/>
+      <rect x="66" y="84" width="16" height="16" fill="#6B4A2B" opacity="0.15"/>
+      <!-- Конфорки слева -->
+      <circle cx="22" cy="40" r="2.5" fill="none" stroke="#6B4A2B" stroke-width="0.7" opacity="0.6"/>
+      <circle cx="22" cy="52" r="2.5" fill="none" stroke="#6B4A2B" stroke-width="0.7" opacity="0.6"/>
+      <!-- Раковина внизу -->
+      <rect x="42" y="88" width="14" height="8" rx="1" fill="none" stroke="#6B4A2B" stroke-width="0.7" opacity="0.6"/>
+      <!-- Холодильник справа -->
+      <rect x="68" y="32" width="12" height="20" rx="1" fill="none" stroke="#6B4A2B" stroke-width="0.7" opacity="0.6"/>
+      <text x="48" y="116" text-anchor="middle" font-family="JetBrains Mono" font-size="7" fill="#6B4A2B" stroke="none" opacity="0.6">три стены</text>
+    </svg>
+  `,
+
+  layout_island: `
+    <svg viewBox="0 0 96 128">
+      <rect x="10" y="20" width="76" height="84" rx="2" fill="none" stroke="#6B4A2B" stroke-width="0.8" stroke-dasharray="3 2" opacity="0.4"/>
+      <text x="48" y="14" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#6B4A2B" stroke="none">С ОСТРОВОМ</text>
+      <!-- Линейный гарнитур вдоль стены -->
+      <rect x="14" y="84" width="68" height="16" rx="2" fill="url(#g-twoch)" stroke="#6B4A2B" stroke-width="1.4"/>
+      <rect x="14" y="84" width="68" height="16" rx="2" fill="url(#g-sheen)"/>
+      <!-- Конфорки + раковина -->
+      <circle cx="26" cy="92" r="2.5" fill="none" stroke="#6B4A2B" stroke-width="0.7" opacity="0.6"/>
+      <circle cx="34" cy="92" r="2.5" fill="none" stroke="#6B4A2B" stroke-width="0.7" opacity="0.6"/>
+      <rect x="56" y="88" width="14" height="8" rx="1" fill="none" stroke="#6B4A2B" stroke-width="0.7" opacity="0.6"/>
+      <!-- Остров -->
+      <rect x="32" y="50" width="32" height="20" rx="2" fill="url(#g-cold)" stroke="#6B4A2B" stroke-width="1.4"/>
+      <rect x="32" y="50" width="32" height="20" rx="2" fill="url(#g-sheen)"/>
+      <text x="48" y="64" text-anchor="middle" font-family="JetBrains Mono" font-size="6" fill="#6B4A2B" stroke="none" opacity="0.7">ОСТРОВ</text>
+      <text x="48" y="116" text-anchor="middle" font-family="JetBrains Mono" font-size="7" fill="#6B4A2B" stroke="none" opacity="0.6">отдельный блок</text>
+    </svg>
+  `,
+
+  layout_peninsula: `
+    <svg viewBox="0 0 96 128">
+      <rect x="10" y="20" width="76" height="84" rx="2" fill="none" stroke="#6B4A2B" stroke-width="0.8" stroke-dasharray="3 2" opacity="0.4"/>
+      <text x="48" y="14" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#6B4A2B" stroke="none">ПОЛУОСТРОВ</text>
+      <!-- Г-образная база -->
+      <rect x="14" y="24" width="16" height="48" rx="2" fill="url(#g-twoch)" stroke="#6B4A2B" stroke-width="1.4"/>
+      <rect x="14" y="24" width="16" height="48" rx="2" fill="url(#g-sheen)"/>
+      <rect x="14" y="56" width="56" height="16" rx="2" fill="url(#g-twoch)" stroke="#6B4A2B" stroke-width="1.4"/>
+      <rect x="14" y="56" width="56" height="16" rx="2" fill="url(#g-sheen)"/>
+      <rect x="14" y="56" width="16" height="16" fill="#6B4A2B" opacity="0.15"/>
+      <!-- Полуостров — продолжение в комнату -->
+      <rect x="58" y="72" width="16" height="26" rx="2" fill="url(#g-cold)" stroke="#6B4A2B" stroke-width="1.4"/>
+      <rect x="58" y="72" width="16" height="26" rx="2" fill="url(#g-sheen)"/>
+      <!-- Барные стулья -->
+      <circle cx="50" cy="85" r="2.5" fill="none" stroke="#6B4A2B" stroke-width="0.8" opacity="0.5"/>
+      <circle cx="50" cy="93" r="2.5" fill="none" stroke="#6B4A2B" stroke-width="0.8" opacity="0.5"/>
+      <!-- Конфорки -->
+      <circle cx="22" cy="40" r="2.5" fill="none" stroke="#6B4A2B" stroke-width="0.7" opacity="0.6"/>
+      <text x="48" y="116" text-anchor="middle" font-family="JetBrains Mono" font-size="7" fill="#6B4A2B" stroke="none" opacity="0.6">Г + барная стойка</text>
+    </svg>
+  `,
+
   washer_install_freestanding: `
     <svg viewBox="0 0 96 128">
       <rect x="18" y="12" width="68" height="108" rx="6" fill="#6B4A2B" opacity="0.1"/>

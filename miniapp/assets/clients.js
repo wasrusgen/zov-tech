@@ -153,6 +153,45 @@ const Clients = (function () {
       leadsList.appendChild(item);
     }
     root.appendChild(leadsList);
+
+    // Замеры этого клиента (если есть)
+    try {
+      const ms = await fetchMeasurements({ client_tg_id: client.client_tg_id || "" });
+      const myMeasurements = (ms.measurements || []).filter(m => {
+        // Если client_tg_id зарегистрирован — фильтруем по нему
+        if (client.client_tg_id) return String(m.client_tg_id) === String(client.client_tg_id);
+        // Иначе — ищем имя клиента в notes (упрощённая логика для новых клиентов)
+        return (m.notes || "").toLowerCase().includes((client.client_name || "").toLowerCase());
+      });
+      if (myMeasurements.length) {
+        root.appendChild(el(`<div class="section-head" style="margin-top:24px;"><span class="label">Замеры · ${myMeasurements.length}</span></div>`));
+        const mList = el(`<div class="leads-list"></div>`);
+        for (const m of myMeasurements) {
+          const item = el(`
+            <div class="lead-item" style="cursor:default;">
+              <div class="lead-date">${formatDate(m.created_at)}</div>
+              <div class="lead-id">${escHtml(layoutLabel(m.layout))}</div>
+              <div class="lead-status">${m.area_m2 ? m.area_m2 + " м²" : "—"}</div>
+              <div class="lead-arrow"></div>
+            </div>
+          `);
+          mList.appendChild(item);
+        }
+        root.appendChild(mList);
+      }
+    } catch (e) {
+      // Игнорируем — секция замеров просто не покажется
+    }
+  }
+
+  function layoutLabel(key) {
+    return ({
+      linear: "Прямая",
+      l_shape: "Угловая Г",
+      u_shape: "П-образная",
+      island: "С островом",
+      peninsula: "Полуостров",
+    }[key]) || (key || "—");
   }
 
   /* ===================== Детали лида (re-render отчёта) ===================== */
@@ -241,6 +280,15 @@ const Clients = (function () {
     const res = await fetch(`${BACKEND_URL}/api/lead`, {
       method: "POST",
       body: JSON.stringify({ initData: tg?.initData || "", lead_id: leadId }),
+    });
+    return await res.json();
+  }
+
+  async function fetchMeasurements(filters = {}) {
+    if (!BACKEND_URL) throw new Error("BACKEND_URL не задан");
+    const res = await fetch(`${BACKEND_URL}/api/measurements`, {
+      method: "POST",
+      body: JSON.stringify({ initData: tg?.initData || "", ...filters }),
     });
     return await res.json();
   }

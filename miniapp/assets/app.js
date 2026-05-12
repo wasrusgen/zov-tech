@@ -179,8 +179,8 @@ function renderManagerHome(me) {
   const quickActions = [
     { icon: "user",    title: "Клиенты",       subtitle: "История подборов", href: "#/clients" },
     { icon: "package", title: "Подбор техники", subtitle: "Встройка + AI", href: "#/podbor" },
-    { icon: "camera",  title: "Новый замер",   subtitle: "С фото",      href: null },
-    { icon: "cube",    title: "3D просмотр",   subtitle: "Проекты",     href: null },
+    { icon: "camera",  title: "Новый замер",   subtitle: "Кухня клиента",  href: "#/measure" },
+    { icon: "cube",    title: "3D просмотр",   subtitle: "Проекты",         href: null },
   ];
   app.appendChild(el(`<div class="section-head"><span class="label">Быстрые действия</span></div>`));
   const grid = el(`<div class="quick-grid"></div>`);
@@ -370,6 +370,10 @@ async function init() {
       Clients.mount(app);
       return;
     }
+    if (location.hash.startsWith("#/measure")) {
+      Measurements.mount(app);
+      return;
+    }
     if (me.role === "manager") renderManager(me);
     else renderClient(me);
   } catch (e) {
@@ -383,6 +387,8 @@ function routeByHash() {
     Podbor.mount(app);
   } else if (location.hash.startsWith("#/clients")) {
     Clients.mount(app);
+  } else if (location.hash.startsWith("#/measure")) {
+    Measurements.mount(app);
   } else {
     // Главный экран по роли
     const me = window.__zovMe;
