@@ -360,7 +360,7 @@ function hideSplash() {
   const splash = document.getElementById("splash");
   if (!splash) return;
   const elapsed = Date.now() - _splashStart;
-  const minShow = 700; // минимум показа, мс
+  const minShow = 2500; // минимум показа, мс — 2.5 сек чтобы успеть рассмотреть лого
   const wait = Math.max(0, minShow - elapsed);
   setTimeout(() => {
     splash.classList.add("hide");
