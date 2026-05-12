@@ -434,6 +434,7 @@ def _handle_me(body: dict[str, Any]) -> dict[str, Any]:
     # Все endpoint-ы, выполняющие действия, продолжают требовать подписанный initData.
     if not auth or not auth.get("user"):
         unsafe = body.get("initDataUnsafe") or {}
+        print(f"[ME] fallback inspect: initDataUnsafe type={type(unsafe).__name__} keys={list(unsafe.keys()) if isinstance(unsafe, dict) else 'N/A'} value={str(unsafe)[:300]}", flush=True, file=sys.stderr)
         unsafe_user = unsafe.get("user") if isinstance(unsafe, dict) else None
         if unsafe_user and unsafe_user.get("id"):
             print(f"[ME] FALLBACK: using initDataUnsafe.user id={unsafe_user.get('id')}", flush=True, file=sys.stderr)
@@ -444,6 +445,7 @@ def _handle_me(body: dict[str, Any]) -> dict[str, Any]:
                 "_unsafe": True,
             }
         else:
+            print(f"[ME] fallback FAILED: unsafe_user={unsafe_user}", flush=True, file=sys.stderr)
             return {"error": "invalid_init_data"}
 
     tg_user = auth["user"]
