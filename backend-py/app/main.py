@@ -435,9 +435,12 @@ def _handle_me(body: dict[str, Any]) -> dict[str, Any]:
     # Берём roles из словаря если они уже распарсены (после grant_role),
     # иначе fallback на парсинг сырой CSV-колонки
     roles = user.get("roles") or sheets.parse_roles(user.get("role", ""))
-    log.info(
-        "/api/me tg_id=%s admin_id=%s explicit_role=%s user.role=%r roles=%s",
-        tg_id, cfg.admin_tg_id, explicit_role, user.get("role"), roles,
+    import sys
+    print(
+        f"[ME] tg_id={tg_id} admin_id={cfg.admin_tg_id} "
+        f"explicit_role={explicit_role!r} user.role={user.get('role')!r} "
+        f"roles={roles}",
+        flush=True, file=sys.stderr,
     )
 
     # Staff (замерщик / сборщик) — отдельный кабинет, доступен только тем у кого роль выдана
