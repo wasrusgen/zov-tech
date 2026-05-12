@@ -3,6 +3,8 @@ import time
 from aiogram import F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.types import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
     KeyboardButton,
     Message,
     ReplyKeyboardMarkup,
@@ -36,7 +38,27 @@ def _wapp(miniapp_url: str, role: str) -> WebAppInfo:
 
 
 # ============================================================
-# Reply keyboard — выбор роли. Три кнопки, все WebApp.
+# Inline keyboard — выбор роли прямо в сообщении /start.
+# На Telegram Desktop side-panel reply-keyboard НЕ передаёт initData.
+# Inline-кнопки открываются в МОДАЛЬНОМ режиме где initData валидно.
+# ============================================================
+
+def role_choice_inline(miniapp_url: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="👤 Я менеджер", web_app=_wapp(miniapp_url, "manager")),
+                InlineKeyboardButton(text="🏠 Я клиент",   web_app=_wapp(miniapp_url, "client")),
+            ],
+            [
+                InlineKeyboardButton(text="🔧 Я сотрудник", web_app=_wapp(miniapp_url, "staff")),
+            ],
+        ]
+    )
+
+
+# ============================================================
+# Reply keyboard — постоянная панель снизу (для мобильных).
 # ============================================================
 
 def role_choice_kb(miniapp_url: str) -> ReplyKeyboardMarkup:
@@ -62,17 +84,30 @@ def role_choice_kb(miniapp_url: str) -> ReplyKeyboardMarkup:
 
 @router.message(CommandStart())
 async def cmd_start(message: Message, config: Config) -> None:
+    # Сначала отправляем reply-keyboard (постоянная панель снизу для мобильных)
     await message.answer(
-        "👋 Здравствуйте, я бот-помощник от Руслана ВАСИЛЬЕВА.\n\n"
-        "Выберите, кто вы — кабинет откроется одним тапом.\n\n"
-        "<i>«Сотрудник» — для замерщиков и сборщиков ЗОВ. Если вы менеджер или клиент — выбирайте свою роль.</i>",
+        "👋 Здравствуйте, я бот-помощник от Руслана ВАСИЛЬЕВА.",
         reply_markup=role_choice_kb(config.miniapp_url),
+    )
+    # Затем inline-keyboard внутри отдельного сообщения — кнопки тут открывают MiniApp
+    # в МОДАЛЬНОМ режиме (важно для Telegram Desktop)
+    await message.answer(
+        "Выберите, кто вы — кабинет откроется одним тапом.\n\n"
+        "<i>«Сотрудник» — для замерщиков и сборщиков ЗОВ.</i>",
+        reply_markup=role_choice_inline(config.miniapp_url),
     )
 
 
 @router.message(Command("menu"))
 async def cmd_menu(message: Message, config: Config) -> None:
-    await message.answer("Выберите роль:", reply_markup=role_choice_kb(config.miniapp_url))
+    await message.answer(
+        "Выберите роль:",
+        reply_markup=role_choice_inline(config.miniapp_url),
+    )
+    await message.answer(
+        "Или используйте панель снизу.",
+        reply_markup=role_choice_kb(config.miniapp_url),
+    )
 
 
 @router.message(Command("hide"))
