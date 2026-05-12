@@ -1988,3 +1988,169 @@
   border-radius: 8px;
   overflow-x: auto;
 }
+
+/* ===== Фото замера ===== */
+.photo-uploader { margin: 12px 0 14px; }
+
+.photo-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--warm);
+  border: 1px dashed var(--walnut);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+  user-select: none;
+}
+.photo-add-btn:active { background: rgba(107, 74, 43, 0.08); }
+.photo-add-ico {
+  font-size: 24px;
+  font-weight: 300;
+  color: var(--walnut);
+  line-height: 1;
+}
+.photo-add-label {
+  flex: 1;
+  font-weight: 500;
+  color: var(--ink);
+}
+.photo-add-hint {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+
+.photo-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+.photo-tile {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--warm);
+  border: 1px solid rgba(107, 74, 43, 0.15);
+}
+.photo-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.photo-rm {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  color: white;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.photo-rm:active { background: rgba(0, 0, 0, 0.75); }
+.photo-tile.static { cursor: default; }
+
+/* ===== Карточка замера (детальная страница) ===== */
+.measurement-detail-head {
+  margin-bottom: 18px;
+}
+.measurement-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+.measurement-kv-grid {
+  display: grid;
+  gap: 10px 16px;
+  grid-template-columns: minmax(120px, 1fr) 2fr;
+  margin: 14px 0 18px;
+  font-size: 14px;
+}
+.measurement-kv-grid .k {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.measurement-kv-grid .v { color: var(--ink); }
+
+/* ===== Кнопка "Скачать PDF" / "Печать" ===== */
+.report-print-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 10px 16px;
+  background: var(--warm);
+  border: 1px solid var(--walnut);
+  border-radius: 10px;
+  color: var(--walnut);
+  font-weight: 500;
+  cursor: pointer;
+  font-size: 13.5px;
+}
+.report-print-btn:active { background: rgba(107, 74, 43, 0.12); }
+
+/* ===== Печать / PDF ===== */
+@media print {
+  body { background: white !important; color: black !important; }
+  body.has-bottom-nav, #bottom-nav,
+  .podbor-header,
+  .podbor-progress,
+  .podbor-cta-row,
+  .podbor-back,
+  .report-actions,
+  .report-print-btn,
+  .util-link,
+  .photo-add-btn,
+  .photo-uploader,
+  .photo-rm,
+  .btn-primary,
+  .btn-secondary {
+    display: none !important;
+  }
+  .podbor-screen,
+  .podbor-step,
+  .block,
+  .summary-block,
+  .client-detail-head,
+  .lead-detail-head,
+  .measurement-detail-head {
+    box-shadow: none !important;
+    border: none !important;
+    background: white !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .display-title { color: black !important; }
+  .display-title .accent { color: #6B4A2B !important; }
+  .photo-list {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .photo-tile { border: 1px solid #ccc; }
+  .report-matrix table { font-size: 10pt; }
+  a { color: black !important; text-decoration: none !important; }
+  /* Скрываем стрелки и иконки навигации */
+  .lead-arrow, .client-arrow { display: none !important; }
+}

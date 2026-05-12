@@ -1425,16 +1425,19 @@ ${reportEl.outerHTML}
     haptic && haptic("success");
   }
 
-  /* Экспорт: открываем системный print диалог — пользователь сохраняет как PDF */
+  /* Экспорт: системный print-диалог. На Telegram WebApp popups часто блокируются,
+     поэтому печатаем inline — `@media print` в podbor.css скрывает всё лишнее. */
   function _exportReportPrint(reportNode, leadId) {
-    // Открываем новое окно с чистой версткой отчёта только
-    const reportEl = document.querySelector(".report");
-    if (!reportEl) return;
-    const stylesheets = [];
-    document.querySelectorAll("link[rel='stylesheet'], style").forEach(s => stylesheets.push(s.outerHTML));
-    const w = window.open("", "_blank");
-    if (!w) { alert("Браузер заблокировал окно. Разрешите всплывающие окна."); return; }
-    w.document.write(`<!doctype html>
+    const isTelegram = !!(window.Telegram && window.Telegram.WebApp);
+    // Сначала пробуем открыть отдельное окно (на десктопе/Safari чище)
+    if (!isTelegram) {
+      const reportEl = document.querySelector(".report");
+      if (reportEl) {
+        const stylesheets = [];
+        document.querySelectorAll("link[rel='stylesheet'], style").forEach(s => stylesheets.push(s.outerHTML));
+        const w = window.open("", "_blank");
+        if (w) {
+          w.document.write(`<!doctype html>
 <html lang="ru">
 <head>
 <meta charset="utf-8">
@@ -1456,7 +1459,18 @@ ${reportEl.outerHTML}
 <script>setTimeout(() => window.print(), 500);<\/script>
 </body>
 </html>`);
-    w.document.close();
+          w.document.close();
+          haptic && haptic("success");
+          return;
+        }
+      }
+    }
+    // Inline-печать: помечаем body классом, чтобы скрыть ненужное через @media print
+    document.body.classList.add("printing-report");
+    setTimeout(() => {
+      try { window.print(); } catch (e) { console.warn("Print failed", e); }
+      document.body.classList.remove("printing-report");
+    }, 50);
     haptic && haptic("success");
   }
 

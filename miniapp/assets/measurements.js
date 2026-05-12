@@ -4,8 +4,11 @@
 
 const Measurements = (function () {
   const STORAGE_KEY = "zov-measurement-draft";
-  const STEPS = ["client", "layout", "size", "openings", "summary"];
-  const STEP_LABELS = ["Клиент", "Форма", "Размеры", "Окна/двери", "Готово"];
+  const STEPS = ["client", "layout", "size", "openings", "photos", "summary"];
+  const STEP_LABELS = ["Клиент", "Форма", "Размеры", "Окна/двери", "Фото", "Готово"];
+
+  // Фото держим только в памяти (data-URL'ы тяжёлые, localStorage не годится)
+  let photos = []; // Array<{ name: string, dataUrl: string, size: number }>
 
   const LAYOUTS = [
     { key: "linear",     label: "Прямая",      hint: "одна стена",      pict: "layout_linear" },
@@ -56,6 +59,7 @@ const Measurements = (function () {
   function reset() {
     state = defaultState();
     saveState();
+    photos = [];
   }
 
   /* ===================== Mount + Render ===================== */
@@ -66,6 +70,7 @@ const Measurements = (function () {
     const oldNav = document.getElementById("bottom-nav");
     if (oldNav) oldNav.remove();
     currentStep = "client";
+    photos = []; // на старте нового замера — чистый список
     render();
   }
 
@@ -90,6 +95,7 @@ const Measurements = (function () {
       case "layout":   screen.appendChild(renderLayout()); break;
       case "size":     screen.appendChild(renderSize()); break;
       case "openings": screen.appendChild(renderOpenings()); break;
+      case "photos":   screen.appendChild(renderPhotos()); break;
       case "summary":  screen.appendChild(renderSummary()); break;
     }
   }
@@ -322,11 +328,118 @@ const Measurements = (function () {
       });
     });
     node.querySelector("#back").addEventListener("click", () => go("size"));
+    node.querySelector("#next").addEventListener("click", () => go("photos"));
+    return node;
+  }
+
+  /* ===================== Шаг 5: Фото замера ===================== */
+
+  function renderPhotos() {
+    const node = el(`
+      <section class="podbor-step">
+        <h2 class="display-title">Фото<br><span class="accent">кухни</span></h2>
+        <p class="lede">Сними помещение со всех углов. Минимум: общий вид, окно/дверь, ниши и коммуникации.</p>
+
+        <div class="photo-uploader">
+          <label class="photo-add-btn" for="photoInput">
+            <span class="photo-add-ico">＋</span>
+            <span class="photo-add-label">Добавить фото</span>
+            <span class="photo-add-hint">камера или галерея · до 12 шт</span>
+          </label>
+          <input id="photoInput" type="file" accept="image/*" capture="environment" multiple hidden>
+        </div>
+
+        <div class="photo-list" id="photoList"></div>
+
+        <div class="podbor-cta-row">
+          <button class="btn-secondary" id="back">Назад</button>
+          <button class="btn-primary" id="next">Дальше</button>
+        </div>
+      </section>
+    `);
+
+    const list = node.querySelector("#photoList");
+    const input = node.querySelector("#photoInput");
+
+    function refreshList() {
+      list.innerHTML = "";
+      photos.forEach((ph, idx) => {
+        const tile = el(`
+          <div class="photo-tile">
+            <img src="${ph.dataUrl}" alt="фото ${idx + 1}">
+            <button class="photo-rm" data-idx="${idx}" aria-label="Удалить">×</button>
+          </div>
+        `);
+        tile.querySelector(".photo-rm").addEventListener("click", e => {
+          const i = +e.currentTarget.dataset.idx;
+          photos.splice(i, 1);
+          haptic && haptic("impact");
+          refreshList();
+        });
+        list.appendChild(tile);
+      });
+    }
+
+    input.addEventListener("change", async (e) => {
+      const files = Array.from(e.target.files || []);
+      input.value = ""; // позволяем выбрать тот же файл снова
+      if (!files.length) return;
+
+      for (const f of files) {
+        if (photos.length >= 12) break;
+        if (!f.type || !f.type.startsWith("image/")) continue;
+        try {
+          const dataUrl = await compressImage(f, 1600, 0.78);
+          photos.push({ name: f.name || `photo_${photos.length + 1}`, dataUrl, size: dataUrl.length });
+        } catch (err) {
+          console.warn("Не удалось сжать фото", err);
+        }
+      }
+      refreshList();
+      haptic && haptic("success");
+    });
+
+    refreshList();
+    node.querySelector("#back").addEventListener("click", () => go("openings"));
     node.querySelector("#next").addEventListener("click", () => go("summary"));
     return node;
   }
 
-  /* ===================== Шаг 5: Готово + Submit ===================== */
+  /* Жмём картинку через canvas, возвращаем data-URL jpeg ~75% */
+  function compressImage(file, maxSide = 1600, quality = 0.78) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = reject;
+      reader.onload = e => {
+        const img = new Image();
+        img.onerror = reject;
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > maxSide || height > maxSide) {
+            if (width >= height) {
+              height = Math.round(height * maxSide / width);
+              width = maxSide;
+            } else {
+              width = Math.round(width * maxSide / height);
+              height = maxSide;
+            }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, width, height);
+          try {
+            resolve(canvas.toDataURL("image/jpeg", quality));
+          } catch (err) { reject(err); }
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  /* ===================== Шаг 6: Готово + Submit ===================== */
 
   function renderSummary() {
     const layout = LAYOUTS.find(l => l.key === state.layout);
@@ -348,7 +461,14 @@ const Measurements = (function () {
           ${(state.openings || {}).window ? `<div class="kv"><span>Окно</span><strong>${escHtml(state.openings.window)}</strong></div>` : ""}
           ${(state.openings || {}).door ? `<div class="kv"><span>Дверь</span><strong>${escHtml(state.openings.door)}</strong></div>` : ""}
           ${state.notes ? `<div class="kv"><span>Заметки</span><strong>${escHtml(state.notes)}</strong></div>` : ""}
+          ${photos.length ? `<div class="kv"><span>Фото</span><strong>${photos.length} шт</strong></div>` : ""}
         </div>
+
+        ${photos.length ? `
+          <div class="photo-list">
+            ${photos.map(p => `<div class="photo-tile static"><img src="${p.dataUrl}" alt=""></div>`).join("")}
+          </div>
+        ` : ""}
 
         <div class="podbor-cta-row">
           <button class="btn-secondary" id="back">Назад</button>
@@ -358,7 +478,7 @@ const Measurements = (function () {
         <div id="submitResult" class="submit-result"></div>
       </section>
     `);
-    node.querySelector("#back").addEventListener("click", () => go("openings"));
+    node.querySelector("#back").addEventListener("click", () => go("photos"));
     node.querySelector("#submitBtn").addEventListener("click", () => onSubmit(node));
     return node;
   }
@@ -385,7 +505,8 @@ const Measurements = (function () {
       openings: state.openings,
       infra: {},
       niches: {},
-      photos: [],
+      // Бэкенд раскодирует data-URL → файл и сохранит имена в Sheets
+      photos: photos.map(p => p.dataUrl),
       notes: state.notes,
       // Контакт клиента — заносим в заметки если он не зарегистрирован в системе
       client_name: state.client_name,

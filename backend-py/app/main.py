@@ -1,13 +1,17 @@
 """ЗОВ Backend — FastAPI app. Полный порт Apps Script Code.gs."""
 from __future__ import annotations
+import base64
 import json
 import logging
+import os
+import re
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from .config import get_config
 from .auth import verify_init_data
@@ -19,6 +23,16 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(na
 log = logging.getLogger("zov.backend")
 
 app = FastAPI(title="ZOV Backend", version="2.0")
+
+# Каталог под фото замеров (монтируется как volume в docker-compose)
+PHOTOS_DIR = Path(os.environ.get("PHOTOS_DIR", "/app/photos"))
+try:
+    PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
+except Exception as _e:
+    logging.getLogger("zov.backend").warning("Не удалось создать PHOTOS_DIR=%s: %s", PHOTOS_DIR, _e)
+
+_SAFE_ID_RE = re.compile(r"^[A-Za-z0-9_\-]{1,64}$")
+_SAFE_FILE_RE = re.compile(r"^[A-Za-z0-9_\-.]{1,80}$")
 
 # CORS — MiniApp хостится на github.io, бэкенд на api.wasrusgen1.pro.
 # Простые запросы (text/plain или без Content-Type) не триггерят preflight.
@@ -87,6 +101,7 @@ async def _dispatch_post(request: Request):
         "me":            _handle_me,
         "measurement":   _handle_measurement,
         "measurements":  _handle_measurements_list,
+        "measurement_detail": _handle_measurement_detail,
         "podbor":        _handle_podbor,
         "clients":       _handle_clients,
         "lead":          _handle_lead,
@@ -154,6 +169,33 @@ async def api_lead(request: Request):
 async def api_measurements(request: Request):
     body = await _safe_json(request)
     return _handle_measurements_list(body)
+
+
+@app.post("/api/measurement_detail")
+async def api_measurement_detail(request: Request):
+    body = await _safe_json(request)
+    return _handle_measurement_detail(body)
+
+
+@app.get("/api/photo/{measurement_id}/{filename}")
+async def api_photo(measurement_id: str, filename: str):
+    """Отдаёт фото замера. Защита от path traversal — только разрешённые id и имена."""
+    if not _SAFE_ID_RE.match(measurement_id) or not _SAFE_FILE_RE.match(filename):
+        return JSONResponse({"error": "bad_path"}, status_code=400)
+    if filename.startswith(".") or ".." in filename:
+        return JSONResponse({"error": "bad_path"}, status_code=400)
+    p = PHOTOS_DIR / measurement_id / filename
+    try:
+        p_resolved = p.resolve()
+        if PHOTOS_DIR.resolve() not in p_resolved.parents:
+            return JSONResponse({"error": "bad_path"}, status_code=400)
+    except Exception:
+        return JSONResponse({"error": "bad_path"}, status_code=400)
+    if not p.exists() or not p.is_file():
+        return JSONResponse({"error": "not_found"}, status_code=404)
+    ext = filename.rsplit(".", 1)[-1].lower()
+    media = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp"}.get(ext, "application/octet-stream")
+    return FileResponse(str(p), media_type=media)
 
 
 @app.get("/api/test_ai")
@@ -396,6 +438,37 @@ def _handle_me(body: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+_DATA_URL_RE = re.compile(r"^data:image/(jpeg|jpg|png|webp);base64,(.+)$", re.DOTALL)
+
+
+def _save_measurement_photo(measurement_id: str, idx: int, data_url: str) -> str | None:
+    """Сохраняет фото (data-URL) в `PHOTOS_DIR/<measurement_id>/<idx>.<ext>`.
+    Возвращает имя файла или None при ошибке."""
+    if not isinstance(data_url, str):
+        return None
+    m = _DATA_URL_RE.match(data_url.strip())
+    if not m:
+        return None
+    ext = "jpg" if m.group(1) in ("jpeg", "jpg") else m.group(1)
+    try:
+        raw = base64.b64decode(m.group(2), validate=False)
+    except Exception:
+        return None
+    if len(raw) > 10 * 1024 * 1024:  # 10 MB hard cap
+        return None
+    if not _SAFE_ID_RE.match(measurement_id):
+        return None
+    target_dir = PHOTOS_DIR / measurement_id
+    try:
+        target_dir.mkdir(parents=True, exist_ok=True)
+        name = f"{idx}.{ext}"
+        (target_dir / name).write_bytes(raw)
+        return name
+    except Exception:
+        log.warning("Не удалось сохранить фото %d для замера %s", idx, measurement_id)
+        return None
+
+
 def _handle_measurement(body: dict[str, Any]) -> dict[str, Any]:
     cfg = get_config()
     auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
@@ -425,6 +498,19 @@ def _handle_measurement(body: dict[str, Any]) -> dict[str, Any]:
     if extras:
         notes_full = " · ".join(extras) + ("\n" + notes_full if notes_full else "")
 
+    # Сохраняем фотографии (data-URL → файлы), в Sheets кладём только имена
+    raw_photos = m.get("photos") or []
+    saved_photos: list[str] = []
+    if isinstance(raw_photos, list):
+        for i, p in enumerate(raw_photos[:20]):  # хард-кап 20 фото на замер
+            if isinstance(p, str) and p.startswith("data:"):
+                fn = _save_measurement_photo(measurement_id, i, p)
+                if fn:
+                    saved_photos.append(fn)
+            elif isinstance(p, str) and p and not p.startswith("data:"):
+                # уже готовое имя/URL — пропускаем как есть
+                saved_photos.append(p)
+
     sheets.append_row("Measurements", [
         measurement_id, _now_iso(), client_tg_id or "", manager_tg_id or "",
         filled_by,
@@ -433,7 +519,7 @@ def _handle_measurement(body: dict[str, Any]) -> dict[str, Any]:
         json.dumps(m.get("openings") or {}, ensure_ascii=False),
         json.dumps(m.get("infra") or {}, ensure_ascii=False),
         json.dumps(m.get("niches") or {}, ensure_ascii=False),
-        ",".join(m.get("photos") or []),
+        ",".join(saved_photos),
         notes_full,
         "submitted",
     ])
@@ -450,7 +536,7 @@ def _handle_measurement(body: dict[str, Any]) -> dict[str, Any]:
         )
 
     sheets.log_event("measurement_submitted", tg_id, {"id": measurement_id, "filled_by": filled_by})
-    return {"ok": True, "id": measurement_id}
+    return {"ok": True, "id": measurement_id, "photos": saved_photos}
 
 
 def _handle_podbor(body: dict[str, Any]) -> dict[str, Any]:
@@ -678,6 +764,61 @@ def _handle_lead(body: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _handle_measurement_detail(body: dict[str, Any]) -> dict[str, Any]:
+    """Возвращает один замер целиком — для детальной страницы и печати."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+
+    measurement_id = body.get("measurement_id") or body.get("id")
+    if not measurement_id:
+        return {"error": "missing_measurement_id"}
+
+    row = sheets.find_row("Measurements", "id", measurement_id)
+    if not row:
+        return {"error": "measurement_not_found"}
+
+    # Только владелец-менеджер или клиент-владелец видит замер
+    if user.get("role") == "manager":
+        if str(row.get("manager_tg_id", "")) != str(tg_id):
+            return {"error": "forbidden"}
+    else:
+        if str(row.get("client_tg_id", "")) != str(tg_id):
+            return {"error": "forbidden"}
+
+    def _safe_json(s: str) -> Any:
+        try:
+            return json.loads(s) if s else {}
+        except (ValueError, TypeError):
+            return {}
+
+    photo_files = [p for p in (row.get("photos") or "").split(",") if p]
+
+    return {
+        "ok": True,
+        "id": row.get("id"),
+        "created_at": row.get("ts") or row.get("created_at"),
+        "client_tg_id": row.get("client_tg_id", ""),
+        "manager_tg_id": row.get("manager_tg_id", ""),
+        "filled_by": row.get("filled_by", ""),
+        "layout": row.get("layout", ""),
+        "area_m2": row.get("area_m2", ""),
+        "ceiling_mm": row.get("ceiling_mm", ""),
+        "walls": _safe_json(row.get("walls", "")),
+        "openings": _safe_json(row.get("openings", "")),
+        "infra": _safe_json(row.get("infra", "")),
+        "niches": _safe_json(row.get("niches", "")),
+        "photos": photo_files,
+        "notes": row.get("notes", ""),
+        "status": row.get("status", ""),
+    }
+
+
 def _handle_measurements_list(body: dict[str, Any]) -> dict[str, Any]:
     """Список замеров менеджера, опционально отфильтрованный по client_tg_id / client_name."""
     cfg = get_config()
@@ -714,6 +855,7 @@ def _handle_measurements_list(body: dict[str, Any]) -> dict[str, Any]:
         # Из notes / других JSON-полей вытащим client_name если был передан в measurement
         # (он не сохраняется в отдельной колонке — только в JSON-обвязке)
         # Для MVP — фильтр по имени делаем после парсинга JSON-полей
+        photo_files = [p for p in (row.get("photos") or "").split(",") if p]
         out.append({
             "id": row.get("id", ""),
             "created_at": row.get("ts") or row.get("created_at", ""),
@@ -725,6 +867,8 @@ def _handle_measurements_list(body: dict[str, Any]) -> dict[str, Any]:
             "ceiling_mm": row.get("ceiling_mm", ""),
             "notes": row.get("notes", ""),
             "status": row.get("status", ""),
+            "photos": photo_files,
+            "photo_count": len(photo_files),
         })
 
     # Сортируем по дате desc

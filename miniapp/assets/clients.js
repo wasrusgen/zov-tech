@@ -18,6 +18,9 @@ const Clients = (function () {
     if (sub.startsWith("lead/")) {
       const leadId = sub.slice(5);
       renderLead(leadId);
+    } else if (sub.startsWith("measurement/")) {
+      const measurementId = sub.slice(12);
+      renderMeasurement(measurementId);
     } else if (sub.startsWith("client/")) {
       const clientKey = decodeURIComponent(sub.slice(7));
       renderClientHistory(clientKey);
@@ -167,14 +170,20 @@ const Clients = (function () {
         root.appendChild(el(`<div class="section-head" style="margin-top:24px;"><span class="label">Замеры · ${myMeasurements.length}</span></div>`));
         const mList = el(`<div class="leads-list"></div>`);
         for (const m of myMeasurements) {
+          const photoCount = m.photo_count || (m.photos || []).length;
+          const photoBadge = photoCount ? ` · 📷 ${photoCount}` : "";
           const item = el(`
-            <div class="lead-item" style="cursor:default;">
+            <button class="lead-item">
               <div class="lead-date">${formatDate(m.created_at)}</div>
               <div class="lead-id">${escHtml(layoutLabel(m.layout))}</div>
-              <div class="lead-status">${m.area_m2 ? m.area_m2 + " м²" : "—"}</div>
-              <div class="lead-arrow"></div>
-            </div>
+              <div class="lead-status">${m.area_m2 ? m.area_m2 + " м²" : "—"}${photoBadge}</div>
+              <div class="lead-arrow">${ICONS.chevron || "›"}</div>
+            </button>
           `);
+          item.addEventListener("click", () => {
+            haptic && haptic("impact");
+            location.hash = `#/clients/measurement/${m.id}`;
+          });
           mList.appendChild(item);
         }
         root.appendChild(mList);
@@ -241,6 +250,94 @@ const Clients = (function () {
     } else {
       root.appendChild(el(`<div class="empty">Для этого лида нет AI-ответа.</div>`));
     }
+  }
+
+  /* ===================== Деталь замера ===================== */
+
+  async function renderMeasurement(measurementId) {
+    root.innerHTML = "";
+    root.appendChild(headerEl("Замер", "back"));
+    const loading = el(`<div class="loader-inline"><div class="spinner"></div></div>`);
+    root.appendChild(loading);
+
+    let m;
+    try {
+      m = await fetchMeasurementDetail(measurementId);
+    } catch (e) {
+      loading.remove();
+      root.appendChild(el(`<div class="error">${e.message}</div>`));
+      return;
+    }
+    loading.remove();
+
+    if (m.error) {
+      root.appendChild(el(`<div class="error">${m.error}</div>`));
+      return;
+    }
+
+    const walls = m.walls || {};
+    const wallsText = Object.entries(walls)
+      .filter(([_, v]) => v)
+      .map(([k, v]) => `${k.replace("wall", "стена ")}: ${v} мм`)
+      .join(" · ");
+
+    const openings = m.openings || {};
+
+    // Шапка + кнопка печати/PDF
+    root.appendChild(el(`
+      <div class="measurement-detail-head">
+        <div class="kicker">Замер #${(m.id || "").slice(0, 8)}</div>
+        <h2 class="display-title">${escHtml(layoutLabel(m.layout))}</h2>
+        <div class="measurement-detail-meta">
+          <span>📅 ${formatDate(m.created_at)}</span>
+          ${m.area_m2 ? `<span>📐 ${escHtml(m.area_m2)} м²</span>` : ""}
+          ${m.ceiling_mm ? `<span>📏 потолок ${escHtml(m.ceiling_mm)} мм</span>` : ""}
+        </div>
+      </div>
+    `));
+
+    const printBtn = el(`<button class="report-print-btn">🖨️ Скачать PDF / Печать</button>`);
+    printBtn.addEventListener("click", () => window.print());
+    root.appendChild(printBtn);
+
+    // Основной блок
+    const detail = el(`
+      <div class="block summary-block">
+        <div class="measurement-kv-grid">
+          ${wallsText ? `<div class="k">Стены</div><div class="v">${escHtml(wallsText)}</div>` : ""}
+          ${openings.window ? `<div class="k">Окно</div><div class="v">${escHtml(openings.window)}</div>` : ""}
+          ${openings.door ? `<div class="k">Дверь</div><div class="v">${escHtml(openings.door)}</div>` : ""}
+          ${m.notes ? `<div class="k">Заметки</div><div class="v">${escHtml(m.notes).replace(/\n/g, "<br>")}</div>` : ""}
+        </div>
+      </div>
+    `);
+    root.appendChild(detail);
+
+    // Фото
+    const photos = (m.photos || []).filter(Boolean);
+    if (photos.length) {
+      root.appendChild(el(`<div class="section-head" style="margin-top:18px;"><span class="label">Фото · ${photos.length}</span></div>`));
+      const list = el(`<div class="photo-list"></div>`);
+      for (const fn of photos) {
+        const url = `${BACKEND_URL}/api/photo/${m.id}/${fn}`;
+        const tile = el(`
+          <a class="photo-tile static" href="${url}" target="_blank" rel="noopener">
+            <img src="${url}" alt="">
+          </a>
+        `);
+        list.appendChild(tile);
+      }
+      root.appendChild(list);
+    }
+  }
+
+  async function fetchMeasurementDetail(measurementId) {
+    if (!BACKEND_URL) throw new Error("BACKEND_URL не задан");
+    const res = await fetch(`${BACKEND_URL}/api/measurement_detail`, {
+      method: "POST",
+      body: JSON.stringify({ initData: tg?.initData || "", measurement_id: measurementId }),
+    });
+    return await res.json();
   }
 
   /* ===================== Helpers ===================== */
