@@ -218,10 +218,11 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 
 /* Бренд @wasrusgen1 на splash — SVG-лого + CRM */
 .brand-logo {
-  width: 70%;
-  max-width: 320px;
+  width: 80%;
+  max-width: 360px;
   height: auto;
   display: block;
+  margin: 0 auto;
   animation: logoBreath 2.2s ease-in-out infinite;
 }
 .brand-tagline-gold {
@@ -229,7 +230,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   font-weight: 800;
   font-size: 18px;
   letter-spacing: 0.4em;
-  color: #C9A227;
+  color: #2C3E50;
   margin-top: 6px;
   line-height: 1;
   display: inline-block;
@@ -279,7 +280,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   top: 0; left: -40%;
   width: 40%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, #C9A227 50%, transparent);
+  background: linear-gradient(90deg, transparent, #2C3E50 50%, transparent);
   animation: loaderBarSlide 1.4s ease-in-out infinite;
 }
 
