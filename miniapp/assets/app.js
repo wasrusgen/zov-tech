@@ -725,8 +725,12 @@ async function init() {
   window.addEventListener("hashchange", routeByHash);
 
   const qp = new URLSearchParams(window.location.search);
+  // Telegram ставит #tgWebAppData=... в hash при открытии — это НЕ наш роут.
+  // Считаем «есть навигационный hash» только если он начинается с #/
+  const hasAppRoute = location.hash.startsWith("#/");
+
   const goScreen = qp.get("go");
-  if (goScreen && !location.hash) {
+  if (goScreen && !hasAppRoute) {
     const map = {
       podbor:  "#/podbor",
       clients: "#/clients",
@@ -740,7 +744,7 @@ async function init() {
 
   // Если нет ?role= в URL — показываем выбор роли (универсально для всех клиентов)
   const explicitRole = qp.get("role");
-  if (!explicitRole && !location.hash) {
+  if (!explicitRole && !hasAppRoute) {
     renderRoleChooser();
     hideSplash();
     return;
