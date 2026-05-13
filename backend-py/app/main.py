@@ -111,6 +111,7 @@ async def _dispatch_post(request: Request):
         "measurement_request":  _handle_measurement_request,
         "measurement_inbox":    _handle_measurement_inbox,
         "measurement_schedule": _handle_measurement_schedule,
+        "measurement_next_no":  _handle_measurement_next_no,
         "ping":          lambda b: {"pong": True, "time": _now_iso()},
         "seed_admin":    lambda b: _handle_seed_admin(),
         "test_ai":       lambda b: _handle_test_ai(),
@@ -199,6 +200,12 @@ async def api_measurement_inbox(request: Request):
 async def api_measurement_schedule(request: Request):
     body = await _safe_json(request)
     return _handle_measurement_schedule(body)
+
+
+@app.post("/api/measurement_next_no")
+async def api_measurement_next_no(request: Request):
+    body = await _safe_json(request)
+    return _handle_measurement_next_no(body)
 
 
 @app.post("/api/grant_role")
@@ -1252,6 +1259,42 @@ def _handle_measurement_schedule(body: dict[str, Any]) -> dict[str, Any]:
         "id": measurement_id, "scheduled_at": scheduled_at,
     })
     return {"ok": True, "id": measurement_id, "status": "scheduled", "scheduled_at": scheduled_at}
+
+
+def _handle_measurement_next_no(body: dict[str, Any]) -> dict[str, Any]:
+    """Возвращает следующий свободный номер замера (max существующих + 1).
+    Если в Sheets ничего нет — стартуем с 1. Менеджер может скорректировать вручную
+    (например первый раз поставить 158, если до этого замеры были вне системы)."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if not (isinstance(unsafe, dict) and unsafe.get("user", {}).get("id")):
+            return {"error": "invalid_init_data"}
+
+    _ensure_measurements_sheet()
+    try:
+        ws = sheets.sheet("Measurements")
+        rows = ws.get_all_values()
+    except Exception:
+        return {"ok": True, "next_no": 1}
+    if not rows or len(rows) < 2:
+        return {"ok": True, "next_no": 1}
+    headers = rows[0]
+    if "zamer_no" not in headers:
+        return {"ok": True, "next_no": 1}
+    idx = headers.index("zamer_no")
+    max_n = 0
+    for r in rows[1:]:
+        if idx >= len(r):
+            continue
+        try:
+            n = int(str(r[idx]).strip())
+            if n > max_n:
+                max_n = n
+        except (ValueError, TypeError):
+            pass
+    return {"ok": True, "next_no": max_n + 1}
 
 
 def _format_date_human(iso: str) -> str:

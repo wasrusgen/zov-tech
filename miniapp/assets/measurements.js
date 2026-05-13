@@ -44,10 +44,10 @@ const Measurements = (function () {
       client_phone: "",
       address: "",
       notes: "",
-      // Общая инфа замера (по чек-листу)
+      // Общая инфа замера. zamer_no подгружается из бэка автоматически,
+      // floor_base убран — он на самих фото с замером.
       zamer_no: "",
       zamer_date: todayStr,
-      floor_base: "0,000 = +88 мм над плитой",
     };
   }
 
@@ -170,17 +170,12 @@ const Measurements = (function () {
         <div class="form-row two-col">
           <label class="field">
             <span class="field-label">№ замера</span>
-            <input type="text" data-bind="zamer_no" value="${escAttr(state.zamer_no)}" placeholder="например 157">
+            <input type="text" data-bind="zamer_no" id="zamerNoInput" value="${escAttr(state.zamer_no)}" placeholder="…">
+            <span class="field-hint" id="zamerNoHint">Подбираем следующий…</span>
           </label>
           <label class="field">
             <span class="field-label">Дата замера</span>
             <input type="date" data-bind="zamer_date" value="${escAttr(state.zamer_date)}">
-          </label>
-        </div>
-        <div class="form-row">
-          <label class="field">
-            <span class="field-label">Стяжка / нулевой пол</span>
-            <input type="text" data-bind="floor_base" value="${escAttr(state.floor_base)}" placeholder="0,000 = +88 мм над плитой">
           </label>
         </div>
 
@@ -224,7 +219,42 @@ const Measurements = (function () {
       location.hash = "#/measure/checklist";
     });
     node.querySelector("#submitBtn").addEventListener("click", () => onSubmit(node));
+
+    // Подгружаем следующий № замера если поле пустое
+    if (!state.zamer_no) {
+      fetchNextZamerNo(node);
+    } else {
+      const hint = node.querySelector("#zamerNoHint");
+      if (hint) hint.textContent = "Можно переписать вручную";
+    }
+
     return node;
+  }
+
+  async function fetchNextZamerNo(node) {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/measurement_next_no`, {
+        method: "POST",
+        body: JSON.stringify({
+          initData: tg?.initData || "",
+          initDataUnsafe: tg?.initDataUnsafe || null,
+        }),
+      });
+      const data = await res.json();
+      const hint = node.querySelector("#zamerNoHint");
+      const input = node.querySelector("#zamerNoInput");
+      if (data.ok && data.next_no && input && !state.zamer_no) {
+        input.value = String(data.next_no);
+        state.zamer_no = String(data.next_no);
+        saveState();
+        if (hint) hint.textContent = "Подобран автоматически — можно изменить";
+      } else if (hint) {
+        hint.textContent = "Введите номер вручную";
+      }
+    } catch (e) {
+      const hint = node.querySelector("#zamerNoHint");
+      if (hint) hint.textContent = "Введите номер вручную";
+    }
   }
 
   function renderClientReadOnly() {
@@ -377,17 +407,31 @@ const Measurements = (function () {
 
   /* ===================== Чек-лист — отдельный экран ===================== */
 
+  // Состояние галочек хранится в localStorage по measurement_id (или draft)
+  function checklistKey() {
+    return `zov-checklist-${measurementId || "draft"}`;
+  }
+  function loadChecklistState() {
+    try { return JSON.parse(localStorage.getItem(checklistKey()) || "{}"); }
+    catch (e) { return {}; }
+  }
+  function saveChecklistState(s) {
+    try { localStorage.setItem(checklistKey(), JSON.stringify(s)); } catch (e) {}
+  }
+  function resetChecklistDraft() {
+    try { localStorage.removeItem(`zov-checklist-draft`); } catch (e) {}
+  }
+
   async function renderChecklist() {
     root.innerHTML = "";
     root.appendChild(el(`
       <header class="podbor-header">
         <button class="podbor-back" aria-label="Назад">${ICONS.arrow_left || "‹"}</button>
         <div class="podbor-title">Чек-лист замера</div>
-        <div style="width:28px"></div>
+        <button class="podbor-help" id="resetCl" aria-label="Сбросить">↺</button>
       </header>
     `));
     root.querySelector(".podbor-back").addEventListener("click", () => {
-      // Возврат к мастеру (если был открыт через #/measure?id=X)
       if (measurementId) location.hash = `#/measure?id=${measurementId}`;
       else location.hash = "#/measure";
     });
@@ -399,14 +443,63 @@ const Measurements = (function () {
     try {
       const res = await fetch("./assets/zamer-checklist.md", { cache: "no-cache" });
       const md = await res.text();
-      wrap.innerHTML = `<div class="checklist-md">${renderMarkdown(md)}</div>`;
+      const clState = loadChecklistState();
+      wrap.innerHTML = `
+        <div class="checklist-progress" id="clProgress"></div>
+        <div class="checklist-md">${renderMarkdown(md, clState)}</div>
+      `;
+      bindChecklistInteractions(wrap, clState);
+      updateChecklistProgress(wrap, clState);
+
+      root.querySelector("#resetCl").addEventListener("click", () => {
+        if (!confirm("Сбросить все галочки?")) return;
+        const empty = {};
+        saveChecklistState(empty);
+        renderChecklist();
+      });
     } catch (e) {
       wrap.innerHTML = `<div class="error">Не удалось загрузить чек-лист: ${e.message}</div>`;
     }
   }
 
-  /* Минимальный markdown → HTML: заголовки, списки, таблицы, code */
-  function renderMarkdown(md) {
+  function bindChecklistInteractions(wrap, clState) {
+    wrap.querySelectorAll(".cl-item").forEach(item => {
+      item.addEventListener("click", () => {
+        const key = item.dataset.key;
+        if (!key) return;
+        const isChecked = item.classList.contains("checked");
+        const checkSpan = item.querySelector(".cl-check");
+        if (isChecked) {
+          item.classList.remove("checked");
+          if (checkSpan) checkSpan.textContent = "☐";
+          delete clState[key];
+        } else {
+          item.classList.add("checked");
+          if (checkSpan) checkSpan.textContent = "☑";
+          clState[key] = true;
+        }
+        saveChecklistState(clState);
+        updateChecklistProgress(wrap, clState);
+        haptic && haptic("impact");
+      });
+    });
+  }
+
+  function updateChecklistProgress(wrap, clState) {
+    const total = wrap.querySelectorAll(".cl-item").length;
+    const done = Object.keys(clState).filter(k => clState[k]).length;
+    const pct = total ? Math.round((done / total) * 100) : 0;
+    const bar = wrap.querySelector("#clProgress");
+    if (bar) {
+      bar.innerHTML = `
+        <div class="cl-pbar"><div class="cl-pbar-fill" style="width:${pct}%"></div></div>
+        <div class="cl-pcount">${done} из ${total} · ${pct}%</div>
+      `;
+    }
+  }
+
+  /* Минимальный markdown → HTML: заголовки, списки, таблицы, code, чекбоксы */
+  function renderMarkdown(md, clState = {}) {
     const lines = md.split("\n");
     const out = [];
     let inList = false;
@@ -461,11 +554,17 @@ const Measurements = (function () {
       } else if (line.startsWith("- ") || line.startsWith("* ")) {
         if (!inList) { out.push("<ul>"); inList = true; }
         let content = line.slice(2);
-        // [ ] checkbox
-        if (content.startsWith("[ ] ")) {
-          out.push(`<li><span class="cl-check">☐</span> ${inline(content.slice(4))}</li>`);
-        } else if (content.startsWith("[x] ") || content.startsWith("[X] ")) {
-          out.push(`<li><span class="cl-check checked">☑</span> ${inline(content.slice(4))}</li>`);
+        // [ ] checkbox — делаем интерактивным с уникальным ключом
+        if (content.startsWith("[ ] ") || content.startsWith("[x] ") || content.startsWith("[X] ")) {
+          const text = content.slice(4);
+          // Ключ = первые 60 символов содержимого (для стабильности при edit)
+          const key = "cl_" + text.replace(/[^\wа-яА-ЯёЁ]+/g, "_").slice(0, 60).toLowerCase();
+          const checked = !!clState[key];
+          out.push(
+            `<li class="cl-item${checked ? " checked" : ""}" data-key="${key}">` +
+              `<span class="cl-check">${checked ? "☑" : "☐"}</span> ${inline(text)}` +
+            `</li>`
+          );
         } else {
           out.push(`<li>${inline(content)}</li>`);
         }
@@ -526,7 +625,6 @@ const Measurements = (function () {
       // Общая инфа замера
       zamer_no: state.zamer_no || "",
       zamer_date: state.zamer_date || "",
-      floor_base: state.floor_base || "",
       notes: state.notes || "",
       // Клиент
       client_name: isUpdate ? prefilledClient.name : state.client_name,
