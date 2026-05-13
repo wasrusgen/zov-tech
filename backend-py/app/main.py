@@ -108,10 +108,11 @@ async def _dispatch_post(request: Request):
         "lead":          _handle_lead,
         "grant_role":    _handle_grant_role,
         "staff_list":    _handle_staff_list,
-        "measurement_request":  _handle_measurement_request,
-        "measurement_inbox":    _handle_measurement_inbox,
-        "measurement_schedule": _handle_measurement_schedule,
-        "measurement_next_no":  _handle_measurement_next_no,
+        "measurement_request":   _handle_measurement_request,
+        "measurement_inbox":     _handle_measurement_inbox,
+        "measurement_schedule":  _handle_measurement_schedule,
+        "measurement_next_no":   _handle_measurement_next_no,
+        "measurement_logistics": _handle_measurement_logistics,
         "ping":          lambda b: {"pong": True, "time": _now_iso()},
         "seed_admin":    lambda b: _handle_seed_admin(),
         "test_ai":       lambda b: _handle_test_ai(),
@@ -206,6 +207,12 @@ async def api_measurement_schedule(request: Request):
 async def api_measurement_next_no(request: Request):
     body = await _safe_json(request)
     return _handle_measurement_next_no(body)
+
+
+@app.post("/api/measurement_logistics")
+async def api_measurement_logistics(request: Request):
+    body = await _safe_json(request)
+    return _handle_measurement_logistics(body)
 
 
 @app.post("/api/grant_role")
@@ -612,6 +619,10 @@ def _measurement_columns() -> list[str]:
         # preferred_time_of_day: morning | day | evening
         # preferred_note: «после звонка», «не раньше вторника», ...
         "preferred_type", "preferred_date", "preferred_time_of_day", "preferred_note",
+        # Логистика — заполняет замерщик на месте (Commit C3), нужна также сборщику
+        # parking_type: free | paid | street | none
+        "entrance", "floor", "gps_lat", "gps_lng",
+        "parking_type", "parking_note", "delivery_notes",
     ]
 
 
@@ -644,6 +655,8 @@ def _row_for_measurement(measurement_id: str, ts: str, **fields) -> list[str]:
         "address": "", "client_name": "", "client_phone": "",
         "zamer_no": "", "zamer_date": "", "floor_base": "", "photos_meta": "",
         "preferred_type": "", "preferred_date": "", "preferred_time_of_day": "", "preferred_note": "",
+        "entrance": "", "floor": "", "gps_lat": "", "gps_lng": "",
+        "parking_type": "", "parking_note": "", "delivery_notes": "",
     }
     base.update(fields)
     return [str(base.get(c, "")) for c in cols]
@@ -1290,6 +1303,69 @@ def _handle_measurement_schedule(body: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True, "id": measurement_id, "status": "scheduled", "scheduled_at": scheduled_at}
 
 
+def _handle_measurement_logistics(body: dict[str, Any]) -> dict[str, Any]:
+    """Замерщик/сборщик/менеджер обновляет логистику замера —
+    подъезд, этаж, GPS, парковка, заметки для логистов.
+    body: {initData, measurement_id, entrance, floor, gps_lat, gps_lng,
+           parking_type, parking_note, delivery_notes}"""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"], "_unsafe": True}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+
+    measurement_id = (body.get("measurement_id") or "").strip()
+    if not measurement_id:
+        return {"error": "missing_measurement_id"}
+
+    row = sheets.find_row("Measurements", "id", measurement_id)
+    if not row:
+        return {"error": "measurement_not_found"}
+
+    # Право редактировать — назначенный замерщик, менеджер-заказчик, или админ
+    is_assigned_measurer = str(row.get("assigned_to_tg_id", "")) == str(tg_id)
+    is_owner_manager = str(row.get("manager_tg_id", "")) == str(tg_id) or \
+                       str(row.get("requested_by_tg_id", "")) == str(tg_id)
+    is_assembler = sheets.has_role(user, "assembler")
+    if not (is_assigned_measurer or is_owner_manager or is_assembler):
+        return {"error": "forbidden"}
+
+    # Валидация значений
+    parking_type = (body.get("parking_type") or "").strip()
+    if parking_type not in ("free", "paid", "street", "none", ""):
+        parking_type = ""
+
+    def _num_or_empty(v):
+        if v is None or v == "":
+            return ""
+        try:
+            return str(float(v))
+        except (TypeError, ValueError):
+            return ""
+
+    updates = {
+        "entrance":       (body.get("entrance")        or "").strip()[:80],
+        "floor":          (body.get("floor")           or "").strip()[:20],
+        "gps_lat":        _num_or_empty(body.get("gps_lat")),
+        "gps_lng":        _num_or_empty(body.get("gps_lng")),
+        "parking_type":   parking_type,
+        "parking_note":   (body.get("parking_note")    or "").strip()[:200],
+        "delivery_notes": (body.get("delivery_notes")  or "").strip()[:500],
+    }
+    for col, val in updates.items():
+        sheets.update_cell_by_key("Measurements", "id", measurement_id, col, val)
+
+    sheets.log_event("measurement_logistics_updated", tg_id, {"id": measurement_id})
+    return {"ok": True, "id": measurement_id, "logistics": updates}
+
+
 def _handle_measurement_next_no(body: dict[str, Any]) -> dict[str, Any]:
     """Возвращает следующий свободный номер замера (max существующих + 1).
     Если в Sheets ничего нет — стартуем с 1. Менеджер может скорректировать вручную
@@ -1434,6 +1510,14 @@ def _handle_measurement_detail(body: dict[str, Any]) -> dict[str, Any]:
         "preferred_date": row.get("preferred_date", ""),
         "preferred_time_of_day": row.get("preferred_time_of_day", ""),
         "preferred_note": row.get("preferred_note", ""),
+        # Логистика — заполняет замерщик (Commit C3)
+        "entrance":       row.get("entrance", ""),
+        "floor":          row.get("floor", ""),
+        "gps_lat":        row.get("gps_lat", ""),
+        "gps_lng":        row.get("gps_lng", ""),
+        "parking_type":   row.get("parking_type", ""),
+        "parking_note":   row.get("parking_note", ""),
+        "delivery_notes": row.get("delivery_notes", ""),
     }
 
 

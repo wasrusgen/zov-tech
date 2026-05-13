@@ -2109,6 +2109,43 @@
   border-left: 3px solid var(--walnut, #6B4A2B);
 }
 
+/* ===== Логистика (подъезд, GPS, парковка) ===== */
+.logistics-block .block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.logistics-block .log-toggle {
+  background: transparent;
+  border: 1px solid var(--walnut, #6B4A2B);
+  color: var(--walnut, #6B4A2B);
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.logistics-block .log-toggle:active { background: rgba(107, 74, 43, 0.10); }
+.logistics-block .log-summary {
+  padding: 10px 4px 8px;
+  font-size: 13.5px;
+  color: var(--ink, #1F1A14);
+  line-height: 1.55;
+}
+.logistics-block .log-summary a {
+  color: var(--accent-1, #003E7E);
+  text-decoration: underline;
+}
+.log-dot {
+  color: var(--accent-1, #003E7E);
+  font-size: 8px;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+.logistics-block .log-editor .preferred-options {
+  grid-template-columns: 1fr 1fr;
+}
+
 /* ===== Замер: фото с тегами ===== */
 .podbor-header .podbor-help {
   background: transparent;

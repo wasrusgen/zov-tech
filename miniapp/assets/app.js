@@ -664,6 +664,9 @@ async function renderInboxDetail(measurementId) {
     `));
   }
 
+  // Блок логистики — заполняется замерщиком/сборщиком на месте
+  app.appendChild(renderLogisticsBlock(m));
+
   // Блок «назначить дату» (если ещё requested) или «изменить дату» (если scheduled)
   const isScheduled = m.status === "scheduled";
   const schedSection = el(`
@@ -730,6 +733,203 @@ async function renderInboxDetail(measurementId) {
     location.hash = `#/measure?id=${measurementId}`;
   });
   app.appendChild(measureBtn);
+}
+
+function renderLogisticsBlock(m) {
+  const hasData = !!(m.entrance || m.floor || m.gps_lat || m.parking_type || m.parking_note || m.delivery_notes);
+  const parkingLabels = {
+    free:   "🅿️ Бесплатная",
+    paid:   "💰 Платная",
+    street: "🛣️ На улице",
+    none:   "🚫 Нет парковки",
+  };
+
+  const section = el(`
+    <section class="block logistics-block">
+      <div class="block-head" id="logHead">
+        <span>📍 Логистика ${hasData ? '<span class="log-dot">●</span>' : ''}</span>
+        <button class="log-toggle" id="logToggle" type="button">${hasData ? "Изменить" : "Заполнить"}</button>
+      </div>
+      <div class="log-summary" id="logSummary"></div>
+      <div class="log-editor" id="logEditor" style="display:none;">
+        <div class="form-row two-col">
+          <label class="field">
+            <span class="field-label">Подъезд</span>
+            <input type="text" id="logEntrance" value="${escHtml(m.entrance || "")}" placeholder="например: 2">
+          </label>
+          <label class="field">
+            <span class="field-label">Этаж</span>
+            <input type="text" id="logFloor" value="${escHtml(m.floor || "")}" placeholder="например: 7">
+          </label>
+        </div>
+
+        <div class="form-row">
+          <label class="field">
+            <span class="field-label">GPS координаты</span>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input type="text" id="logGps" value="${m.gps_lat && m.gps_lng ? `${m.gps_lat}, ${m.gps_lng}` : ""}" placeholder="широта, долгота" style="flex:1;">
+              <button class="btn-secondary" id="getGps" type="button" style="white-space:nowrap;padding:8px 14px;">📍 Сейчас</button>
+            </div>
+            <span class="field-hint" id="gpsHint">Тап «Сейчас» — возьмёт координаты с устройства</span>
+          </label>
+        </div>
+
+        <div class="form-row">
+          <span class="field-label" style="display:block;margin-bottom:6px;">Парковка</span>
+          <div class="preferred-options">
+            <label class="pref-opt">
+              <input type="radio" name="parkType" value="free" ${m.parking_type === "free" ? "checked" : ""}>
+              <span class="pref-label">🅿️ Бесплатная</span>
+            </label>
+            <label class="pref-opt">
+              <input type="radio" name="parkType" value="paid" ${m.parking_type === "paid" ? "checked" : ""}>
+              <span class="pref-label">💰 Платная</span>
+            </label>
+            <label class="pref-opt">
+              <input type="radio" name="parkType" value="street" ${m.parking_type === "street" ? "checked" : ""}>
+              <span class="pref-label">🛣️ На улице</span>
+            </label>
+            <label class="pref-opt">
+              <input type="radio" name="parkType" value="none" ${m.parking_type === "none" ? "checked" : ""}>
+              <span class="pref-label">🚫 Нет парковки</span>
+            </label>
+          </div>
+          <input type="text" id="logParkNote" value="${escHtml(m.parking_note || "")}" placeholder="зона, тариф, как оплатить" style="margin-top:8px;">
+        </div>
+
+        <div class="form-row">
+          <label class="field">
+            <span class="field-label">Заметки логистики</span>
+            <textarea id="logDelivery" rows="3" placeholder="домофон, шлагбаум, размер лифта (для сборщика), узкий проезд, ...">${escHtml(m.delivery_notes || "")}</textarea>
+          </label>
+        </div>
+
+        <div class="podbor-cta-row">
+          <button class="btn-secondary" id="logCancel" type="button">Отмена</button>
+          <button class="btn-primary" id="logSave" type="button">Сохранить</button>
+        </div>
+      </div>
+    </section>
+  `);
+
+  // Сводка (когда не в режиме редактирования)
+  function updateSummary(curM) {
+    const sum = section.querySelector("#logSummary");
+    const lines = [];
+    if (curM.entrance) lines.push(`Подъезд <b>${escHtml(curM.entrance)}</b>`);
+    if (curM.floor)    lines.push(`этаж <b>${escHtml(curM.floor)}</b>`);
+    if (curM.gps_lat && curM.gps_lng) {
+      const url = `https://maps.google.com/?q=${curM.gps_lat},${curM.gps_lng}`;
+      lines.push(`<a href="${url}" target="_blank" rel="noopener">📍 ${curM.gps_lat}, ${curM.gps_lng}</a>`);
+    }
+    if (curM.parking_type && parkingLabels[curM.parking_type]) {
+      let p = parkingLabels[curM.parking_type];
+      if (curM.parking_note) p += ` · ${escHtml(curM.parking_note)}`;
+      lines.push(p);
+    }
+    if (curM.delivery_notes) {
+      lines.push(`<i>${escHtml(curM.delivery_notes)}</i>`);
+    }
+    sum.innerHTML = lines.length
+      ? lines.join(" · ")
+      : `<span style="color:var(--muted);font-size:13px;">Информация для подъезда не заполнена — заполни при выезде.</span>`;
+  }
+  updateSummary(m);
+
+  const editor = section.querySelector("#logEditor");
+  const summary = section.querySelector("#logSummary");
+  const toggleBtn = section.querySelector("#logToggle");
+
+  function setEdit(on) {
+    editor.style.display = on ? "" : "none";
+    summary.style.display = on ? "none" : "";
+    toggleBtn.style.display = on ? "none" : "";
+  }
+
+  toggleBtn.addEventListener("click", () => setEdit(true));
+  section.querySelector("#logCancel").addEventListener("click", () => setEdit(false));
+
+  // GPS «Сейчас»
+  section.querySelector("#getGps").addEventListener("click", () => {
+    const hint = section.querySelector("#gpsHint");
+    hint.textContent = "Запрашиваем координаты...";
+    if (!navigator.geolocation) {
+      hint.textContent = "Геолокация недоступна. Введите вручную.";
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude.toFixed(6);
+        const lng = pos.coords.longitude.toFixed(6);
+        section.querySelector("#logGps").value = `${lat}, ${lng}`;
+        hint.textContent = `Получено · точность ${Math.round(pos.coords.accuracy)} м`;
+        haptic && haptic("success");
+      },
+      (err) => {
+        hint.textContent = `Не удалось: ${err.message || "отказано в доступе"}`;
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+    );
+  });
+
+  // Сохранение
+  section.querySelector("#logSave").addEventListener("click", async () => {
+    const btn = section.querySelector("#logSave");
+    btn.disabled = true;
+    btn.textContent = "Сохраняем...";
+    const gpsStr = (section.querySelector("#logGps").value || "").trim();
+    let gps_lat = "", gps_lng = "";
+    if (gpsStr) {
+      const parts = gpsStr.split(/[,;\s]+/).filter(Boolean);
+      if (parts.length >= 2) {
+        gps_lat = parts[0];
+        gps_lng = parts[1];
+      }
+    }
+    const parkType = (section.querySelector('input[name="parkType"]:checked') || {}).value || "";
+    const payload = {
+      initData: tg?.initData || "",
+      initDataUnsafe: tg?.initDataUnsafe || null,
+      measurement_id: m.id,
+      entrance:       section.querySelector("#logEntrance").value,
+      floor:          section.querySelector("#logFloor").value,
+      gps_lat, gps_lng,
+      parking_type:   parkType,
+      parking_note:   section.querySelector("#logParkNote").value,
+      delivery_notes: section.querySelector("#logDelivery").value,
+    };
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/measurement_logistics`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.error) {
+        btn.disabled = false;
+        btn.textContent = "Сохранить";
+        alert("Ошибка: " + data.error);
+        return;
+      }
+      // Обновляем локальные данные и сводку
+      Object.assign(m, data.logistics || {});
+      updateSummary(m);
+      setEdit(false);
+      // Обновляем точку-индикатор «есть данные»
+      const hasNow = !!(m.entrance || m.floor || m.gps_lat || m.parking_type || m.parking_note || m.delivery_notes);
+      const head = section.querySelector("#logHead span");
+      head.innerHTML = `📍 Логистика ${hasNow ? '<span class="log-dot">●</span>' : ''}`;
+      toggleBtn.textContent = hasNow ? "Изменить" : "Заполнить";
+      btn.disabled = false;
+      btn.textContent = "Сохранить";
+      haptic && haptic("success");
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = "Сохранить";
+      alert("Сеть: " + e.message);
+    }
+  });
+
+  return section;
 }
 
 function toDatetimeLocalValue(iso) {
