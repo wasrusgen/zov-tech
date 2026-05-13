@@ -1196,18 +1196,15 @@ def _handle_measurement_request(body: dict[str, Any]) -> dict[str, Any]:
 
     # Уведомление назначенному замерщику
     if assigned_to:
-        timing_line = _format_preferred_human(
-            preferred_type, preferred_date, preferred_time_of_day, preferred_note
-        )
+        note_line = f"\nПримечание: {preferred_note}" if preferred_note else ""
         tg.send_message(
             int(assigned_to),
             f"📐 <b>Новая заявка на замер</b>\n\n"
             f"Клиент: <b>{client_name}</b>\n"
             f"Телефон: <code>{client_phone}</code>\n"
             f"Адрес: {address or '—'}\n"
-            f"Когда: {timing_line}\n"
-            f"От менеджера: {user.get('full_name') or tg_id}\n\n"
-            f"{notes if notes else ''}\n"
+            f"От менеджера: {user.get('full_name') or tg_id}"
+            f"{note_line}\n\n"
             f"Откройте кабинет — согласуйте точную дату с клиентом."
         )
 

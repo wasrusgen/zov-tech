@@ -2183,6 +2183,25 @@
   border-left: 3px solid var(--walnut, #6B4A2B);
 }
 
+/* Блок «дата назначена» */
+.date-set-block {
+  background: linear-gradient(180deg, rgba(0, 62, 126, 0.04), transparent);
+  border-left: 3px solid var(--accent-1, #003E7E);
+}
+.date-set-block .date-set-value {
+  font-family: var(--font-display, "Newsreader", serif);
+  font-style: italic;
+  font-size: 22px;
+  color: var(--accent-1, #003E7E);
+  padding: 8px 4px 12px;
+  font-weight: 500;
+}
+.date-set-block .date-set-form {
+  border-top: 1px dashed rgba(0, 62, 126, 0.2);
+  padding-top: 12px;
+  margin-top: 12px;
+}
+
 /* ===== Логистика (подъезд, GPS, парковка) ===== */
 .logistics-block .block-head {
   display: flex;

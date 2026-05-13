@@ -541,6 +541,9 @@ function renderInboxItem(m) {
 }
 
 function formatPreferredHuman(m) {
+  // Теперь приоритет — текст из preferred_note (свободная форма).
+  // Старые записи с preferred_type/date/time_of_day выводятся как fallback.
+  if (m.preferred_note) return m.preferred_note;
   const todMap = { morning: "утром", day: "днём", evening: "вечером" };
   const t = m.preferred_type || "tbd";
   const parts = [];
@@ -562,9 +565,7 @@ function formatPreferredHuman(m) {
   } else {
     parts.push("согласовать с клиентом");
   }
-  let s = parts.join(" ");
-  if (m.preferred_note) s += " · " + m.preferred_note;
-  return s;
+  return parts.join(" ");
 }
 
 function formatDateHuman(iso) {
@@ -640,99 +641,126 @@ async function renderInboxDetail(measurementId) {
     </div>
   `));
 
-  // Приблизительная дата от менеджера (если точной ещё нет — это подсказка)
-  if (!m.scheduled_at && (m.preferred_type || m.preferred_note)) {
-    const prefText = formatPreferredHuman(m);
+  // Примечание от менеджера (рекомендации по дате, особенности доступа)
+  if (m.preferred_note) {
     app.appendChild(el(`
       <section class="block preferred-block">
-        <div class="block-head">⏰ Когда удобно клиенту (от менеджера)</div>
-        <div style="padding:12px 4px;color:var(--ink);font-size:15px;font-weight:500;">${escHtml(prefText)}</div>
-        <div style="padding:0 4px 4px;color:var(--muted);font-size:12px;">
-          Позвоните клиенту и согласуйте точную дату — она появится ниже.
-        </div>
+        <div class="block-head">📝 Примечание менеджера</div>
+        <div style="padding:12px 4px;color:var(--ink);font-size:14.5px;line-height:1.5;">${escHtml(m.preferred_note).replace(/\n/g, "<br>")}</div>
       </section>
     `));
   }
 
-  // Заметки от менеджера
-  if (m.notes) {
-    app.appendChild(el(`
-      <section class="block">
-        <div class="block-head">Заметки от менеджера</div>
-        <div style="padding:12px 4px;color:var(--ink-2);font-size:14px;">${escHtml(m.notes).replace(/\n/g, "<br>")}</div>
-      </section>
-    `));
-  }
-
-  // Блок логистики — заполняется замерщиком/сборщиком на месте
+  // Блок логистики (подъезд, GPS, парковка) — заполняется на месте
   app.appendChild(renderLogisticsBlock(m));
 
-  // Блок «назначить дату» (если ещё requested) или «изменить дату» (если scheduled)
-  const isScheduled = m.status === "scheduled";
-  const schedSection = el(`
-    <section class="block">
-      <div class="block-head">${isScheduled ? "Дата замера" : "Назначить дату"}</div>
-      <div style="padding:6px 0 0;">
+  // Блок даты замера — две версии в зависимости от статуса
+  const isScheduled = m.status === "scheduled" && m.scheduled_at;
+  if (isScheduled) {
+    // Дата назначена — показываем её крупно + кнопка «Изменить»
+    const dateSection = el(`
+      <section class="block date-set-block">
+        <div class="block-head">📅 Замер назначен</div>
+        <div class="date-set-value">${escHtml(formatDateHuman(m.scheduled_at))}</div>
+        <div class="podbor-cta-row">
+          <button class="btn-secondary" id="changeDate" type="button">Изменить дату</button>
+        </div>
+        <div class="date-set-form" id="changeDateForm" style="display:none;">
+          <div class="form-row">
+            <label class="field">
+              <span class="field-label">Новая дата и время</span>
+              <input type="datetime-local" id="schedInput" value="${toDatetimeLocalValue(m.scheduled_at)}">
+              <span class="field-error" id="schedError"></span>
+            </label>
+          </div>
+          <div class="podbor-cta-row">
+            <button class="btn-secondary" id="cancelChange" type="button">Отмена</button>
+            <button class="btn-primary" id="saveSched" type="button">Сохранить</button>
+          </div>
+        </div>
+      </section>
+    `);
+    app.appendChild(dateSection);
+    dateSection.querySelector("#changeDate").addEventListener("click", () => {
+      dateSection.querySelector("#changeDateForm").style.display = "";
+      dateSection.querySelector("#changeDate").style.display = "none";
+    });
+    dateSection.querySelector("#cancelChange").addEventListener("click", () => {
+      dateSection.querySelector("#changeDateForm").style.display = "none";
+      dateSection.querySelector("#changeDate").style.display = "";
+    });
+    dateSection.querySelector("#saveSched").addEventListener("click", () => saveScheduleDate(measurementId, dateSection));
+
+    // ОСНОВНАЯ кнопка — начать замер (открывает мастер с чек-листом)
+    const startSection = el(`
+      <div class="podbor-cta-row" style="margin-top:20px;">
+        <button class="btn-primary" id="startMeasure" style="font-size:16px;padding:14px 20px;">📐 Начать замер</button>
+      </div>
+      <div class="muted" style="text-align:center;font-size:12px;margin-top:8px;">
+        Чек-лист, фото и заметки откроются после нажатия.
+      </div>
+    `);
+    app.appendChild(startSection);
+    startSection.querySelector("#startMeasure").addEventListener("click", () => {
+      haptic && haptic("impact");
+      location.hash = `#/measure?id=${measurementId}`;
+    });
+  } else {
+    // Дата не назначена — основной шаг: согласовать и назначить
+    const dateSection = el(`
+      <section class="block">
+        <div class="block-head">📞 Согласовать дату с клиентом</div>
+        <div style="padding:8px 4px;color:var(--muted);font-size:13px;">
+          Позвоните клиенту, договоритесь о точной дате и времени, затем зафиксируйте здесь.
+        </div>
         <div class="form-row">
           <label class="field">
             <span class="field-label">Дата и время визита</span>
-            <input type="datetime-local" id="schedInput" value="${m.scheduled_at ? toDatetimeLocalValue(m.scheduled_at) : ""}">
-            <span class="field-hint" id="schedHint">${isScheduled ? "Согласовано — можно изменить" : "Согласуйте с клиентом, потом выберите тут"}</span>
+            <input type="datetime-local" id="schedInput">
             <span class="field-error" id="schedError"></span>
           </label>
         </div>
         <div class="podbor-cta-row">
-          <button class="btn-primary" id="saveSched">${isScheduled ? "Изменить дату" : "Назначить"}</button>
+          <button class="btn-primary" id="saveSched" type="button">Назначить</button>
         </div>
-      </div>
-    </section>
-  `);
-  app.appendChild(schedSection);
+      </section>
+    `);
+    app.appendChild(dateSection);
+    dateSection.querySelector("#saveSched").addEventListener("click", () => saveScheduleDate(measurementId, dateSection));
+  }
+}
 
-  schedSection.querySelector("#saveSched").addEventListener("click", async () => {
-    const input = schedSection.querySelector("#schedInput");
-    const errorEl = schedSection.querySelector("#schedError");
-    errorEl.textContent = "";
-    const val = input.value;
-    if (!val) {
-      errorEl.textContent = "Укажите дату и время";
+async function saveScheduleDate(measurementId, section) {
+  const input = section.querySelector("#schedInput");
+  const errorEl = section.querySelector("#schedError");
+  if (errorEl) errorEl.textContent = "";
+  const val = input.value;
+  if (!val) {
+    if (errorEl) errorEl.textContent = "Укажите дату и время";
+    return;
+  }
+  const iso = new Date(val).toISOString();
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/measurement_schedule`, {
+      method: "POST",
+      body: JSON.stringify({
+        initData: tg?.initData || "",
+        initDataUnsafe: tg?.initDataUnsafe || null,
+        measurement_id: measurementId,
+        scheduled_at: iso,
+      }),
+    });
+    const data = await res.json();
+    if (data.error) {
+      if (errorEl) errorEl.textContent = "Ошибка: " + data.error;
       return;
     }
-    const iso = new Date(val).toISOString();
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/measurement_schedule`, {
-        method: "POST",
-        body: JSON.stringify({
-          initData: tg?.initData || "",
-          measurement_id: measurementId,
-          scheduled_at: iso,
-        }),
-      });
-      const data = await res.json();
-      if (data.error) {
-        errorEl.textContent = "Ошибка: " + data.error;
-        return;
-      }
-      haptic && haptic("success");
-      tg?.showAlert?.("Дата назначена — менеджер уведомлён.");
-      renderInboxDetail(measurementId); // перерисовать
-    } catch (e) {
-      errorEl.textContent = "Сеть: " + e.message;
-    }
-  });
-
-  // Кнопка «Сделать замер» (только если назначено или прямо сейчас)
-  const measureBtn = el(`
-    <div class="podbor-cta-row" style="margin-top:16px;">
-      <button class="btn-primary" id="goMeasure">📐 Сделать замер сейчас</button>
-    </div>
-  `);
-  measureBtn.querySelector("#goMeasure").addEventListener("click", () => {
-    haptic && haptic("impact");
-    // Передаём measurement_id чтобы wizard работал в update-mode
-    location.hash = `#/measure?id=${measurementId}`;
-  });
-  app.appendChild(measureBtn);
+    haptic && haptic("success");
+    tg?.showAlert?.("Дата сохранена — менеджер уведомлён.");
+    renderInboxDetail(measurementId); // перерисовать с новым статусом
+  } catch (e) {
+    if (errorEl) errorEl.textContent = "Сеть: " + e.message;
+  }
 }
 
 function renderLogisticsBlock(m) {
