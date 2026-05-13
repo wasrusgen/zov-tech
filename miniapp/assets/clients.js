@@ -137,6 +137,9 @@ const Clients = (function () {
       </div>
     `));
 
+    // Примечание менеджера — текст или голосовой ввод
+    root.appendChild(renderClientNoteBlock(client));
+
     root.appendChild(el(`<div class="section-head"><span class="label">Подборы · ${client.leads_count}</span></div>`));
 
     const leadsList = el(`<div class="leads-list"></div>`);
@@ -338,6 +341,171 @@ const Clients = (function () {
       body: JSON.stringify({ initData: tg?.initData || "", measurement_id: measurementId }),
     });
     return await res.json();
+  }
+
+  /* ===================== Примечание по клиенту ===================== */
+
+  function renderClientNoteBlock(client) {
+    const section = el(`
+      <section class="block client-note-block">
+        <div class="block-head">
+          <span>📝 Примечание</span>
+          <span class="note-meta" id="noteMeta"></span>
+        </div>
+        <div class="note-editor">
+          <textarea id="noteText" rows="3" placeholder="Заметки по клиенту — характер, предпочтения, договорённости, статус..."></textarea>
+          <div class="note-actions">
+            <button class="btn-mic" id="noteMic" type="button" title="Голосовой ввод">🎤 Диктовать</button>
+            <button class="btn-secondary" id="noteSave" type="button">Сохранить</button>
+          </div>
+          <div class="note-status" id="noteStatus"></div>
+        </div>
+      </section>
+    `);
+
+    const textarea = section.querySelector("#noteText");
+    const meta = section.querySelector("#noteMeta");
+    const status = section.querySelector("#noteStatus");
+
+    // Загружаем сохранённую заметку
+    fetchClientNote(client).then(data => {
+      if (data?.note) textarea.value = data.note;
+      if (data?.updated_at) {
+        meta.textContent = "обновлено " + formatDate(data.updated_at);
+      }
+    }).catch(() => {});
+
+    // Сохранение
+    section.querySelector("#noteSave").addEventListener("click", async () => {
+      const btn = section.querySelector("#noteSave");
+      btn.disabled = true;
+      btn.textContent = "Сохраняем...";
+      try {
+        const data = await saveClientNote(client, textarea.value);
+        if (data?.ok) {
+          status.textContent = "✓ сохранено";
+          status.className = "note-status ok";
+          if (data.updated_at) meta.textContent = "обновлено " + formatDate(data.updated_at);
+          setTimeout(() => { status.textContent = ""; }, 2500);
+        } else {
+          status.textContent = "Ошибка: " + (data?.error || "не сохранилось");
+          status.className = "note-status err";
+        }
+      } catch (e) {
+        status.textContent = "Сеть: " + e.message;
+        status.className = "note-status err";
+      }
+      btn.disabled = false;
+      btn.textContent = "Сохранить";
+    });
+
+    // Голосовой ввод через Web Speech API
+    const micBtn = section.querySelector("#noteMic");
+    setupVoiceInput(micBtn, textarea, status);
+
+    return section;
+  }
+
+  async function fetchClientNote(client) {
+    const res = await fetch(`${BACKEND_URL}/api/client_note`, {
+      method: "POST",
+      body: JSON.stringify({
+        initData: tg?.initData || "",
+        initDataUnsafe: tg?.initDataUnsafe || null,
+        client_name: client.client_name || "",
+        client_phone: client.client_phone || "",
+      }),
+    });
+    return await res.json();
+  }
+
+  async function saveClientNote(client, note) {
+    const res = await fetch(`${BACKEND_URL}/api/client_note`, {
+      method: "POST",
+      body: JSON.stringify({
+        initData: tg?.initData || "",
+        initDataUnsafe: tg?.initDataUnsafe || null,
+        client_name: client.client_name || "",
+        client_phone: client.client_phone || "",
+        note: note || "",
+      }),
+    });
+    return await res.json();
+  }
+
+  function setupVoiceInput(micBtn, textarea, status) {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      micBtn.disabled = true;
+      micBtn.title = "Браузер не поддерживает голосовой ввод";
+      micBtn.style.opacity = "0.5";
+      return;
+    }
+    let rec = null;
+    let recording = false;
+    let baseText = ""; // текст до начала записи — чтобы не перетирать
+
+    micBtn.addEventListener("click", () => {
+      if (recording) {
+        rec?.stop();
+        return;
+      }
+      try {
+        rec = new SR();
+        rec.lang = "ru-RU";
+        rec.continuous = true;
+        rec.interimResults = true;
+      } catch (e) {
+        status.textContent = "Микрофон недоступен: " + e.message;
+        status.className = "note-status err";
+        return;
+      }
+      baseText = (textarea.value || "").trim();
+      const sep = baseText ? "\n" : "";
+
+      rec.onstart = () => {
+        recording = true;
+        micBtn.classList.add("rec");
+        micBtn.textContent = "⏹ Стоп";
+        status.textContent = "Слушаю...";
+        status.className = "note-status";
+        haptic && haptic("impact");
+      };
+      rec.onresult = (ev) => {
+        let interim = "";
+        let final = "";
+        for (let i = ev.resultIndex; i < ev.results.length; i++) {
+          const t = ev.results[i][0].transcript;
+          if (ev.results[i].isFinal) final += t;
+          else interim += t;
+        }
+        if (final) {
+          baseText = (baseText + sep + final).trim();
+          textarea.value = baseText;
+        } else if (interim) {
+          textarea.value = baseText + sep + interim;
+        }
+      };
+      rec.onerror = (ev) => {
+        status.textContent = "Ошибка распознавания: " + (ev.error || "неизвестно");
+        status.className = "note-status err";
+        recording = false;
+        micBtn.classList.remove("rec");
+        micBtn.textContent = "🎤 Диктовать";
+      };
+      rec.onend = () => {
+        recording = false;
+        micBtn.classList.remove("rec");
+        micBtn.textContent = "🎤 Диктовать";
+        if (status.textContent === "Слушаю...") status.textContent = "";
+        haptic && haptic("impact");
+      };
+      try { rec.start(); }
+      catch (e) {
+        status.textContent = "Не запустить: " + e.message;
+        status.className = "note-status err";
+      }
+    });
   }
 
   /* ===================== Helpers ===================== */

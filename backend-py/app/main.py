@@ -114,6 +114,7 @@ async def _dispatch_post(request: Request):
         "measurement_next_no":   _handle_measurement_next_no,
         "measurement_logistics": _handle_measurement_logistics,
         "geocode":               _handle_geocode,
+        "client_note":           _handle_client_note,
         "ping":          lambda b: {"pong": True, "time": _now_iso()},
         "seed_admin":    lambda b: _handle_seed_admin(),
         "test_ai":       lambda b: _handle_test_ai(),
@@ -220,6 +221,12 @@ async def api_measurement_logistics(request: Request):
 async def api_geocode(request: Request):
     body = await _safe_json(request)
     return _handle_geocode(body)
+
+
+@app.post("/api/client_note")
+async def api_client_note(request: Request):
+    body = await _safe_json(request)
+    return _handle_client_note(body)
 
 
 @app.post("/api/grant_role")
@@ -1371,6 +1378,96 @@ def _handle_measurement_logistics(body: dict[str, Any]) -> dict[str, Any]:
 
     sheets.log_event("measurement_logistics_updated", tg_id, {"id": measurement_id})
     return {"ok": True, "id": measurement_id, "logistics": updates}
+
+
+def _normalize_client_key(name: str, phone: str) -> str:
+    """Стабильный ключ клиента: телефон в цифрах либо имя в lower."""
+    digits = "".join(c for c in (phone or "") if c.isdigit())
+    if len(digits) >= 10:
+        # Нормализуем +7/8 → 7XXXXXXXXXX (последние 10 цифр)
+        return "p:" + digits[-10:]
+    return "n:" + (name or "").strip().lower()
+
+
+_CLIENT_NOTES_HEADERS = ["manager_tg_id", "client_key", "note", "updated_at"]
+
+
+def _ensure_client_notes_sheet():
+    try:
+        sheets.ensure_sheet("ClientNotes", _CLIENT_NOTES_HEADERS)
+    except Exception as e:
+        log.warning("Не удалось убедиться что ClientNotes есть: %s", e)
+
+
+def _handle_client_note(body: dict[str, Any]) -> dict[str, Any]:
+    """Чтение/запись примечания менеджера по клиенту.
+    body: {initData, client_name, client_phone, note?, read?}
+
+    Если note передано — пишем (upsert). Иначе просто читаем.
+    Возвращает {ok, note, updated_at}."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if not (isinstance(unsafe, dict) and unsafe.get("user", {}).get("id")):
+            return {"error": "invalid_init_data"}
+        auth = {"user": unsafe["user"]}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user or not sheets.has_role(user, "manager"):
+        return {"error": "only_manager"}
+
+    client_name = (body.get("client_name") or "").strip()
+    client_phone = (body.get("client_phone") or "").strip()
+    if not client_name and not client_phone:
+        return {"error": "missing_client_id"}
+    key = _normalize_client_key(client_name, client_phone)
+
+    _ensure_client_notes_sheet()
+
+    # Ищем существующую заметку этого менеджера по этому клиенту
+    try:
+        ws = sheets.sheet("ClientNotes")
+        rows = ws.get_all_values()
+    except Exception as e:
+        log.warning("ClientNotes read failed: %s", e)
+        rows = []
+
+    headers = rows[0] if rows else _CLIENT_NOTES_HEADERS
+    found_row_index = None  # 1-based в Sheets
+    current_note = ""
+    current_updated = ""
+    if rows and len(rows) >= 2:
+        try:
+            idx_mgr = headers.index("manager_tg_id")
+            idx_key = headers.index("client_key")
+            idx_note = headers.index("note")
+            idx_upd = headers.index("updated_at")
+        except ValueError:
+            idx_mgr = idx_key = idx_note = idx_upd = -1
+        if idx_mgr >= 0 and idx_key >= 0:
+            for i, r in enumerate(rows[1:], start=2):
+                row_mgr = r[idx_mgr] if idx_mgr < len(r) else ""
+                row_key = r[idx_key] if idx_key < len(r) else ""
+                if str(row_mgr) == str(tg_id) and row_key == key:
+                    found_row_index = i
+                    current_note = r[idx_note] if idx_note < len(r) else ""
+                    current_updated = r[idx_upd] if idx_upd < len(r) else ""
+                    break
+
+    # Если note передано — пишем (upsert)
+    if "note" in body and body.get("note") is not None:
+        new_note = str(body.get("note") or "").strip()[:4000]
+        now_iso = _now_iso()
+        if found_row_index:
+            ws.update_cell(found_row_index, headers.index("note") + 1, new_note)
+            ws.update_cell(found_row_index, headers.index("updated_at") + 1, now_iso)
+        else:
+            sheets.append_row("ClientNotes", [str(tg_id), key, new_note, now_iso])
+        sheets.log_event("client_note_updated", tg_id, {"key": key, "len": len(new_note)})
+        return {"ok": True, "note": new_note, "updated_at": now_iso, "client_key": key}
+
+    return {"ok": True, "note": current_note, "updated_at": current_updated, "client_key": key}
 
 
 def _handle_geocode(body: dict[str, Any]) -> dict[str, Any]:

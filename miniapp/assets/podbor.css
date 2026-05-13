@@ -2066,6 +2066,80 @@
   flex-shrink: 0;
 }
 
+/* ===== Примечание по клиенту ===== */
+.client-note-block .block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.client-note-block .note-meta {
+  font-size: 11px;
+  color: var(--muted, #998877);
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.client-note-block textarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--paper, #FBF7F0);
+  border: 1px solid rgba(107, 74, 43, 0.18);
+  border-radius: 8px;
+  resize: vertical;
+  min-height: 70px;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--ink, #1F1A14);
+  line-height: 1.45;
+}
+.client-note-block textarea:focus { outline: none; border-color: var(--walnut, #6B4A2B); }
+.client-note-block .note-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  align-items: center;
+}
+.client-note-block .btn-mic {
+  background: transparent;
+  border: 1px solid var(--walnut, #6B4A2B);
+  color: var(--walnut, #6B4A2B);
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.client-note-block .btn-mic:disabled { cursor: not-allowed; }
+.client-note-block .btn-mic.rec {
+  background: #C0392B;
+  border-color: #C0392B;
+  color: white;
+  animation: micPulse 1.2s ease-in-out infinite;
+}
+@keyframes micPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0.5); }
+  50% { box-shadow: 0 0 0 6px rgba(192, 57, 43, 0); }
+}
+.client-note-block .btn-secondary {
+  white-space: nowrap;
+}
+.client-note-block .note-status {
+  margin-top: 6px;
+  font-size: 12px;
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  color: var(--muted, #998877);
+  min-height: 16px;
+}
+.client-note-block .note-status.ok { color: #27AE60; }
+.client-note-block .note-status.err { color: #C0392B; }
+
 /* ===== Заявка на замер: выбор «когда удобно» ===== */
 .preferred-options {
   display: grid;
