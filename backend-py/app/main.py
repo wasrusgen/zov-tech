@@ -527,9 +527,24 @@ def _handle_me(body: dict[str, Any]) -> dict[str, Any]:
 
 _DATA_URL_RE = re.compile(r"^data:image/(jpeg|jpg|png|webp);base64,(.+)$", re.DOTALL)
 
+# Маппинг тип фото → префикс имени файла (по чек-листу замера)
+_PHOTO_KIND_PREFIX = {
+    "wall1":   "w1",
+    "wall2":   "w2",
+    "wall3":   "w3",
+    "wall4":   "w4",
+    "plan":    "plan",
+    "general": "general",
+    "detail":  "detail",
+}
 
-def _save_measurement_photo(measurement_id: str, idx: int, data_url: str) -> str | None:
-    """Сохраняет фото (data-URL) в `PHOTOS_DIR/<measurement_id>/<idx>.<ext>`.
+
+def _save_measurement_photo(
+    measurement_id: str, idx: int, data_url: str,
+    kind: str | None = None, kind_seq: int = 0,
+) -> str | None:
+    """Сохраняет фото с осмысленным именем: `w1.jpg` / `plan.jpg` / `general_3.jpg`.
+    Если несколько фото одного типа — добавляем суффикс _2, _3.
     Возвращает имя файла или None при ошибке."""
     if not isinstance(data_url, str):
         return None
@@ -548,7 +563,24 @@ def _save_measurement_photo(measurement_id: str, idx: int, data_url: str) -> str
     target_dir = PHOTOS_DIR / measurement_id
     try:
         target_dir.mkdir(parents=True, exist_ok=True)
-        name = f"{idx}.{ext}"
+        prefix = _PHOTO_KIND_PREFIX.get(kind or "", "")
+        if prefix:
+            # wall1/2/3/4 — один на стену; если дубль — добавляем _2, _3...
+            if prefix.startswith("w") and len(prefix) == 2:
+                name_base = prefix
+                candidate = f"{name_base}.{ext}"
+                n = 2
+                while (target_dir / candidate).exists():
+                    candidate = f"{name_base}_{n}.{ext}"
+                    n += 1
+                name = candidate
+            else:
+                # plan / general / detail — могут быть множественные
+                name = f"{prefix}_{kind_seq}.{ext}" if kind_seq > 0 else f"{prefix}.{ext}"
+                if (target_dir / name).exists():
+                    name = f"{prefix}_{kind_seq + 1}.{ext}"
+        else:
+            name = f"{idx}.{ext}"
         (target_dir / name).write_bytes(raw)
         return name
     except Exception:
@@ -562,9 +594,11 @@ def _measurement_columns() -> list[str]:
         "id", "ts", "client_tg_id", "manager_tg_id", "filled_by",
         "layout", "area_m2", "ceiling_mm", "walls", "openings", "infra", "niches",
         "photos", "notes", "status",
-        # Новые поля (Commit B)
+        # Поля Commit B (workflow)
         "assigned_to_tg_id", "requested_by_tg_id", "scheduled_at",
         "address", "client_name", "client_phone",
+        # Поля Commit C (структура замера по чек-листу)
+        "zamer_no", "zamer_date", "floor_base", "photos_meta",
     ]
 
 
@@ -595,6 +629,7 @@ def _row_for_measurement(measurement_id: str, ts: str, **fields) -> list[str]:
         "photos": "", "notes": "", "status": "submitted",
         "assigned_to_tg_id": "", "requested_by_tg_id": "", "scheduled_at": "",
         "address": "", "client_name": "", "client_phone": "",
+        "zamer_no": "", "zamer_date": "", "floor_base": "", "photos_meta": "",
     }
     base.update(fields)
     return [str(base.get(c, "")) for c in cols]
@@ -666,17 +701,24 @@ def _handle_measurement(body: dict[str, Any]) -> dict[str, Any]:
     if extras:
         notes_full = " · ".join(extras) + ("\n" + notes_full if notes_full else "")
 
-    # Сохраняем фотографии (data-URL → файлы), в Sheets кладём только имена
+    # Сохраняем фотографии (data-URL → файлы), в Sheets кладём только имена.
+    # Имена структурные: w1.jpg, plan.jpg, general_2.jpg — по типу из photos_meta.
     raw_photos = m.get("photos") or []
+    photos_meta = m.get("photos_meta") or []
     saved_photos: list[str] = []
+    kind_counter: dict[str, int] = {}  # сколько раз уже встречался каждый kind
     if isinstance(raw_photos, list):
-        for i, p in enumerate(raw_photos[:20]):  # хард-кап 20 фото на замер
+        for i, p in enumerate(raw_photos[:30]):  # хард-кап 30 фото на замер
+            kind = ""
+            if i < len(photos_meta) and isinstance(photos_meta[i], dict):
+                kind = photos_meta[i].get("kind", "")
+            kind_counter[kind] = kind_counter.get(kind, 0) + 1
+            seq = kind_counter[kind] - 1  # 0 для первого, 1 для второго и т.д.
             if isinstance(p, str) and p.startswith("data:"):
-                fn = _save_measurement_photo(measurement_id, i, p)
+                fn = _save_measurement_photo(measurement_id, i, p, kind=kind, kind_seq=seq)
                 if fn:
                     saved_photos.append(fn)
             elif isinstance(p, str) and p and not p.startswith("data:"):
-                # уже готовое имя/URL — пропускаем как есть
                 saved_photos.append(p)
 
     status_new = "completed"
@@ -685,6 +727,11 @@ def _handle_measurement(body: dict[str, Any]) -> dict[str, Any]:
     infra_json = json.dumps(m.get("infra") or {}, ensure_ascii=False)
     niches_json = json.dumps(m.get("niches") or {}, ensure_ascii=False)
     photos_str = ",".join(saved_photos)
+    photos_meta_json = json.dumps(m.get("photos_meta") or [], ensure_ascii=False)
+
+    zamer_no   = (m.get("zamer_no")   or "").strip()
+    zamer_date = (m.get("zamer_date") or "").strip()
+    floor_base = (m.get("floor_base") or "").strip()
 
     if update_mode:
         # Обновляем существующую заявку — статус → completed, плюс заполняем поля
@@ -698,8 +745,12 @@ def _handle_measurement(body: dict[str, Any]) -> dict[str, Any]:
             "infra": infra_json,
             "niches": niches_json,
             "photos": photos_str,
+            "photos_meta": photos_meta_json,
             "notes": notes_full,
             "status": status_new,
+            "zamer_no": zamer_no,
+            "zamer_date": zamer_date,
+            "floor_base": floor_base,
         }
         for col, val in updates.items():
             sheets.update_cell_by_key("Measurements", "id", measurement_id, col, val)
@@ -717,6 +768,7 @@ def _handle_measurement(body: dict[str, Any]) -> dict[str, Any]:
             infra=infra_json,
             niches=niches_json,
             photos=photos_str,
+            photos_meta=photos_meta_json,
             notes=notes_full,
             status=status_new,
             assigned_to_tg_id=assigned_to,
@@ -725,6 +777,9 @@ def _handle_measurement(body: dict[str, Any]) -> dict[str, Any]:
             address=address,
             client_name=client_name,
             client_phone=client_phone,
+            zamer_no=zamer_no,
+            zamer_date=zamer_date,
+            floor_base=floor_base,
         ))
 
     if client_tg_id:
@@ -1262,13 +1317,18 @@ def _handle_measurement_detail(body: dict[str, Any]) -> dict[str, Any]:
         "photos": photo_files,
         "notes": row.get("notes", ""),
         "status": row.get("status", ""),
-        # Новые поля (Commit B)
+        # Поля Commit B (workflow)
         "assigned_to_tg_id": row.get("assigned_to_tg_id", ""),
         "requested_by_tg_id": row.get("requested_by_tg_id", ""),
         "scheduled_at": row.get("scheduled_at", ""),
         "address": row.get("address", ""),
         "client_name": row.get("client_name", ""),
         "client_phone": row.get("client_phone", ""),
+        # Поля Commit C (структура замера)
+        "zamer_no": row.get("zamer_no", ""),
+        "zamer_date": row.get("zamer_date", ""),
+        "floor_base": row.get("floor_base", ""),
+        "photos_meta": _safe_json(row.get("photos_meta", "")),
     }
 
 

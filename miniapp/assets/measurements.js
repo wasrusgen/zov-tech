@@ -1,33 +1,53 @@
 /* ============================================================
-   Замер — упрощённая версия: только фото + заметки.
-   DWG-чертёж потом делается отдельным процессом из фото.
+   Замер — структурированная загрузка фото по типам.
+   Типы фото: стена 1-4, план комнаты, общий вид, деталь.
    ============================================================ */
 
 const Measurements = (function () {
-  const STORAGE_KEY = "zov-measurement-draft";
+  const STORAGE_KEY = "zov-measurement-draft-v2";
 
-  // Фото держим только в памяти — data-URL'ы тяжёлые
-  let photos = []; // Array<{ name, dataUrl }>
+  // Типы фото — в соответствии с чек-листом ЗАМЕРОВ
+  const PHOTO_KINDS = [
+    { key: "wall1",   label: "Стена 1" },
+    { key: "wall2",   label: "Стена 2" },
+    { key: "wall3",   label: "Стена 3" },
+    { key: "wall4",   label: "Стена 4" },
+    { key: "plan",    label: "План комнаты" },
+    { key: "general", label: "Общий вид" },
+    { key: "detail",  label: "Деталь" },
+  ];
+
+  function kindLabel(k) {
+    return (PHOTO_KINDS.find(p => p.key === k) || {}).label || k;
+  }
+
+  // Фото держим только в памяти
+  let photos = []; // Array<{ dataUrl, kind }>
 
   let state = loadState();
   let root = null;
-  let measurementId = ""; // если задан — update-mode (закрытие существующей заявки)
-  let prefilledClient = null; // данные клиента из заявки в update-mode
+  let measurementId = ""; // если задан — update-mode (закрытие заявки)
+  let prefilledClient = null;
 
   function loadState() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
+      if (raw) return { ...defaultState(), ...JSON.parse(raw) };
     } catch (e) {}
     return defaultState();
   }
 
   function defaultState() {
+    const todayStr = new Date().toISOString().slice(0, 10);
     return {
       client_name: "",
       client_phone: "",
       address: "",
       notes: "",
+      // Общая инфа замера (по чек-листу)
+      zamer_no: "",
+      zamer_date: todayStr,
+      floor_base: "0,000 = +88 мм над плитой",
     };
   }
 
@@ -54,10 +74,15 @@ const Measurements = (function () {
     measurementId = "";
     prefilledClient = null;
 
-    // ?id=<measurement_id> → update-mode (замерщик закрывает заявку)
     const hashMatch = (location.hash.split("?")[1] || "");
     const fragQp = new URLSearchParams(hashMatch);
     const mid = fragQp.get("id") || new URLSearchParams(location.search).get("measurement_id") || "";
+
+    // Спецроут #/measure/checklist — показать чек-лист
+    if (location.hash.startsWith("#/measure/checklist")) {
+      renderChecklist();
+      return;
+    }
     if (mid) {
       measurementId = mid;
       loadRequestAndStart();
@@ -91,8 +116,6 @@ const Measurements = (function () {
         phone: data.client_phone || "",
         address: data.address || "",
       };
-      // Не показываем форму клиента — она read-only
-      state.notes = state.notes || "";
       render();
     } catch (e) {
       root.innerHTML = "";
@@ -115,17 +138,20 @@ const Measurements = (function () {
       <header class="podbor-header">
         <button class="podbor-back" aria-label="Назад">${ICONS.arrow_left || "‹"}</button>
         <div class="podbor-title">${escHtml(title)}</div>
-        <div style="width:28px"></div>
+        <button class="podbor-help" id="openChecklist" aria-label="Чек-лист">📋</button>
       </header>
     `);
     h.querySelector(".podbor-back").addEventListener("click", () => {
       location.hash = "";
       location.reload();
     });
+    h.querySelector("#openChecklist").addEventListener("click", () => {
+      location.hash = "#/measure/checklist";
+    });
     return h;
   }
 
-  /* ===================== Главный экран — всё на одной странице ===================== */
+  /* ===================== Главный экран ===================== */
 
   function renderForm() {
     const isUpdate = !!measurementId && prefilledClient;
@@ -135,27 +161,50 @@ const Measurements = (function () {
       <section class="podbor-step">
         <h2 class="display-title">${isUpdate ? "Фото<br><span class=\"accent\">с замера</span>" : "Новый<br><span class=\"accent\">замер</span>"}</h2>
         <p class="lede">${isUpdate
-          ? "Загрузите фото от руки нарисованных замеров (а также общие фото помещения). Чертёж сделаем по ним отдельно."
-          : "Заполните данные клиента и загрузите фото замера. Можно фотать рукописные эскизы — главное чтобы были видны размеры."}
-        </p>
+          ? "Загружайте фото по чек-листу — каждая стена отдельно. Чертёж сделаем по фото."
+          : "Заполните клиента, дату и загрузите фото по чек-листу. Откройте 📋 чтобы посмотреть как правильно снимать."}</p>
 
         <div id="clientBlock"></div>
 
-        <div class="section-head" style="margin-top:18px;"><span class="label">📷 Фото замера</span></div>
+        <div class="section-head" style="margin-top:18px;"><span class="label">📐 Общая информация</span></div>
+        <div class="form-row two-col">
+          <label class="field">
+            <span class="field-label">№ замера</span>
+            <input type="text" data-bind="zamer_no" value="${escAttr(state.zamer_no)}" placeholder="например 157">
+          </label>
+          <label class="field">
+            <span class="field-label">Дата замера</span>
+            <input type="date" data-bind="zamer_date" value="${escAttr(state.zamer_date)}">
+          </label>
+        </div>
+        <div class="form-row">
+          <label class="field">
+            <span class="field-label">Стяжка / нулевой пол</span>
+            <input type="text" data-bind="floor_base" value="${escAttr(state.floor_base)}" placeholder="0,000 = +88 мм над плитой">
+          </label>
+        </div>
+
+        <div class="section-head" style="margin-top:18px;">
+          <span class="label">📷 Фото замера</span>
+          <a class="more" id="openChecklist2" style="cursor:pointer;">Чек-лист</a>
+        </div>
+        <p class="muted" style="font-size:12px;margin:-4px 0 8px;">
+          Для каждого фото выберите тип. По чек-листу: каждая стена отдельно + план + общие виды.
+        </p>
         <div class="photo-uploader">
           <label class="photo-add-btn" for="photoInput">
             <span class="photo-add-ico">＋</span>
             <span class="photo-add-label">Добавить фото</span>
-            <span class="photo-add-hint">камера или галерея · до 20 шт</span>
+            <span class="photo-add-hint">камера или галерея · до 30 шт</span>
           </label>
           <input id="photoInput" type="file" accept="image/*" capture="environment" multiple hidden>
         </div>
-        <div class="photo-list" id="photoList"></div>
+        <div class="photo-list-tagged" id="photoList"></div>
 
         <div class="form-row" style="margin-top:18px;">
           <label class="field">
             <span class="field-label">Заметки (опционально)</span>
-            <textarea data-bind="notes" rows="3" placeholder="что важно отметить — газ/электро, особые условия, размеры которые сложно прочесть на фото">${escHtml(state.notes || "")}</textarea>
+            <textarea data-bind="notes" rows="3" placeholder="особенности доступа, газ/электро, что важно учесть">${escHtml(state.notes || "")}</textarea>
           </label>
         </div>
 
@@ -171,6 +220,9 @@ const Measurements = (function () {
     bindInputs(node);
     bindPhotoInput(node);
 
+    node.querySelector("#openChecklist2").addEventListener("click", () => {
+      location.hash = "#/measure/checklist";
+    });
     node.querySelector("#submitBtn").addEventListener("click", () => onSubmit(node));
     return node;
   }
@@ -186,7 +238,7 @@ const Measurements = (function () {
   }
 
   function renderClientInputs() {
-    const block = el(`
+    return el(`
       <div>
         <div class="form-row">
           <label class="field">
@@ -210,7 +262,6 @@ const Measurements = (function () {
         </div>
       </div>
     `);
-    return block;
   }
 
   function bindInputs(node) {
@@ -222,17 +273,39 @@ const Measurements = (function () {
     });
   }
 
+  function nextKindSuggestion() {
+    // Авто-предложение: сначала Стена 1, потом 2,3,4, затем План, затем Общий
+    const usedWalls = new Set(photos.filter(p => p.kind?.startsWith("wall")).map(p => p.kind));
+    for (let i = 1; i <= 4; i++) {
+      if (!usedWalls.has(`wall${i}`)) return `wall${i}`;
+    }
+    const hasPlan = photos.some(p => p.kind === "plan");
+    if (!hasPlan) return "plan";
+    return "general";
+  }
+
   function bindPhotoInput(node) {
     const list = node.querySelector("#photoList");
     const input = node.querySelector("#photoInput");
 
     function refreshList() {
       list.innerHTML = "";
+      if (!photos.length) {
+        list.innerHTML = `<div class="empty" style="padding:12px;text-align:center;color:var(--muted);font-size:12px;">Ещё нет фото</div>`;
+        return;
+      }
       photos.forEach((ph, idx) => {
         const tile = el(`
-          <div class="photo-tile">
-            <img src="${ph.dataUrl}" alt="фото ${idx + 1}">
-            <button class="photo-rm" data-idx="${idx}" aria-label="Удалить">×</button>
+          <div class="photo-tagged">
+            <div class="photo-tagged-thumb">
+              <img src="${ph.dataUrl}" alt="фото ${idx + 1}">
+              <button class="photo-rm" data-idx="${idx}" aria-label="Удалить">×</button>
+            </div>
+            <select class="photo-kind" data-idx="${idx}">
+              ${PHOTO_KINDS.map(k =>
+                `<option value="${k.key}" ${k.key === ph.kind ? "selected" : ""}>${k.label}</option>`
+              ).join("")}
+            </select>
           </div>
         `);
         tile.querySelector(".photo-rm").addEventListener("click", e => {
@@ -240,6 +313,10 @@ const Measurements = (function () {
           photos.splice(i, 1);
           haptic && haptic("impact");
           refreshList();
+        });
+        tile.querySelector(".photo-kind").addEventListener("change", e => {
+          const i = +e.target.dataset.idx;
+          photos[i].kind = e.target.value;
         });
         list.appendChild(tile);
       });
@@ -250,11 +327,12 @@ const Measurements = (function () {
       input.value = "";
       if (!files.length) return;
       for (const f of files) {
-        if (photos.length >= 20) break;
+        if (photos.length >= 30) break;
         if (!f.type || !f.type.startsWith("image/")) continue;
         try {
           const dataUrl = await compressImage(f, 1800, 0.78);
-          photos.push({ name: f.name || `photo_${photos.length + 1}`, dataUrl });
+          const kind = nextKindSuggestion();
+          photos.push({ dataUrl, kind });
         } catch (err) {
           console.warn("Не удалось сжать фото", err);
         }
@@ -266,7 +344,6 @@ const Measurements = (function () {
     refreshList();
   }
 
-  /* Сжатие через canvas */
   function compressImage(file, maxSide = 1800, quality = 0.78) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -298,6 +375,116 @@ const Measurements = (function () {
     });
   }
 
+  /* ===================== Чек-лист — отдельный экран ===================== */
+
+  async function renderChecklist() {
+    root.innerHTML = "";
+    root.appendChild(el(`
+      <header class="podbor-header">
+        <button class="podbor-back" aria-label="Назад">${ICONS.arrow_left || "‹"}</button>
+        <div class="podbor-title">Чек-лист замера</div>
+        <div style="width:28px"></div>
+      </header>
+    `));
+    root.querySelector(".podbor-back").addEventListener("click", () => {
+      // Возврат к мастеру (если был открыт через #/measure?id=X)
+      if (measurementId) location.hash = `#/measure?id=${measurementId}`;
+      else location.hash = "#/measure";
+    });
+
+    const wrap = el(`<section class="podbor-step checklist-page"></section>`);
+    root.appendChild(wrap);
+    wrap.appendChild(el(`<div class="loader-inline"><div class="spinner"></div></div>`));
+
+    try {
+      const res = await fetch("./assets/zamer-checklist.md", { cache: "no-cache" });
+      const md = await res.text();
+      wrap.innerHTML = `<div class="checklist-md">${renderMarkdown(md)}</div>`;
+    } catch (e) {
+      wrap.innerHTML = `<div class="error">Не удалось загрузить чек-лист: ${e.message}</div>`;
+    }
+  }
+
+  /* Минимальный markdown → HTML: заголовки, списки, таблицы, code */
+  function renderMarkdown(md) {
+    const lines = md.split("\n");
+    const out = [];
+    let inList = false;
+    let inTable = false;
+    let tableRows = [];
+
+    function closeList() { if (inList) { out.push("</ul>"); inList = false; } }
+    function closeTable() {
+      if (!inTable) return;
+      if (tableRows.length) {
+        const html = ["<table class='cl-table'>"];
+        tableRows.forEach((cells, i) => {
+          const tag = i === 0 ? "th" : "td";
+          if (i === 1 && cells.every(c => /^[-:\s|]+$/.test(c))) return; // skip separator
+          html.push(`<tr>${cells.map(c => `<${tag}>${inline(c)}</${tag}>`).join("")}</tr>`);
+        });
+        html.push("</table>");
+        out.push(html.join(""));
+      }
+      tableRows = [];
+      inTable = false;
+    }
+
+    function inline(s) {
+      return escHtml(s)
+        .replace(/`([^`]+)`/g, "<code>$1</code>")
+        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+    }
+
+    for (const raw of lines) {
+      const line = raw.trimEnd();
+      // Таблица
+      if (line.includes("|") && line.match(/^\s*\|/)) {
+        if (!inTable) { closeList(); inTable = true; }
+        const cells = line.split("|").slice(1, -1).map(s => s.trim());
+        tableRows.push(cells);
+        continue;
+      } else if (inTable) {
+        closeTable();
+      }
+      // Заголовки
+      if (line.startsWith("# ")) {
+        closeList();
+        out.push(`<h1>${inline(line.slice(2))}</h1>`);
+      } else if (line.startsWith("## ")) {
+        closeList();
+        out.push(`<h2>${inline(line.slice(3))}</h2>`);
+      } else if (line.startsWith("### ")) {
+        closeList();
+        out.push(`<h3>${inline(line.slice(4))}</h3>`);
+      } else if (line.startsWith("- ") || line.startsWith("* ")) {
+        if (!inList) { out.push("<ul>"); inList = true; }
+        let content = line.slice(2);
+        // [ ] checkbox
+        if (content.startsWith("[ ] ")) {
+          out.push(`<li><span class="cl-check">☐</span> ${inline(content.slice(4))}</li>`);
+        } else if (content.startsWith("[x] ") || content.startsWith("[X] ")) {
+          out.push(`<li><span class="cl-check checked">☑</span> ${inline(content.slice(4))}</li>`);
+        } else {
+          out.push(`<li>${inline(content)}</li>`);
+        }
+      } else if (line === "---") {
+        closeList();
+        out.push(`<hr>`);
+      } else if (line === "") {
+        closeList();
+        out.push("");
+      } else {
+        closeList();
+        out.push(`<p>${inline(line)}</p>`);
+      }
+    }
+    closeList();
+    closeTable();
+    return out.join("\n");
+  }
+
   /* ===================== Submit ===================== */
 
   async function onSubmit(node) {
@@ -307,7 +494,6 @@ const Measurements = (function () {
     btn.innerHTML = '<span class="spinner-inline"></span> сохраняем...';
     result.innerHTML = "";
 
-    // Валидация: для новой записи нужны клиент + телефон + хотя бы 1 фото
     const isUpdate = !!measurementId && prefilledClient;
     if (!isUpdate) {
       const name = (state.client_name || "").trim();
@@ -334,8 +520,15 @@ const Measurements = (function () {
     }
 
     const measurement = {
+      // Структурированные фото + их типы
       photos: photos.map(p => p.dataUrl),
+      photos_meta: photos.map(p => ({ kind: p.kind })),
+      // Общая инфа замера
+      zamer_no: state.zamer_no || "",
+      zamer_date: state.zamer_date || "",
+      floor_base: state.floor_base || "",
       notes: state.notes || "",
+      // Клиент
       client_name: isUpdate ? prefilledClient.name : state.client_name,
       client_phone: isUpdate ? prefilledClient.phone : state.client_phone,
       address: isUpdate ? prefilledClient.address : state.address,
@@ -392,5 +585,5 @@ const Measurements = (function () {
   }
   function escAttr(s) { return escHtml(s); }
 
-  return { mount, reset };
+  return { mount, reset, kindLabel, PHOTO_KINDS };
 })();
