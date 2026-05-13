@@ -2275,6 +2275,22 @@
   text-align: right;
 }
 .checklist-md hr { margin: 18px 0; border: none; border-top: 1px dashed rgba(107, 74, 43, 0.25); }
+/* Эскизы-пиктограммы в чек-листе */
+.checklist-md .cl-pict {
+  margin: 14px auto;
+  max-width: 320px;
+  background: rgba(107, 74, 43, 0.04);
+  border: 1px dashed rgba(107, 74, 43, 0.25);
+  border-radius: 12px;
+  padding: 14px 16px;
+  text-align: center;
+}
+.checklist-md .cl-pict .zp-svg {
+  width: 100%;
+  height: auto;
+  max-height: 220px;
+  display: block;
+}
 .checklist-md code { background: rgba(107, 74, 43, 0.08); padding: 1px 5px; border-radius: 3px; font-family: var(--font-mono, "JetBrains Mono", monospace); font-size: 12.5px; }
 .checklist-md strong { color: var(--ink, #1F1A14); }
 .checklist-md .cl-table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 12.5px; }

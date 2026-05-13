@@ -532,6 +532,18 @@ const Measurements = (function () {
 
     for (const raw of lines) {
       const line = raw.trimEnd();
+      // Директива @pict:KEY — вставляем SVG-эскиз из ZAMER_PICTS
+      const pictMatch = line.match(/^@pict:([a-z_]+)$/i);
+      if (pictMatch) {
+        closeList();
+        closeTable();
+        const key = pictMatch[1].toLowerCase();
+        const svg = (window.ZAMER_PICTS || {})[key];
+        if (svg) {
+          out.push(`<div class="cl-pict">${svg}</div>`);
+        }
+        continue;
+      }
       // Таблица
       if (line.includes("|") && line.match(/^\s*\|/)) {
         if (!inTable) { closeList(); inTable = true; }
