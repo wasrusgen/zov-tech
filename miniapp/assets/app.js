@@ -435,7 +435,7 @@ function renderClient(me) {
       <div class="head-row">
         <div class="info">
           <div class="name">${greetName}</div>
-          <div class="meta">${me.manager ? "Менеджер: " + me.manager.full_name + (me.manager.salon ? ", " + me.manager.salon : "") : "@wasrusgen1 · сборщик"}</div>
+          <div class="meta">${me.manager ? "Менеджер: " + me.manager.full_name + (me.manager.salon ? ", " + me.manager.salon : "") : "@wasrusgen1 · CRM"}</div>
         </div>
         <div class="avatar">${initial}</div>
       </div>
@@ -468,7 +468,7 @@ function renderClient(me) {
 
   app.appendChild(el(`
     <div class="footer-hint">
-      <div class="signature">@wasrusgen1 · сборщик</div>
+      <div class="signature">@wasrusgen1 · CRM</div>
       <div class="meta">
         Кабинет от Руслана Васильева ·
         <a href="https://t.me/wasrusgen1">канал @wasrusgen1</a>

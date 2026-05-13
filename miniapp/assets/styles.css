@@ -234,13 +234,16 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 .brand-wordmark .brand-num { color: #F08720; }
 .brand-tagline {
-  font-family: "Caveat", cursive;
-  font-weight: 700;
-  font-size: 32px;
+  font-family: "Inter", system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.32em;
   color: #F08720;
-  margin-top: 4px;
+  margin-top: 8px;
   line-height: 1;
-  transform: rotate(-3deg);
+  padding: 4px 10px;
+  border: 1.5px solid #F08720;
+  border-radius: 4px;
   display: inline-block;
 }
 
