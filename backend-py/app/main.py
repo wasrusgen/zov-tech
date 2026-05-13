@@ -16,7 +16,7 @@ from fastapi.responses import FileResponse, JSONResponse
 
 from .config import get_config
 from .auth import verify_init_data
-from . import sheets, ai, telegram as tg, proxy_pool, catalog
+from . import sheets, ai, telegram as tg, proxy_pool, catalog, geocoder
 from . import parsers
 from .parsers import dns as parser_dns, wb as parser_wb, ozon as parser_ozon, yamarket as parser_ym, citilink as parser_cl
 
@@ -113,6 +113,7 @@ async def _dispatch_post(request: Request):
         "measurement_schedule":  _handle_measurement_schedule,
         "measurement_next_no":   _handle_measurement_next_no,
         "measurement_logistics": _handle_measurement_logistics,
+        "geocode":               _handle_geocode,
         "ping":          lambda b: {"pong": True, "time": _now_iso()},
         "seed_admin":    lambda b: _handle_seed_admin(),
         "test_ai":       lambda b: _handle_test_ai(),
@@ -213,6 +214,12 @@ async def api_measurement_next_no(request: Request):
 async def api_measurement_logistics(request: Request):
     body = await _safe_json(request)
     return _handle_measurement_logistics(body)
+
+
+@app.post("/api/geocode")
+async def api_geocode(request: Request):
+    body = await _safe_json(request)
+    return _handle_geocode(body)
 
 
 @app.post("/api/grant_role")
@@ -1364,6 +1371,41 @@ def _handle_measurement_logistics(body: dict[str, Any]) -> dict[str, Any]:
 
     sheets.log_event("measurement_logistics_updated", tg_id, {"id": measurement_id})
     return {"ok": True, "id": measurement_id, "logistics": updates}
+
+
+def _handle_geocode(body: dict[str, Any]) -> dict[str, Any]:
+    """Прямое геокодирование: текст адреса → lat/lon.
+    Использует Yandex (если есть YANDEX_GEOCODER_API_KEY в env) с fallback на OSM.
+    body: {initData, address, city?}"""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if not (isinstance(unsafe, dict) and unsafe.get("user", {}).get("id")):
+            return {"error": "invalid_init_data"}
+
+    address = (body.get("address") or "").strip()
+    if not address:
+        return {"error": "missing_address"}
+    city = (body.get("city") or "Санкт-Петербург").strip()
+    result = geocoder.geocode(address, city=city)
+    if not result:
+        return {"ok": False, "error": "not_found", "address": address}
+    return {
+        "ok": True,
+        "address": address,
+        "result": {
+            "lat": result.get("lat"),
+            "lng": result.get("lon"),  # фронт использует lng
+            "formatted": result.get("formatted"),
+            "precision": result.get("precision"),
+            "kind": result.get("kind"),
+            "source": result.get("source"),
+        },
+        "yandex_maps_url": geocoder.build_yandex_maps_url(
+            result["lat"], result["lon"], text=result.get("formatted") or address,
+        ),
+    }
 
 
 def _handle_measurement_next_no(body: dict[str, Any]) -> dict[str, Any]:

@@ -766,11 +766,12 @@ function renderLogisticsBlock(m) {
         <div class="form-row">
           <label class="field">
             <span class="field-label">GPS координаты</span>
-            <div style="display:flex;gap:8px;align-items:center;">
-              <input type="text" id="logGps" value="${m.gps_lat && m.gps_lng ? `${m.gps_lat}, ${m.gps_lng}` : ""}" placeholder="широта, долгота" style="flex:1;">
-              <button class="btn-secondary" id="getGps" type="button" style="white-space:nowrap;padding:8px 14px;">📍 Сейчас</button>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+              <input type="text" id="logGps" value="${m.gps_lat && m.gps_lng ? `${m.gps_lat}, ${m.gps_lng}` : ""}" placeholder="широта, долгота" style="flex:1;min-width:140px;">
+              <button class="btn-secondary" id="getGps" type="button" style="white-space:nowrap;padding:8px 12px;">📍 Сейчас</button>
+              <button class="btn-secondary" id="getGpsAddr" type="button" style="white-space:nowrap;padding:8px 12px;">🔍 По адресу</button>
             </div>
-            <span class="field-hint" id="gpsHint">Тап «Сейчас» — возьмёт координаты с устройства</span>
+            <span class="field-hint" id="gpsHint">«Сейчас» — с устройства. «По адресу» — геокодер по адресу заявки.</span>
           </label>
         </div>
 
@@ -819,8 +820,8 @@ function renderLogisticsBlock(m) {
     if (curM.entrance) lines.push(`Подъезд <b>${escHtml(curM.entrance)}</b>`);
     if (curM.floor)    lines.push(`этаж <b>${escHtml(curM.floor)}</b>`);
     if (curM.gps_lat && curM.gps_lng) {
-      const url = `https://maps.google.com/?q=${curM.gps_lat},${curM.gps_lng}`;
-      lines.push(`<a href="${url}" target="_blank" rel="noopener">📍 ${curM.gps_lat}, ${curM.gps_lng}</a>`);
+      const ymUrl = `https://yandex.ru/maps/?pt=${curM.gps_lng},${curM.gps_lat},pm2rdm&z=17&ll=${curM.gps_lng},${curM.gps_lat}`;
+      lines.push(`<a href="${ymUrl}" target="_blank" rel="noopener">📍 ${curM.gps_lat}, ${curM.gps_lng}</a>`);
     }
     if (curM.parking_type && parkingLabels[curM.parking_type]) {
       let p = parkingLabels[curM.parking_type];
@@ -870,6 +871,39 @@ function renderLogisticsBlock(m) {
       },
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
     );
+  });
+
+  // GPS «По адресу» — геокодирование через backend
+  section.querySelector("#getGpsAddr").addEventListener("click", async () => {
+    const hint = section.querySelector("#gpsHint");
+    const addr = (m.address || "").trim();
+    if (!addr) {
+      hint.textContent = "В заявке нет адреса — нужен текст адреса для геокодера.";
+      return;
+    }
+    hint.textContent = "Ищем по адресу...";
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/geocode`, {
+        method: "POST",
+        body: JSON.stringify({
+          initData: tg?.initData || "",
+          initDataUnsafe: tg?.initDataUnsafe || null,
+          address: addr,
+        }),
+      });
+      const data = await res.json();
+      if (!data.ok || !data.result) {
+        hint.textContent = "Адрес не найден геокодером — введите GPS вручную.";
+        return;
+      }
+      const r = data.result;
+      section.querySelector("#logGps").value = `${r.lat.toFixed(6)}, ${r.lng.toFixed(6)}`;
+      const srcLabel = r.source === "yandex" ? "Я.Геокодер" : "OSM";
+      hint.textContent = `Найдено: ${r.formatted || addr} · источник ${srcLabel}`;
+      haptic && haptic("success");
+    } catch (e) {
+      hint.textContent = "Сеть: " + e.message;
+    }
   });
 
   // Сохранение
