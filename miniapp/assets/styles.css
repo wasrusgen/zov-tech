@@ -234,6 +234,18 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   margin-top: 4px;
 }
 
+/* Каллиграфический слоган — на splash и других вход-экранах */
+.loader-tagline {
+  font-family: "Caveat", "Brush Script MT", cursive;
+  font-weight: 700;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--walnut, #6B4A2B);
+  margin-top: 8px;
+  transform: rotate(-2deg);
+  display: inline-block;
+}
+
 .loader-bar {
   width: 140px;
   height: 2px;
