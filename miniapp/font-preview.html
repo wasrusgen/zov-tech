@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>«Сделано с душой!» — варианты курсивных шрифтов</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Dancing+Script:wght@500;700&family=Marck+Script&family=Pacifico&family=Lobster&family=Comforter&family=Comforter+Brush&family=Cormorant+Garamond:ital,wght@1,400;1,500;1,600&family=Playfair+Display:ital,wght@1,400;1,500;1,600&family=Tinos:ital,wght@1,400&family=Old+Standard+TT:ital,wght@1,400&family=Petit+Formal+Script&family=Yeseva+One&family=Alumni+Sans+Pinstripe:ital@1&family=Sedan+SC:ital@1&family=Instrument+Serif:ital@1&family=Newsreader:ital,wght@1,400;1,500;1,600&display=swap">
+  <style>
+    :root {
+      --paper: #FBF7F0;
+      --paper-2: #F5EDDC;
+      --ink: #1F1A14;
+      --walnut: #6B4A2B;
+      --accent: #003E7E;
+      --muted: #998877;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "Inter", system-ui, sans-serif;
+    }
+    body {
+      padding: 32px 16px;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    h1 {
+      text-align: center;
+      font-family: "Newsreader", Georgia, serif;
+      font-style: italic;
+      font-size: 28px;
+      margin: 0 0 8px;
+    }
+    .hint {
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      margin: 0 0 28px;
+      line-height: 1.5;
+    }
+    .row {
+      background: white;
+      border: 1px solid rgba(107, 74, 43, 0.18);
+      border-radius: 14px;
+      padding: 20px 22px;
+      margin-bottom: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .row .meta {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .row .num {
+      display: inline-block;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--walnut);
+      color: var(--paper);
+      text-align: center;
+      line-height: 22px;
+      font-size: 11px;
+      margin-right: 8px;
+      font-family: "JetBrains Mono", monospace;
+    }
+    .row .preview {
+      color: var(--walnut);
+      line-height: 1.05;
+      padding: 4px 0;
+    }
+    .row .alt {
+      color: var(--accent);
+      font-size: 0.65em;
+      margin-top: 4px;
+      opacity: 0.8;
+    }
+
+    /* === Варианты === */
+    .f-caveat       { font-family: "Caveat", cursive; font-weight: 700; font-size: 42px; }
+    .f-dancing      { font-family: "Dancing Script", cursive; font-weight: 700; font-size: 38px; }
+    .f-marck        { font-family: "Marck Script", cursive; font-size: 38px; }
+    .f-pacifico     { font-family: "Pacifico", cursive; font-size: 32px; }
+    .f-lobster      { font-family: "Lobster", cursive; font-size: 36px; }
+    .f-comforter    { font-family: "Comforter", cursive; font-size: 38px; }
+    .f-comforter-b  { font-family: "Comforter Brush", cursive; font-size: 38px; }
+    .f-cormorant    { font-family: "Cormorant Garamond", serif; font-style: italic; font-weight: 500; font-size: 38px; }
+    .f-playfair     { font-family: "Playfair Display", serif; font-style: italic; font-weight: 500; font-size: 36px; }
+    .f-newsreader   { font-family: "Newsreader", serif; font-style: italic; font-weight: 500; font-size: 36px; }
+    .f-instrument   { font-family: "Instrument Serif", serif; font-style: italic; font-size: 40px; }
+    .f-tinos        { font-family: "Tinos", serif; font-style: italic; font-size: 32px; }
+    .f-old-tt       { font-family: "Old Standard TT", serif; font-style: italic; font-size: 34px; }
+    .f-petit        { font-family: "Petit Formal Script", cursive; font-size: 28px; }
+
+    /* Поворот -2° для рукописных вариантов */
+    .tilted { transform: rotate(-2deg); display: inline-block; }
+  </style>
+</head>
+<body>
+
+  <h1>Сделано с душой!</h1>
+  <p class="hint">Превью одной и той же фразы разными кириллическими шрифтами.<br>Скажи номер — поставлю в проект.</p>
+
+  <div class="row">
+    <div class="meta"><span class="num">1</span>Caveat — текущий выбор · рукописный, дружелюбный</div>
+    <div class="preview"><span class="f-caveat tilted">Сделано с душой!</span></div>
+  </div>
+
+  <div class="row">
+    <div class="meta"><span class="num">2</span>Dancing Script — элегантная каллиграфия</div>
+    <div class="preview"><span class="f-dancing tilted">Сделано с душой!</span></div>
+  </div>
+
+  <div class="row">
+    <div class="meta"><span class="num">3</span>Marck Script — русский handwritten</div>
+    <div class="preview"><span class="f-marck tilted">Сделано с душой!</span></div>
+  </div>
+
+  <div class="row">
+    <div class="meta"><span class="num">4</span>Pacifico — мягкая брашевая</div>
+    <div class="preview"><span class="f-pacifico">Сделано с душой!</span></div>
+  </div>
+
+  <div class="row">
+    <div class="meta"><span class="num">5</span>Lobster — толстая брашевая</div>
+    <div class="preview"><span class="f-lobster">Сделано с душой!</span></div>
+  </div>
+
+  <div class="row">
+    <div class="meta"><span class="num">6</span>Comforter — модерн-каллиграфия (тонкая)</div>
+    <div class="preview"><span class="f-comforter tilted">Сделано с душой!</span></div>
+  </div>
+
+  <div class="row">
+    <div class="meta"><span class="num">7</span>Comforter Brush — модерн-каллиграфия (брашевая)</div>
+    <div class="preview"><span class="f-comforter-b tilted">Сделано с душой!</span></div>
+  </div>
+
+  <div class="row">
+    <div class="meta"><span class="num">8</span>Cormorant Garamond Italic — классический serif-италик</div>
+    <div class="preview"><span class="f-cormorant">Сделано с душой!</span></div>
+  </div>
+
+  <div class="row">
+    <div class="meta"><span class="num">9</span>Playfair Display Italic — высокий контраст</div>
+    <div class="preview"><span class="f-playfair">Сделано с душой!</span></div>
+  </div>
+
+  <div class="row">
+    <div class="meta"><span class="num">10</span>Newsreader Italic — наш текущий display</div>
+    <div class="preview"><span class="f-newsreader">Сделано с душой!</span></div>
+  </div>
+
+  <div class="row">
+    <div class="meta"><span class="num">11</span>Instrument Serif Italic — журнальный</div>
+    <div class="preview"><span class="f-instrument">Сделано с душой!</span></div>
+  </div>
+
+  <div class="row">
+    <div class="meta"><span class="num">12</span>Tinos Italic — деловой</div>
+    <div class="preview"><span class="f-tinos">Сделано с душой!</span></div>
+  </div>
+
+  <div class="row">
+    <div class="meta"><span class="num">13</span>Old Standard TT Italic — антикварный</div>
+    <div class="preview"><span class="f-old-tt">Сделано с душой!</span></div>
+  </div>
+
+  <div class="row">
+    <div class="meta"><span class="num">14</span>Petit Formal Script — формальный каллиграфический</div>
+    <div class="preview"><span class="f-petit">Сделано с душой!</span></div>
+  </div>
+
+  <p class="hint" style="margin-top:32px;">
+    💡 Курсивные шрифты (1–7) бывают «надписаны» — наклон -2° усиливает рукописность.<br>
+    Serif-италики (8–13) формальнее, ближе к нашему дизайну «Editorial Calm».
+  </p>
+
+</body>
+</html>
