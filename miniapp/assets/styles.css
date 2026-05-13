@@ -239,11 +239,11 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   font-family: "Cormorant Garamond", "Newsreader", Georgia, serif;
   font-style: italic;
   font-weight: 500;
-  font-size: 22px;
-  line-height: 1.1;
+  font-size: 28px;
+  line-height: 1.15;
   color: var(--walnut, #6B4A2B);
-  margin-top: 6px;
   letter-spacing: 0.005em;
+  text-align: center;
 }
 
 .loader-bar {
