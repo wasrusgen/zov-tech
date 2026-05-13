@@ -233,24 +233,6 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   filter: drop-shadow(0 6px 16px rgba(44, 62, 80, 0.18));
 }
 
-/* Вращающийся диск-кольцо поверх саблона.
-   Позиция и размер подобраны под расположение диска пилы в лого. */
-.saw-rotor {
-  position: absolute;
-  top: 22%;     /* центр диска пилы примерно тут */
-  left: 50%;
-  width: 36%;
-  aspect-ratio: 1 / 1;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  opacity: 0.55;
-  animation: rotorSpin 3.5s linear infinite;
-}
-@keyframes rotorSpin {
-  from { transform: translate(-50%, -50%) rotate(0deg); }
-  to   { transform: translate(-50%, -50%) rotate(360deg); }
-}
-
 /* Опилки — 16 точек летают вокруг пилы */
 .splash-dust {
   position: absolute;
