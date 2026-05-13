@@ -346,6 +346,70 @@ function buildMenu(items) {
   return menu;
 }
 
+/* ----------------- Role chooser — первый экран MiniApp ----------------- */
+function renderRoleChooser() {
+  app.innerHTML = "";
+  document.body.classList.remove("has-bottom-nav");
+  const oldNav = document.getElementById("bottom-nav");
+  if (oldNav) oldNav.remove();
+
+  app.appendChild(el(`
+    <div class="role-chooser">
+      <div class="role-chooser-head">
+        <div class="kicker">ЗОВ — кухня и техника</div>
+        <h1 class="display-title">Кто <span class="accent">вы?</span></h1>
+        <p class="lede">Выберите роль — кабинет откроется одним тапом.</p>
+      </div>
+      <div class="role-cards">
+        <button class="role-card" data-role="manager">
+          <div class="role-icon">👤</div>
+          <div class="role-text">
+            <div class="role-title">Я менеджер</div>
+            <div class="role-sub">Веду клиентов и заказы</div>
+          </div>
+          <div class="role-arrow">${ICONS.chevron || "›"}</div>
+        </button>
+        <button class="role-card" data-role="client">
+          <div class="role-icon">🏠</div>
+          <div class="role-text">
+            <div class="role-title">Я клиент</div>
+            <div class="role-sub">Заказал кухню ЗОВ</div>
+          </div>
+          <div class="role-arrow">${ICONS.chevron || "›"}</div>
+        </button>
+        <button class="role-card" data-role="staff">
+          <div class="role-icon">🔧</div>
+          <div class="role-text">
+            <div class="role-title">Я сотрудник</div>
+            <div class="role-sub">Замерщик или сборщик ЗОВ</div>
+          </div>
+          <div class="role-arrow">${ICONS.chevron || "›"}</div>
+        </button>
+      </div>
+      <p class="muted" style="text-align:center;margin-top:24px;font-size:12px;">
+        Свой выбор можно изменить позже в профиле.
+      </p>
+    </div>
+  `));
+  app.querySelectorAll(".role-card").forEach(card => {
+    card.addEventListener("click", () => {
+      const role = card.dataset.role;
+      haptic && haptic("impact");
+      // Меняем URL и перезапускаем init() — fetchMe пойдёт с правильной ролью
+      const qp = new URLSearchParams(window.location.search);
+      qp.set("role", role);
+      history.replaceState(null, "", `?${qp.toString()}${location.hash || ""}`);
+      // Показываем splash снова — на время загрузки
+      const splashEl = document.createElement("div");
+      splashEl.id = "splash";
+      splashEl.className = "loader splash";
+      splashEl.innerHTML = `<div class="loader-bar"></div><div class="loader-caption">Открываем кабинет</div>`;
+      document.body.appendChild(splashEl);
+      init();
+    });
+  });
+}
+
 /* ----------------- Staff (замерщик / сборщик) ----------------- */
 async function renderStaff(me) {
   app.innerHTML = "";
@@ -658,11 +722,8 @@ function hideSplash() {
 
 async function init() {
   setupTelegram();
-  // Hash-роутер: позволяет открывать подэкраны (например подбор) напрямую
   window.addEventListener("hashchange", routeByHash);
 
-  // ?go=podbor|clients|measure|request — бот может задать стартовый экран через query,
-  // потому что Telegram WebApp не передаёт hash через KeyboardButton.web_app.
   const qp = new URLSearchParams(window.location.search);
   const goScreen = qp.get("go");
   if (goScreen && !location.hash) {
@@ -673,9 +734,16 @@ async function init() {
       request: "#/request",
     };
     if (map[goScreen]) {
-      // Меняем hash без триггера hashchange (init сам отрендерит правильный экран)
       history.replaceState(null, "", location.pathname + location.search + map[goScreen]);
     }
+  }
+
+  // Если нет ?role= в URL — показываем выбор роли (универсально для всех клиентов)
+  const explicitRole = qp.get("role");
+  if (!explicitRole && !location.hash) {
+    renderRoleChooser();
+    hideSplash();
+    return;
   }
 
   try {
