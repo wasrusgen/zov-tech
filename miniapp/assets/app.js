@@ -356,7 +356,7 @@ function renderRoleChooser() {
   app.appendChild(el(`
     <div class="role-chooser">
       <div class="role-chooser-head">
-        <div class="kicker">ЗОВ — кухня и техника</div>
+        <div class="tagline">Сделано с душой!</div>
         <h1 class="display-title">Кто <span class="accent">вы?</span></h1>
         <p class="lede">Выберите роль — кабинет откроется одним тапом.</p>
       </div>

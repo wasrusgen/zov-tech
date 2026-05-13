@@ -2003,13 +2003,16 @@
   text-align: center;
   margin-bottom: 28px;
 }
-.role-chooser-head .kicker {
-  font-family: var(--font-mono, "JetBrains Mono", monospace);
-  font-size: 10.5px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--muted, #998877);
-  margin-bottom: 12px;
+.role-chooser-head .tagline {
+  font-family: "Caveat", "Brush Script MT", cursive;
+  font-weight: 700;
+  font-size: 34px;
+  line-height: 1;
+  color: var(--walnut, #6B4A2B);
+  margin: 0 0 8px;
+  transform: rotate(-2deg);
+  display: inline-block;
+  letter-spacing: 0.5px;
 }
 .role-chooser-head .display-title {
   font-size: 36px;
