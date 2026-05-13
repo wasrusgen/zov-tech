@@ -127,73 +127,252 @@ const Clients = (function () {
       return;
     }
 
+    // Шапка
+    const phoneNorm = (client.client_phone || "").replace(/[^\d+]/g, "");
+    const callHref = phoneNorm ? `tel:${phoneNorm}` : "";
     root.appendChild(el(`
       <div class="client-detail-head">
         <div class="client-avatar lg">${initial(client.client_name)}</div>
-        <div>
+        <div style="flex:1;min-width:0;">
           <h2 class="client-detail-name">${escHtml(client.client_name)}</h2>
           ${client.client_phone ? `<div class="client-detail-phone">${escHtml(client.client_phone)}</div>` : ""}
         </div>
+        ${callHref ? `<a class="client-call-btn" href="${callHref}" aria-label="Позвонить">📞</a>` : ""}
       </div>
     `));
 
-    // Примечание менеджера — текст или голосовой ввод
+    // Быстрые действия для менеджера
+    const actionsRow = el(`
+      <div class="client-quick-actions">
+        <button class="qa-btn" data-act="podbor">🤖<span>Подбор техники</span></button>
+        <button class="qa-btn" data-act="measure">📐<span>Заказать замер</span></button>
+        <button class="qa-btn" data-act="copy">📋<span>Копировать ФИО+тел</span></button>
+      </div>
+    `);
+    actionsRow.querySelectorAll(".qa-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        haptic && haptic("impact");
+        const act = btn.dataset.act;
+        if (act === "podbor") {
+          location.hash = `#/podbor?client_name=${encodeURIComponent(client.client_name || "")}&client_phone=${encodeURIComponent(client.client_phone || "")}`;
+        } else if (act === "measure") {
+          // Pre-fill request with client info
+          sessionStorage.setItem("prefillClient", JSON.stringify({
+            name: client.client_name, phone: client.client_phone,
+          }));
+          location.hash = "#/request";
+        } else if (act === "copy") {
+          const txt = `${client.client_name || ""} ${client.client_phone || ""}`.trim();
+          (navigator.clipboard?.writeText(txt) || Promise.resolve())
+            .then(() => tg?.showAlert?.("Скопировано"));
+        }
+      });
+    });
+    root.appendChild(actionsRow);
+
+    // Примечание менеджера с голосовым вводом
     root.appendChild(renderClientNoteBlock(client));
 
-    root.appendChild(el(`<div class="section-head"><span class="label">Подборы · ${client.leads_count}</span></div>`));
+    // Хронология + Файлы — собираются после загрузки замеров
+    const timelinePlaceholder = el(`<div id="clTimelinePlaceholder"></div>`);
+    const filesPlaceholder = el(`<div id="clFilesPlaceholder"></div>`);
+    const detailsPlaceholder = el(`<div id="clDetailsPlaceholder"></div>`);
+    root.appendChild(timelinePlaceholder);
+    root.appendChild(filesPlaceholder);
+    root.appendChild(detailsPlaceholder);
 
-    const leadsList = el(`<div class="leads-list"></div>`);
-    for (const lead of client.leads) {
-      const item = el(`
-        <button class="lead-item">
-          <div class="lead-date">${formatDate(lead.created_at)}</div>
-          <div class="lead-id">#${(lead.id || "").slice(0, 8)}</div>
-          <div class="lead-status status-${lead.status || "new"}">${statusLabel(lead.status)}</div>
-          <div class="lead-arrow">${ICONS.chevron || "›"}</div>
-        </button>
-      `);
-      item.addEventListener("click", () => {
-        haptic && haptic("impact");
-        location.hash = `#/clients/lead/${lead.id}`;
-      });
-      leadsList.appendChild(item);
-    }
-    root.appendChild(leadsList);
-
-    // Замеры этого клиента (если есть)
+    let myMeasurements = [];
     try {
       const ms = await fetchMeasurements({ client_tg_id: client.client_tg_id || "" });
-      const myMeasurements = (ms.measurements || []).filter(m => {
-        // Если client_tg_id зарегистрирован — фильтруем по нему
+      myMeasurements = (ms.measurements || []).filter(m => {
         if (client.client_tg_id) return String(m.client_tg_id) === String(client.client_tg_id);
-        // Иначе — ищем имя клиента в notes (упрощённая логика для новых клиентов)
         return (m.notes || "").toLowerCase().includes((client.client_name || "").toLowerCase());
       });
-      if (myMeasurements.length) {
-        root.appendChild(el(`<div class="section-head" style="margin-top:24px;"><span class="label">Замеры · ${myMeasurements.length}</span></div>`));
-        const mList = el(`<div class="leads-list"></div>`);
-        for (const m of myMeasurements) {
-          const photoCount = m.photo_count || (m.photos || []).length;
-          const photoBadge = photoCount ? ` · 📷 ${photoCount}` : "";
-          const item = el(`
-            <button class="lead-item">
-              <div class="lead-date">${formatDate(m.created_at)}</div>
-              <div class="lead-id">${escHtml(layoutLabel(m.layout))}</div>
-              <div class="lead-status">${m.area_m2 ? m.area_m2 + " м²" : "—"}${photoBadge}</div>
-              <div class="lead-arrow">${ICONS.chevron || "›"}</div>
-            </button>
-          `);
-          item.addEventListener("click", () => {
-            haptic && haptic("impact");
-            location.hash = `#/clients/measurement/${m.id}`;
-          });
-          mList.appendChild(item);
-        }
-        root.appendChild(mList);
-      }
-    } catch (e) {
-      // Игнорируем — секция замеров просто не покажется
+    } catch (e) { /* пусто */ }
+
+    // Хронология
+    timelinePlaceholder.replaceWith(renderClientTimeline(client, myMeasurements));
+    // Файлы
+    filesPlaceholder.replaceWith(renderClientFiles(client, myMeasurements));
+    // Детальные списки внизу (свёрнуты)
+    detailsPlaceholder.replaceWith(renderClientDetails(client, myMeasurements));
+  }
+
+  /* ===================== Хронология ===================== */
+
+  function renderClientTimeline(client, measurements) {
+    // Собираем события из лидов и замеров
+    const events = [];
+
+    for (const lead of client.leads || []) {
+      events.push({
+        ts: lead.created_at,
+        icon: "🤖",
+        title: "Подбор техники",
+        sub: `#${(lead.id || "").slice(0, 8)} · ${statusLabel(lead.status)}`,
+        href: `#/clients/lead/${lead.id}`,
+      });
     }
+
+    for (const m of measurements) {
+      const photoCount = m.photo_count || (m.photos || []).length;
+      // Создание заявки / замера
+      events.push({
+        ts: m.created_at,
+        icon: m.status === "requested" ? "📋" : "📐",
+        title: m.status === "requested" ? "Заявка на замер" : "Замер создан",
+        sub: m.address ? escHtml(m.address) : (m.status === "requested" ? "ожидает согласования" : ""),
+        href: `#/clients/measurement/${m.id}`,
+      });
+      // Если назначен — отдельное событие на момент scheduled_at
+      if (m.scheduled_at) {
+        events.push({
+          ts: m.scheduled_at,
+          icon: "📅",
+          title: "Замер назначен",
+          sub: formatDate(m.scheduled_at) + (m.address ? " · " + escHtml(m.address) : ""),
+          href: `#/clients/measurement/${m.id}`,
+        });
+      }
+      // Если завершён — отдельное событие
+      if (m.status === "completed") {
+        events.push({
+          ts: m.created_at,  // нет updated_at, используем created
+          icon: "✅",
+          title: "Замер выполнен",
+          sub: `${photoCount} фото` + (m.area_m2 ? ` · ${m.area_m2} м²` : ""),
+          href: `#/clients/measurement/${m.id}`,
+        });
+      }
+    }
+
+    events.sort((a, b) => (b.ts || "").localeCompare(a.ts || ""));
+
+    const section = el(`
+      <section class="block client-timeline-block">
+        <div class="block-head">🕒 Хронология · ${events.length}</div>
+        ${events.length === 0
+          ? `<div class="empty" style="padding:14px;text-align:center;color:var(--muted);font-size:13px;">Пока нет событий</div>`
+          : `<div class="timeline">${events.map(ev => `
+              <a class="tl-item" ${ev.href ? `href="${ev.href}"` : ""}>
+                <div class="tl-dot"></div>
+                <div class="tl-content">
+                  <div class="tl-date">${formatDate(ev.ts)}</div>
+                  <div class="tl-title"><span class="tl-icon">${ev.icon}</span>${ev.title}</div>
+                  ${ev.sub ? `<div class="tl-sub">${ev.sub}</div>` : ""}
+                </div>
+              </a>
+            `).join("")}</div>`}
+      </section>
+    `);
+    return section;
+  }
+
+  /* ===================== Файлы клиента ===================== */
+
+  function renderClientFiles(client, measurements) {
+    const groups = [];
+    for (const m of measurements) {
+      const photos = m.photos || [];
+      if (photos.length) {
+        groups.push({
+          title: `📐 Замер от ${formatDate(m.created_at)}`,
+          sub: `${photos.length} фото` + (m.area_m2 ? ` · ${m.area_m2} м²` : ""),
+          photos,
+          measurement_id: m.id,
+        });
+      }
+    }
+    const totalPhotos = groups.reduce((s, g) => s + g.photos.length, 0);
+
+    const section = el(`
+      <section class="block client-files-block">
+        <div class="block-head">📂 Файлы · ${totalPhotos}</div>
+        ${groups.length === 0
+          ? `<div class="empty" style="padding:14px;text-align:center;color:var(--muted);font-size:13px;">Файлов нет. Появятся после замера и подбора.</div>`
+          : groups.map(g => `
+              <div class="file-group">
+                <div class="file-group-head">
+                  <span>${g.title}</span>
+                  <span class="muted" style="font-size:11px;">${g.sub}</span>
+                </div>
+                <div class="file-thumbs" data-mid="${g.measurement_id}">
+                  ${g.photos.slice(0, 6).map((fn, i) => `
+                    <a class="file-thumb" href="${BACKEND_URL}/api/photo/${g.measurement_id}/${fn}" target="_blank" rel="noopener">
+                      <img src="${BACKEND_URL}/api/photo/${g.measurement_id}/${fn}" alt="">
+                    </a>
+                  `).join("")}
+                  ${g.photos.length > 6 ? `<a class="file-thumb more" href="#/clients/measurement/${g.measurement_id}">+${g.photos.length - 6}</a>` : ""}
+                </div>
+              </div>
+            `).join("")}
+      </section>
+    `);
+    return section;
+  }
+
+  /* ===================== Детальные списки (свёрнутые) ===================== */
+
+  function renderClientDetails(client, measurements) {
+    const wrap = el(`<div class="client-details"></div>`);
+
+    // Подборы
+    if ((client.leads || []).length) {
+      const detailsLeads = el(`
+        <details class="client-details-collapse">
+          <summary>Подборы · ${client.leads_count}</summary>
+          <div class="leads-list"></div>
+        </details>
+      `);
+      const list = detailsLeads.querySelector(".leads-list");
+      for (const lead of client.leads) {
+        const item = el(`
+          <button class="lead-item">
+            <div class="lead-date">${formatDate(lead.created_at)}</div>
+            <div class="lead-id">#${(lead.id || "").slice(0, 8)}</div>
+            <div class="lead-status status-${lead.status || "new"}">${statusLabel(lead.status)}</div>
+            <div class="lead-arrow">${ICONS.chevron || "›"}</div>
+          </button>
+        `);
+        item.addEventListener("click", () => {
+          haptic && haptic("impact");
+          location.hash = `#/clients/lead/${lead.id}`;
+        });
+        list.appendChild(item);
+      }
+      wrap.appendChild(detailsLeads);
+    }
+
+    // Замеры
+    if (measurements.length) {
+      const detailsMs = el(`
+        <details class="client-details-collapse">
+          <summary>Замеры · ${measurements.length}</summary>
+          <div class="leads-list"></div>
+        </details>
+      `);
+      const list = detailsMs.querySelector(".leads-list");
+      for (const m of measurements) {
+        const photoCount = m.photo_count || (m.photos || []).length;
+        const photoBadge = photoCount ? ` · 📷 ${photoCount}` : "";
+        const item = el(`
+          <button class="lead-item">
+            <div class="lead-date">${formatDate(m.created_at)}</div>
+            <div class="lead-id">${escHtml(layoutLabel(m.layout) || (m.status || ""))}</div>
+            <div class="lead-status">${m.area_m2 ? m.area_m2 + " м²" : "—"}${photoBadge}</div>
+            <div class="lead-arrow">${ICONS.chevron || "›"}</div>
+          </button>
+        `);
+        item.addEventListener("click", () => {
+          haptic && haptic("impact");
+          location.hash = `#/clients/measurement/${m.id}`;
+        });
+        list.appendChild(item);
+      }
+      wrap.appendChild(detailsMs);
+    }
+
+    return wrap;
   }
 
   function layoutLabel(key) {

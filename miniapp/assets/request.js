@@ -24,6 +24,16 @@ const MeasurementRequest = (function () {
       client_name: "", client_phone: "", address: "", assigned_to_tg_id: "",
       preferred_note: "",
     };
+    // Prefill из карточки клиента (sessionStorage перед navigate)
+    try {
+      const raw = sessionStorage.getItem("prefillClient");
+      if (raw) {
+        const pre = JSON.parse(raw);
+        if (pre.name) state.client_name = pre.name;
+        if (pre.phone) state.client_phone = pre.phone;
+        sessionStorage.removeItem("prefillClient");
+      }
+    } catch (e) {}
     render();
     loadMeasurers();
   }
@@ -41,7 +51,7 @@ const MeasurementRequest = (function () {
         <div class="form-row">
           <label class="field">
             <span class="field-label">ФИО клиента *</span>
-            <input type="text" data-bind="client_name" placeholder="Иванов Иван Иванович" autocomplete="name">
+            <input type="text" data-bind="client_name" value="${escAttr(state.client_name)}" placeholder="Иванов Иван Иванович" autocomplete="name">
             <span class="field-error" id="errName"></span>
           </label>
         </div>
@@ -49,7 +59,7 @@ const MeasurementRequest = (function () {
         <div class="form-row">
           <label class="field">
             <span class="field-label">Телефон *</span>
-            <input type="tel" data-bind="client_phone" placeholder="+7 921 555-12-34" autocomplete="tel">
+            <input type="tel" data-bind="client_phone" value="${escAttr(state.client_phone)}" placeholder="+7 921 555-12-34" autocomplete="tel">
             <span class="field-hint">Минимум 10 цифр</span>
             <span class="field-error" id="errPhone"></span>
           </label>
@@ -58,7 +68,7 @@ const MeasurementRequest = (function () {
         <div class="form-row">
           <label class="field">
             <span class="field-label">Адрес замера</span>
-            <input type="text" data-bind="address" placeholder="СПб, Просвещения 87, кв. 12">
+            <input type="text" data-bind="address" value="${escAttr(state.address)}" placeholder="СПб, Просвещения 87, кв. 12">
           </label>
         </div>
 
@@ -228,6 +238,7 @@ const MeasurementRequest = (function () {
       .replace(/&/g, "&amp;").replace(/</g, "&lt;")
       .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
+  function escAttr(s) { return escHtml(s); }
 
   return { mount };
 })();

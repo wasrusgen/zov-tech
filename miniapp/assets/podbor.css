@@ -2066,6 +2066,154 @@
   flex-shrink: 0;
 }
 
+/* ===== Карточка клиента: шапка + действия ===== */
+.client-detail-head { position: relative; display: flex; align-items: center; gap: 14px; }
+.client-call-btn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--walnut, #6B4A2B);
+  color: var(--paper, #FBF7F0);
+  text-decoration: none;
+  font-size: 20px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(107, 74, 43, 0.25);
+}
+.client-call-btn:active { transform: scale(0.95); }
+
+.client-quick-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin: 14px 0 18px;
+}
+.client-quick-actions .qa-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 6px;
+  background: var(--card, #fff);
+  border: 1px solid rgba(107, 74, 43, 0.18);
+  border-radius: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 19px;
+  line-height: 1;
+}
+.client-quick-actions .qa-btn:active { background: var(--paper-2, #F5EDDC); }
+.client-quick-actions .qa-btn span {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink, #1F1A14);
+  margin-top: 4px;
+  line-height: 1.2;
+  text-align: center;
+}
+
+/* ===== Хронология клиента ===== */
+.client-timeline-block .timeline { padding: 10px 4px 4px; position: relative; }
+.client-timeline-block .timeline::before {
+  content: "";
+  position: absolute;
+  left: 13px;
+  top: 18px;
+  bottom: 18px;
+  width: 1px;
+  background: rgba(107, 74, 43, 0.18);
+}
+.tl-item {
+  display: flex;
+  gap: 14px;
+  padding: 8px 0;
+  text-decoration: none;
+  color: inherit;
+  position: relative;
+  cursor: pointer;
+}
+.tl-item:active { background: rgba(107, 74, 43, 0.04); border-radius: 6px; }
+.tl-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--walnut, #6B4A2B);
+  flex-shrink: 0;
+  margin-top: 8px;
+  z-index: 1;
+  box-shadow: 0 0 0 3px var(--paper, #FBF7F0);
+}
+.tl-content { flex: 1; min-width: 0; }
+.tl-date {
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  font-size: 10px;
+  color: var(--muted, #998877);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 2px;
+}
+.tl-title { font-size: 14px; font-weight: 500; color: var(--ink, #1F1A14); }
+.tl-icon { margin-right: 6px; }
+.tl-sub { font-size: 12px; color: var(--muted, #998877); margin-top: 2px; }
+
+/* ===== Файлы клиента ===== */
+.client-files-block .file-group { padding: 8px 4px 12px; }
+.client-files-block .file-group-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink, #1F1A14);
+}
+.file-thumbs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 6px;
+}
+.file-thumb {
+  display: block;
+  aspect-ratio: 1 / 1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--warm, rgba(107, 74, 43, 0.08));
+  border: 1px solid rgba(107, 74, 43, 0.15);
+}
+.file-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.file-thumb.more {
+  display: grid;
+  place-items: center;
+  background: rgba(107, 74, 43, 0.10);
+  color: var(--walnut, #6B4A2B);
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+/* ===== Свёрнутые детали (подборы / замеры) ===== */
+.client-details { margin-top: 14px; }
+.client-details-collapse {
+  background: var(--card, #fff);
+  border: 1px solid rgba(107, 74, 43, 0.12);
+  border-radius: 10px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.client-details-collapse summary {
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink, #1F1A14);
+  cursor: pointer;
+  user-select: none;
+  font-family: inherit;
+  letter-spacing: 0.02em;
+}
+.client-details-collapse[open] summary { border-bottom: 1px solid rgba(107, 74, 43, 0.10); }
+.client-details-collapse .leads-list { padding: 4px 8px 8px; }
+
 /* ===== Примечание по клиенту ===== */
 .client-note-block .block-head {
   display: flex;
