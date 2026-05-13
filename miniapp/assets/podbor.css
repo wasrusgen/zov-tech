@@ -2538,6 +2538,173 @@
 .checklist-md .cl-table th, .checklist-md .cl-table td { border: 1px solid rgba(107, 74, 43, 0.18); padding: 4px 8px; text-align: left; }
 .checklist-md .cl-table th { background: rgba(107, 74, 43, 0.08); font-weight: 600; }
 
+/* ===== Кабинет замерщика: week strip + grouped inbox ===== */
+
+/* Week strip — загрузка по дням */
+.cal-strip-block {
+  background: var(--card, #fff);
+  border: 1px solid rgba(107, 74, 43, 0.12);
+  border-radius: 14px;
+  padding: 12px 10px 10px;
+  margin-bottom: 14px;
+}
+.cal-strip-head {
+  font-family: var(--font-display, "Newsreader", serif);
+  font-style: italic;
+  font-size: 16px;
+  color: var(--ink, #1F1A14);
+  text-align: center;
+  margin-bottom: 10px;
+  text-transform: capitalize;
+}
+.cal-strip {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.cal-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 2px 8px;
+  border-radius: 8px;
+  background: var(--paper, #FBF7F0);
+  border: 1px solid transparent;
+  position: relative;
+}
+.cal-day.today {
+  border-color: var(--walnut, #6B4A2B);
+  background: var(--warm, rgba(107, 74, 43, 0.08));
+}
+.cal-day.past { opacity: 0.5; }
+.cal-day-name {
+  font-size: 9px;
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted, #998877);
+  margin-bottom: 2px;
+}
+.cal-day-num {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink, #1F1A14);
+  line-height: 1;
+}
+.cal-day.today .cal-day-num { color: var(--walnut, #6B4A2B); }
+.cal-day-bar {
+  width: 18px;
+  height: 28px;
+  margin: 6px 0 4px;
+  background: rgba(107, 74, 43, 0.08);
+  border-radius: 3px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+.cal-day-bar .bar {
+  width: 100%;
+  border-radius: 3px;
+  transition: height 0.25s ease;
+}
+.cal-day-bar .bar.load-zero { background: transparent; }
+.cal-day-bar .bar.load-low { background: rgba(107, 74, 43, 0.5); }
+.cal-day-bar .bar.load-mid { background: var(--walnut, #6B4A2B); }
+.cal-day-bar .bar.load-hot { background: #C0392B; }
+.cal-day-count {
+  font-size: 10px;
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  color: var(--muted, #998877);
+  letter-spacing: 0.04em;
+}
+
+/* Grouped inbox */
+.inbox-group { margin-bottom: 14px; }
+.inbox-group-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 12px 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink, #1F1A14);
+  letter-spacing: 0.01em;
+}
+.inbox-group-head .count {
+  font-size: 11px;
+  color: var(--muted, #998877);
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  font-weight: 400;
+}
+.inbox-group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.inbox-row {
+  display: flex;
+  gap: 8px;
+  background: var(--card, #fff);
+  border: 1px solid rgba(107, 74, 43, 0.14);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.inbox-row-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  min-width: 0;
+}
+.inbox-row-main:active { background: rgba(107, 74, 43, 0.06); }
+.inbox-time {
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--walnut, #6B4A2B);
+  min-width: 50px;
+  text-align: center;
+}
+.inbox-row-body { flex: 1; min-width: 0; }
+.inbox-client {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink, #1F1A14);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.inbox-addr {
+  font-size: 12px;
+  color: var(--muted, #998877);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.inbox-arrow {
+  color: var(--muted, #998877);
+  font-size: 18px;
+}
+.inbox-call {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  background: rgba(39, 174, 96, 0.08);
+  color: #27AE60;
+  text-decoration: none;
+  font-size: 18px;
+  flex-shrink: 0;
+  border-left: 1px solid rgba(107, 74, 43, 0.12);
+}
+.inbox-call:active { background: rgba(39, 174, 96, 0.18); }
+
 /* ===== Кабинет сотрудника (замерщик/сборщик) ===== */
 .staff-head {
   display: flex;

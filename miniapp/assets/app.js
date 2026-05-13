@@ -448,35 +448,37 @@ async function renderStaff(me) {
     </div>
   `));
 
-  // Реальный инбокс — загружаем из /api/measurement_inbox
+  // Загружаем заявки и рендерим: week strip + сгруппированный инбокс
+  const stripPlaceholder = el(`<div id="weekStrip"></div>`);
   const inboxSection = el(`
     <section class="block">
-      <div class="block-head">📥 Входящие заявки на замер</div>
+      <div class="block-head">📥 Заявки</div>
       <div id="inboxList"><div class="loader-inline"><div class="spinner"></div></div></div>
     </section>
   `);
+  app.appendChild(stripPlaceholder);
   app.appendChild(inboxSection);
 
   if (caps.measurer) {
     try {
       const res = await fetch(`${BACKEND_URL}/api/measurement_inbox`, {
         method: "POST",
-        body: JSON.stringify({ initData: tg?.initData || "" }),
+        body: JSON.stringify({
+          initData: tg?.initData || "",
+          initDataUnsafe: tg?.initDataUnsafe || null,
+        }),
       });
       const data = await res.json();
       const list = document.getElementById("inboxList");
       if (!list) return;
       if (data.error) {
         list.innerHTML = `<div class="error">Ошибка: ${data.error}</div>`;
-      } else if (!data.measurements || !data.measurements.length) {
-        list.innerHTML = `
-          <div class="empty" style="padding:18px 12px;text-align:center;color:var(--muted);">
-            Заявок пока нет. Когда менеджер назначит замер — увидите здесь.
-          </div>
-        `;
       } else {
-        list.innerHTML = "";
-        data.measurements.forEach(m => list.appendChild(renderInboxItem(m)));
+        const measurements = data.measurements || [];
+        // Week strip — заменяет placeholder
+        document.getElementById("weekStrip").replaceWith(renderWeekStrip(measurements));
+        // Группированный инбокс
+        renderGroupedInbox(list, measurements);
       }
     } catch (e) {
       const list = document.getElementById("inboxList");
@@ -505,35 +507,166 @@ async function renderStaff(me) {
   }
 }
 
-function renderInboxItem(m) {
-  const statusLabel = ({
-    requested:   "🟡 ждёт даты",
-    scheduled:   "📅 назначен",
-    in_progress: "🔵 в работе",
-  })[m.status] || m.status;
-  // Когда: точная дата если назначена, иначе приблизительная
-  let whenText;
-  if (m.scheduled_at) {
-    whenText = "📅 " + formatDateHuman(m.scheduled_at);
-  } else {
-    whenText = "🕐 " + formatPreferredHuman(m);
+/* ----------------- Группировка инбокса замерщика по дням ----------------- */
+
+function _startOfDay(d) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function _daysBetween(a, b) {
+  return Math.round((_startOfDay(b) - _startOfDay(a)) / 86400000);
+}
+
+function _groupForMeasurement(m, today, weekEnd) {
+  if (!m.scheduled_at) {
+    // Без даты — отделяем requested от scheduled (по идее scheduled без даты быть не должно)
+    return { key: "no_date", title: "📞 Без даты — нужно согласовать", order: 5 };
+  }
+  const d = new Date(m.scheduled_at);
+  const diff = _daysBetween(today, d);
+  if (diff < 0) return { key: "overdue", title: "⚠️ Просрочено", order: 0 };
+  if (diff === 0) return { key: "today", title: "🔥 Сегодня", order: 1 };
+  if (diff === 1) return { key: "tomorrow", title: "📅 Завтра", order: 2 };
+  if (d <= weekEnd) return { key: "this_week", title: "🗓️ На неделе", order: 3 };
+  return { key: "later", title: "📆 Позже", order: 4 };
+}
+
+function renderGroupedInbox(container, measurements) {
+  container.innerHTML = "";
+  if (!measurements.length) {
+    container.innerHTML = `
+      <div class="empty" style="padding:18px 12px;text-align:center;color:var(--muted);">
+        Заявок пока нет. Когда менеджер назначит замер — увидите здесь.
+      </div>
+    `;
+    return;
   }
 
-  const item = el(`
-    <button class="lead-item" style="text-align:left;">
-      <div style="flex:1; min-width:0;">
-        <div class="lead-date" style="font-weight:600; color:var(--ink);">${escHtml(m.client_name || "—")}</div>
-        <div class="lead-id" style="font-size:12px; color:var(--muted); margin-top:2px;">
-          ${escHtml(m.address || "адрес не указан")}
-        </div>
-        <div class="lead-id" style="font-size:11px; color:var(--muted); margin-top:2px;">
-          ${escHtml(whenText)} · ${statusLabel}
-        </div>
+  const today = _startOfDay(new Date());
+  // Конец этой недели: воскресенье вечером
+  const weekEnd = new Date(today);
+  const dayIdx = (today.getDay() + 6) % 7; // 0 = Пн, 6 = Вс
+  weekEnd.setDate(today.getDate() + (6 - dayIdx));
+  weekEnd.setHours(23, 59, 59, 999);
+
+  // Группируем
+  const groups = new Map();
+  for (const m of measurements) {
+    const g = _groupForMeasurement(m, today, weekEnd);
+    if (!groups.has(g.key)) groups.set(g.key, { ...g, items: [] });
+    groups.get(g.key).items.push(m);
+  }
+  // Сортируем группы и внутри — по дате
+  const sortedGroups = [...groups.values()].sort((a, b) => a.order - b.order);
+  for (const g of sortedGroups) {
+    g.items.sort((a, b) => (a.scheduled_at || "").localeCompare(b.scheduled_at || ""));
+    const groupEl = el(`
+      <div class="inbox-group">
+        <div class="inbox-group-head">${g.title}<span class="count">${g.items.length}</span></div>
+        <div class="inbox-group-list"></div>
       </div>
-      <div class="lead-arrow">${ICONS.chevron || "›"}</div>
-    </button>
+    `);
+    const list = groupEl.querySelector(".inbox-group-list");
+    g.items.forEach(m => list.appendChild(renderInboxItem(m, g.key)));
+    container.appendChild(groupEl);
+  }
+}
+
+/* ----------------- Week strip — загрузка по дням ----------------- */
+
+function renderWeekStrip(measurements) {
+  const today = _startOfDay(new Date());
+  const dayIdx = (today.getDay() + 6) % 7; // Пн = 0
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - dayIdx);
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    days.push(d);
+  }
+  // Считаем сколько замеров на каждый день
+  const countByDay = days.map(d => {
+    const start = _startOfDay(d).getTime();
+    const end = start + 86400000;
+    return measurements.filter(m => {
+      if (!m.scheduled_at) return false;
+      const t = new Date(m.scheduled_at).getTime();
+      return t >= start && t < end;
+    }).length;
+  });
+  const maxCount = Math.max(1, ...countByDay);
+
+  const dayNames = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+  const section = el(`
+    <section class="cal-strip-block">
+      <div class="cal-strip-head">
+        ${monday.getDate()}–${days[6].getDate()} ${monday.toLocaleString("ru-RU", { month: "long" })}
+      </div>
+      <div class="cal-strip">
+        ${days.map((d, i) => {
+          const cnt = countByDay[i];
+          const heightPct = cnt ? Math.round((cnt / maxCount) * 100) : 0;
+          const isToday = _startOfDay(d).getTime() === today.getTime();
+          const isPast = _startOfDay(d).getTime() < today.getTime();
+          const loadClass = cnt >= 5 ? "load-hot" : cnt >= 3 ? "load-mid" : cnt > 0 ? "load-low" : "load-zero";
+          return `
+            <div class="cal-day ${isToday ? "today" : ""} ${isPast ? "past" : ""}">
+              <div class="cal-day-name">${dayNames[i]}</div>
+              <div class="cal-day-num">${d.getDate()}</div>
+              <div class="cal-day-bar"><div class="bar ${loadClass}" style="height:${heightPct}%"></div></div>
+              <div class="cal-day-count">${cnt || "—"}</div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    </section>
   `);
-  item.addEventListener("click", () => {
+  return section;
+}
+
+/* ----------------- Карточка заявки в инбоксе ----------------- */
+
+function renderInboxItem(m, groupKey) {
+  // Когда: точное время если назначено + день недели для не-today
+  let timeLine;
+  if (m.scheduled_at) {
+    const d = new Date(m.scheduled_at);
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mi = String(d.getMinutes()).padStart(2, "0");
+    if (groupKey === "today" || groupKey === "tomorrow") {
+      timeLine = `${hh}:${mi}`;
+    } else if (groupKey === "overdue") {
+      timeLine = `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")} ${hh}:${mi}`;
+    } else {
+      const dayNames = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+      timeLine = `${dayNames[d.getDay()]} ${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")} ${hh}:${mi}`;
+    }
+  } else {
+    timeLine = formatPreferredHuman(m);
+  }
+
+  const phoneClean = (m.client_phone || "").replace(/[^\d+]/g, "");
+  const callHref = phoneClean ? `tel:${phoneClean}` : "";
+
+  const item = el(`
+    <div class="inbox-row">
+      <button class="inbox-row-main" type="button">
+        <div class="inbox-time">${escHtml(timeLine)}</div>
+        <div class="inbox-row-body">
+          <div class="inbox-client">${escHtml(m.client_name || "—")}</div>
+          <div class="inbox-addr">${escHtml(m.address || "адрес не указан")}</div>
+        </div>
+        <div class="inbox-arrow">${ICONS.chevron || "›"}</div>
+      </button>
+      ${callHref
+        ? `<a class="inbox-call" href="${callHref}" aria-label="Позвонить" title="${escHtml(m.client_phone || "")}">📞</a>`
+        : ""}
+    </div>
+  `);
+  item.querySelector(".inbox-row-main").addEventListener("click", () => {
     haptic && haptic("impact");
     location.hash = `#/inbox/${m.id}`;
   });
