@@ -142,9 +142,9 @@ async function renderManagerHome(me) {
   // Quick actions
   const quickActions = [
     { icon: "user",    title: "Клиенты",        subtitle: "История + хронология", href: "#/clients" },
+    { icon: "plus",    title: "Новый клиент",   subtitle: "Завести карточку",     href: "#/clients/new" },
     { icon: "package", title: "Подбор техники", subtitle: "Встройка + AI",        href: "#/podbor" },
     { icon: "ruler",   title: "Заказать замер", subtitle: "Назначить замерщика",  href: "#/request" },
-    { icon: "camera",  title: "Замер сейчас",   subtitle: "Заполнить вручную",    href: "#/measure" },
   ];
   app.appendChild(el(`<div class="section-head"><span class="label">Быстрые действия</span></div>`));
   const grid = el(`<div class="quick-grid"></div>`);
@@ -949,6 +949,7 @@ async function renderInboxDetail(measurementId) {
       <section class="block date-set-block">
         <div class="block-head">📅 Замер назначен</div>
         <div class="date-set-value">${escHtml(formatDateHuman(m.scheduled_at))}</div>
+        ${m.gcal_event_url ? `<div style="padding:4px 4px 8px;"><a href="${m.gcal_event_url}" target="_blank" rel="noopener" style="color:var(--accent-1, #003E7E);font-size:13px;">📅 Открыть в Google Calendar</a></div>` : ""}
         <div class="podbor-cta-row">
           <button class="btn-secondary" id="changeDate" type="button">Изменить дату</button>
         </div>

@@ -115,6 +115,7 @@ async def _dispatch_post(request: Request):
         "measurement_logistics": _handle_measurement_logistics,
         "geocode":               _handle_geocode,
         "client_note":           _handle_client_note,
+        "client_create":         _handle_client_create,
         "ping":          lambda b: {"pong": True, "time": _now_iso()},
         "seed_admin":    lambda b: _handle_seed_admin(),
         "test_ai":       lambda b: _handle_test_ai(),
@@ -227,6 +228,12 @@ async def api_geocode(request: Request):
 async def api_client_note(request: Request):
     body = await _safe_json(request)
     return _handle_client_note(body)
+
+
+@app.post("/api/client_create")
+async def api_client_create(request: Request):
+    body = await _safe_json(request)
+    return _handle_client_create(body)
 
 
 @app.post("/api/grant_role")
@@ -637,6 +644,8 @@ def _measurement_columns() -> list[str]:
         # parking_type: free | paid | street | none
         "entrance", "floor", "gps_lat", "gps_lng",
         "parking_type", "parking_note", "delivery_notes",
+        # Google Calendar — событие при scheduled
+        "gcal_event_id", "gcal_event_url",
     ]
 
 
@@ -671,6 +680,7 @@ def _row_for_measurement(measurement_id: str, ts: str, **fields) -> list[str]:
         "preferred_type": "", "preferred_date": "", "preferred_time_of_day": "", "preferred_note": "",
         "entrance": "", "floor": "", "gps_lat": "", "gps_lng": "",
         "parking_type": "", "parking_note": "", "delivery_notes": "",
+        "gcal_event_id": "", "gcal_event_url": "",
     }
     base.update(fields)
     return [str(base.get(c, "")) for c in cols]
@@ -958,76 +968,103 @@ def _enrich_ai_marketplaces(ai_result: dict[str, Any]) -> None:
 
 
 def _handle_clients(body: dict[str, Any]) -> dict[str, Any]:
-    """Возвращает список клиентов менеджера со сводкой по подборам."""
+    """Возвращает список клиентов менеджера со сводкой по подборам.
+    Агрегирует клиентов из Leads И Measurements (включая draft-карточки)."""
     cfg = get_config()
     auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
     if not auth or not auth.get("user"):
-        return {"error": "invalid_init_data"}
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
     tg_id = auth["user"]["id"]
     user = sheets.find_user(tg_id)
-    if not user or user.get("role") != "manager":
+    if not user or not sheets.has_role(user, "manager"):
         return {"error": "only_manager"}
 
-    try:
-        ws = sheets.sheet("Leads")
-        rows = ws.get_all_values()
-    except Exception as e:
-        log.warning("Failed to read Leads: %s", e)
-        return {"ok": True, "clients": []}
-
-    if not rows or len(rows) < 2:
-        return {"ok": True, "clients": []}
-
-    headers = rows[0]
     by_client: dict[str, dict[str, Any]] = {}
 
-    for r in rows[1:]:
-        row = dict(zip(headers, r + [""] * (len(headers) - len(r))))
-        if str(row.get("manager_tg_id", "")) != str(tg_id):
-            continue
-        client_name = (row.get("client_name") or "").strip()
-        client_tg_id = (row.get("client_tg_id") or "").strip()
-        # Ключ для группировки: tg_id если есть, иначе имя
-        key = client_tg_id or client_name.lower()
-        if not key:
-            continue
+    def _ensure_client(key: str, name: str, phone: str, ctg_id: str):
         if key not in by_client:
             by_client[key] = {
-                "client_name": client_name,
-                "client_tg_id": client_tg_id or None,
-                "client_phone": "",
+                "client_name": name or "Без имени",
+                "client_tg_id": ctg_id or None,
+                "client_phone": phone or "",
                 "leads_count": 0,
                 "last_lead_at": "",
                 "last_lead_id": "",
                 "leads": [],
             }
-        c = by_client[key]
-        c["leads_count"] += 1
-        lead_id = row.get("id", "")
-        created_at = row.get("created_at", "")
-        status = row.get("status", "")
-        c["leads"].append({
-            "id": lead_id,
-            "created_at": created_at,
-            "status": status,
-        })
-        # Обновляем «последний»
-        if created_at > c["last_lead_at"]:
-            c["last_lead_at"] = created_at
-            c["last_lead_id"] = lead_id
-            # Достаём телефон из checklist JSON
-            checklist_str = row.get("checklist", "")
-            if checklist_str:
-                try:
-                    cl = json.loads(checklist_str)
-                    if cl.get("client_phone"):
-                        c["client_phone"] = cl["client_phone"]
-                except (ValueError, TypeError):
-                    pass
+        else:
+            # Заполним пустые поля если в этой записи есть данные
+            c = by_client[key]
+            if name and not c.get("client_name"): c["client_name"] = name
+            if phone and not c.get("client_phone"): c["client_phone"] = phone
+        return by_client[key]
 
-    # Сортируем по дате последнего подбора (новые сверху)
-    clients = sorted(by_client.values(), key=lambda x: x["last_lead_at"], reverse=True)
-    # Внутри каждого клиента — leads тоже по дате desc
+    # 1. Из Leads — собираем подборы
+    try:
+        ws = sheets.sheet("Leads")
+        rows = ws.get_all_values()
+        if rows and len(rows) >= 2:
+            headers = rows[0]
+            for r in rows[1:]:
+                row = dict(zip(headers, r + [""] * (len(headers) - len(r))))
+                if str(row.get("manager_tg_id", "")) != str(tg_id):
+                    continue
+                client_name = (row.get("client_name") or "").strip()
+                client_tg_id = (row.get("client_tg_id") or "").strip()
+                phone = ""
+                checklist_str = row.get("checklist", "")
+                if checklist_str:
+                    try:
+                        cl = json.loads(checklist_str)
+                        phone = cl.get("client_phone", "") or ""
+                    except (ValueError, TypeError):
+                        pass
+                key = client_tg_id or client_name.lower()
+                if not key:
+                    continue
+                c = _ensure_client(key, client_name, phone, client_tg_id)
+                c["leads_count"] += 1
+                lead_id = row.get("id", "")
+                created_at = row.get("created_at", "")
+                status = row.get("status", "")
+                c["leads"].append({"id": lead_id, "created_at": created_at, "status": status})
+                if created_at > c["last_lead_at"]:
+                    c["last_lead_at"] = created_at
+                    c["last_lead_id"] = lead_id
+                    if phone and not c.get("client_phone"): c["client_phone"] = phone
+    except Exception as e:
+        log.warning("Failed to read Leads: %s", e)
+
+    # 2. Из Measurements — для draft-карточек и заявок без подборов
+    try:
+        ws = sheets.sheet("Measurements")
+        rows = ws.get_all_values()
+        if rows and len(rows) >= 2:
+            headers = rows[0]
+            for r in rows[1:]:
+                row = dict(zip(headers, r + [""] * (len(headers) - len(r))))
+                if str(row.get("manager_tg_id", "")) != str(tg_id):
+                    continue
+                client_name = (row.get("client_name") or "").strip()
+                client_phone = (row.get("client_phone") or "").strip()
+                client_tg_id = (row.get("client_tg_id") or "").strip()
+                key = client_tg_id or client_name.lower()
+                if not key:
+                    continue
+                c = _ensure_client(key, client_name, client_phone, client_tg_id)
+                # Если у клиента нет ни одного лида — last_at берём из measurement.ts
+                ts = row.get("ts") or row.get("created_at") or ""
+                if ts > c["last_lead_at"]:
+                    c["last_lead_at"] = ts
+    except Exception as e:
+        log.warning("Failed to read Measurements for clients: %s", e)
+
+    # Сортируем по дате последней активности (новые сверху)
+    clients = sorted(by_client.values(), key=lambda x: x.get("last_lead_at") or "", reverse=True)
     for c in clients:
         c["leads"].sort(key=lambda x: x.get("created_at", ""), reverse=True)
 
@@ -1293,10 +1330,45 @@ def _handle_measurement_schedule(body: dict[str, Any]) -> dict[str, Any]:
     sheets.update_cell_by_key("Measurements", "id", measurement_id, "scheduled_at", scheduled_at)
     sheets.update_cell_by_key("Measurements", "id", measurement_id, "status", "scheduled")
 
+    # Google Calendar — создаём или обновляем событие
+    gcal_url = ""
+    try:
+        from . import gcalendar
+        existing_event_id = row.get("gcal_event_id") or ""
+        client_name = row.get("client_name") or "—"
+        address = row.get("address") or ""
+        client_phone = row.get("client_phone") or ""
+        descr_parts = [f"Клиент: {client_name}"]
+        if client_phone: descr_parts.append(f"Телефон: {client_phone}")
+        if row.get("preferred_note"): descr_parts.append(f"Примечание: {row.get('preferred_note')}")
+        descr_parts.append(f"Замерщик: {user.get('full_name') or tg_id}")
+        descr_parts.append(f"\nЗаявка: {measurement_id}")
+        summary = f"Замер: {client_name}"
+        description = "\n".join(descr_parts)
+
+        if existing_event_id:
+            ev = gcalendar.update_event(
+                event_id=existing_event_id,
+                summary=summary, description=description,
+                start_iso=scheduled_at, location=address,
+            )
+        else:
+            ev = gcalendar.create_event(
+                summary=summary, description=description,
+                start_iso=scheduled_at, location=address,
+            )
+        if ev:
+            sheets.update_cell_by_key("Measurements", "id", measurement_id, "gcal_event_id", ev.get("id", ""))
+            sheets.update_cell_by_key("Measurements", "id", measurement_id, "gcal_event_url", ev.get("html_link", ""))
+            gcal_url = ev.get("html_link", "")
+    except Exception as e:
+        log.warning("GCal integration error: %s", e)
+
     # Уведомляем менеджера
     notify_to = row.get("requested_by_tg_id") or row.get("manager_tg_id")
     if notify_to and str(notify_to) != str(tg_id):
         try:
+            cal_line = f"\n📅 <a href=\"{gcal_url}\">В календаре</a>" if gcal_url else ""
             tg.send_message(
                 int(notify_to),
                 f"📅 <b>Замер назначен</b>\n\n"
@@ -1304,14 +1376,18 @@ def _handle_measurement_schedule(body: dict[str, Any]) -> dict[str, Any]:
                 f"Дата: {_format_date_human(scheduled_at)}\n"
                 f"Замерщик: {user.get('full_name') or tg_id}\n"
                 f"Адрес: {row.get('address') or '—'}"
+                f"{cal_line}"
             )
         except Exception:
             pass
 
     sheets.log_event("measurement_scheduled", tg_id, {
-        "id": measurement_id, "scheduled_at": scheduled_at,
+        "id": measurement_id, "scheduled_at": scheduled_at, "gcal": bool(gcal_url),
     })
-    return {"ok": True, "id": measurement_id, "status": "scheduled", "scheduled_at": scheduled_at}
+    return {
+        "ok": True, "id": measurement_id, "status": "scheduled",
+        "scheduled_at": scheduled_at, "gcal_event_url": gcal_url,
+    }
 
 
 def _handle_measurement_logistics(body: dict[str, Any]) -> dict[str, Any]:
@@ -1375,6 +1451,68 @@ def _handle_measurement_logistics(body: dict[str, Any]) -> dict[str, Any]:
 
     sheets.log_event("measurement_logistics_updated", tg_id, {"id": measurement_id})
     return {"ok": True, "id": measurement_id, "logistics": updates}
+
+
+def _handle_client_create(body: dict[str, Any]) -> dict[str, Any]:
+    """Менеджер заводит клиента без замера/подбора.
+    body: {initData, full_name, phone, address?, note?}
+    Создаёт пустую заявку-карточку (status='draft') чтобы клиент появился
+    в списке клиентов менеджера и был доступен в карточке."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user or not sheets.has_role(user, "manager"):
+        return {"error": "only_manager"}
+
+    full_name = (body.get("full_name") or "").strip()
+    phone = (body.get("phone") or "").strip()
+    address = (body.get("address") or "").strip()
+    note = (body.get("note") or "").strip()
+    if not full_name and not phone:
+        return {"error": "missing_client_id"}
+
+    _ensure_measurements_sheet()
+    measurement_id = _short_id()
+    # Создаём «карточку клиента» как заявку со статусом draft
+    sheets.append_row("Measurements", _row_for_measurement(
+        measurement_id, _now_iso(),
+        manager_tg_id=str(tg_id),
+        requested_by_tg_id=str(tg_id),
+        filled_by="client_card",
+        status="draft",  # карточка клиента, без активного замера
+        address=address,
+        client_name=full_name,
+        client_phone=phone,
+        notes=note,
+        preferred_note=note,
+    ))
+
+    # Сохраняем заметку в ClientNotes если она передана
+    if note:
+        try:
+            _ensure_client_notes_sheet()
+            key = _normalize_client_key(full_name, phone)
+            sheets.append_row("ClientNotes", [str(tg_id), key, note, _now_iso()])
+        except Exception:
+            pass
+
+    sheets.log_event("client_created", tg_id, {
+        "id": measurement_id, "client": full_name, "phone": phone,
+    })
+    return {
+        "ok": True,
+        "id": measurement_id,
+        "client_name": full_name,
+        "client_phone": phone,
+        "client_key": _normalize_client_key(full_name, phone),
+    }
 
 
 def _normalize_client_key(name: str, phone: str) -> str:
@@ -1654,6 +1792,9 @@ def _handle_measurement_detail(body: dict[str, Any]) -> dict[str, Any]:
         "parking_type":   row.get("parking_type", ""),
         "parking_note":   row.get("parking_note", ""),
         "delivery_notes": row.get("delivery_notes", ""),
+        # Google Calendar
+        "gcal_event_id":  row.get("gcal_event_id", ""),
+        "gcal_event_url": row.get("gcal_event_url", ""),
     }
 
 

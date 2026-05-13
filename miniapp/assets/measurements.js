@@ -198,8 +198,12 @@ const Measurements = (function () {
 
         <div class="form-row" style="margin-top:18px;">
           <label class="field">
-            <span class="field-label">Заметки (опционально)</span>
-            <textarea data-bind="notes" rows="3" placeholder="особенности доступа, газ/электро, что важно учесть">${escHtml(state.notes || "")}</textarea>
+            <span class="field-label">Заметки (голосом или текстом)</span>
+            <textarea data-bind="notes" id="zamerNotes" rows="3" placeholder="особенности доступа, газ/электро, что важно учесть">${escHtml(state.notes || "")}</textarea>
+            <div class="note-actions" style="margin-top:6px;">
+              <button class="btn-mic" id="zamerMic" type="button">🎤 Диктовать</button>
+              <span class="note-status" id="zamerMicStatus"></span>
+            </div>
           </label>
         </div>
 
@@ -220,6 +224,14 @@ const Measurements = (function () {
     });
     node.querySelector("#submitBtn").addEventListener("click", () => onSubmit(node));
 
+    // Голосовой ввод заметок
+    setupVoiceMic(
+      node.querySelector("#zamerMic"),
+      node.querySelector("#zamerNotes"),
+      node.querySelector("#zamerMicStatus"),
+      (text) => { state.notes = text; saveState(); },
+    );
+
     // Подгружаем следующий № замера если поле пустое
     if (!state.zamer_no) {
       fetchNextZamerNo(node);
@@ -229,6 +241,77 @@ const Measurements = (function () {
     }
 
     return node;
+  }
+
+  /* ===================== Голосовой ввод заметок ===================== */
+  function setupVoiceMic(micBtn, textarea, statusEl, onChange) {
+    if (!micBtn || !textarea) return;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      micBtn.disabled = true;
+      micBtn.title = "Браузер не поддерживает голосовой ввод";
+      micBtn.style.opacity = "0.5";
+      if (statusEl) statusEl.textContent = "недоступно в этом браузере";
+      return;
+    }
+    let rec = null;
+    let recording = false;
+    let baseText = "";
+
+    micBtn.addEventListener("click", () => {
+      if (recording) { rec?.stop(); return; }
+      try {
+        rec = new SR();
+        rec.lang = "ru-RU";
+        rec.continuous = true;
+        rec.interimResults = true;
+      } catch (e) {
+        if (statusEl) statusEl.textContent = "Микрофон недоступен: " + e.message;
+        return;
+      }
+      baseText = (textarea.value || "").trim();
+      const sep = baseText ? "\n" : "";
+
+      rec.onstart = () => {
+        recording = true;
+        micBtn.classList.add("rec");
+        micBtn.textContent = "⏹ Стоп";
+        if (statusEl) statusEl.textContent = "Слушаю...";
+        haptic && haptic("impact");
+      };
+      rec.onresult = (ev) => {
+        let interim = "", final = "";
+        for (let i = ev.resultIndex; i < ev.results.length; i++) {
+          const t = ev.results[i][0].transcript;
+          if (ev.results[i].isFinal) final += t;
+          else interim += t;
+        }
+        if (final) {
+          baseText = (baseText + sep + final).trim();
+          textarea.value = baseText;
+          if (onChange) onChange(baseText);
+        } else if (interim) {
+          textarea.value = baseText + sep + interim;
+        }
+      };
+      rec.onerror = (ev) => {
+        if (statusEl) statusEl.textContent = "Ошибка: " + (ev.error || "неизвестно");
+        recording = false;
+        micBtn.classList.remove("rec");
+        micBtn.textContent = "🎤 Диктовать";
+      };
+      rec.onend = () => {
+        recording = false;
+        micBtn.classList.remove("rec");
+        micBtn.textContent = "🎤 Диктовать";
+        if (statusEl && statusEl.textContent === "Слушаю...") statusEl.textContent = "";
+        if (onChange) onChange(textarea.value || "");
+        haptic && haptic("impact");
+      };
+      try { rec.start(); } catch (e) {
+        if (statusEl) statusEl.textContent = "Не запустить: " + e.message;
+      }
+    });
   }
 
   async function fetchNextZamerNo(node) {

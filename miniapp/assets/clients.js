@@ -15,7 +15,9 @@ const Clients = (function () {
     if (oldNav) oldNav.remove();
 
     const sub = location.hash.replace(/^#\/clients\/?/, "");
-    if (sub.startsWith("lead/")) {
+    if (sub === "new" || sub.startsWith("new")) {
+      renderNewClient();
+    } else if (sub.startsWith("lead/")) {
       const leadId = sub.slice(5);
       renderLead(leadId);
     } else if (sub.startsWith("measurement/")) {
@@ -29,11 +31,205 @@ const Clients = (function () {
     }
   }
 
+  /* ===================== Заведение нового клиента ===================== */
+
+  function renderNewClient() {
+    root.innerHTML = "";
+    root.appendChild(headerEl("Новый клиент", "#/clients"));
+
+    let state = { full_name: "", phone: "", address: "", note: "" };
+
+    const form = el(`
+      <section class="podbor-step">
+        <h2 class="display-title">Заводим<br><span class="accent">клиента</span></h2>
+        <p class="lede">Карточка клиента появится в списке. Замер и подбор техники можно заказать позже из его карточки.</p>
+
+        <div class="form-row">
+          <label class="field">
+            <span class="field-label">ФИО клиента *</span>
+            <input type="text" id="fn" placeholder="Иванов Иван Иванович" autocomplete="name">
+            <span class="field-error" id="errName"></span>
+          </label>
+        </div>
+        <div class="form-row">
+          <label class="field">
+            <span class="field-label">Телефон *</span>
+            <input type="tel" id="ph" placeholder="+7 921 555-12-34" autocomplete="tel">
+            <span class="field-error" id="errPhone"></span>
+          </label>
+        </div>
+        <div class="form-row">
+          <label class="field">
+            <span class="field-label">Адрес</span>
+            <input type="text" id="ad" placeholder="СПб, Просвещения 87, кв. 12">
+          </label>
+        </div>
+        <div class="form-row">
+          <label class="field">
+            <span class="field-label">Примечание (можно голосом)</span>
+            <textarea id="nt" rows="3" placeholder="как познакомились, особенности, контекст"></textarea>
+            <div class="note-actions" style="margin-top:6px;">
+              <button class="btn-mic" id="newMic" type="button">🎤 Диктовать</button>
+              <span class="note-status" id="newMicStatus"></span>
+            </div>
+          </label>
+        </div>
+
+        <div class="podbor-cta-row" style="margin-top:18px;">
+          <button class="btn-primary" id="saveBtn" type="button">Завести клиента</button>
+        </div>
+        <div id="result" class="submit-result"></div>
+      </section>
+    `);
+    root.appendChild(form);
+
+    // Голосовой ввод
+    setupVoiceMicForField(
+      form.querySelector("#newMic"),
+      form.querySelector("#nt"),
+      form.querySelector("#newMicStatus"),
+    );
+
+    form.querySelector("#saveBtn").addEventListener("click", async () => {
+      const btn = form.querySelector("#saveBtn");
+      const result = form.querySelector("#result");
+      form.querySelector("#errName").textContent = "";
+      form.querySelector("#errPhone").textContent = "";
+      const name = (form.querySelector("#fn").value || "").trim();
+      const phone = (form.querySelector("#ph").value || "").trim();
+      const address = (form.querySelector("#ad").value || "").trim();
+      const note = (form.querySelector("#nt").value || "").trim();
+      if (!name) { form.querySelector("#errName").textContent = "Укажите имя"; return; }
+      if (phone.replace(/\D/g, "").length < 10) {
+        form.querySelector("#errPhone").textContent = "Слишком короткий номер";
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = "Сохраняем...";
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/client_create`, {
+          method: "POST",
+          body: JSON.stringify({
+            initData: tg?.initData || "",
+            initDataUnsafe: tg?.initDataUnsafe || null,
+            full_name: name, phone, address, note,
+          }),
+        });
+        const data = await res.json();
+        if (data.error) {
+          result.innerHTML = `<div class="error">Ошибка: ${data.error}</div>`;
+          btn.disabled = false;
+          btn.textContent = "Завести клиента";
+          return;
+        }
+        haptic && haptic("success");
+        result.innerHTML = `
+          <div class="success">
+            <div class="success-icon">${ICONS.check}</div>
+            <div>
+              <div class="success-title">Клиент заведён</div>
+              <div class="success-sub">${escHtml(name)} · ${escHtml(phone)}</div>
+            </div>
+          </div>
+          <div class="podbor-cta-row" style="margin-top:14px;">
+            <button class="btn-secondary" id="another" type="button">Ещё клиент</button>
+            <button class="btn-primary" id="openCard" type="button">Открыть карточку</button>
+          </div>
+        `;
+        const ckey = data.client_key || (phone.replace(/\D/g, "") || name.toLowerCase());
+        // Сбросим кэш — карточка клиента подтянет свежие данные
+        clientsCache = null;
+        form.querySelector("#another")?.addEventListener("click", () => renderNewClient());
+        form.querySelector("#openCard")?.addEventListener("click", () => {
+          location.hash = `#/clients/client/${encodeURIComponent(ckey)}`;
+        });
+      } catch (e) {
+        result.innerHTML = `<div class="error">Сеть: ${e.message}</div>`;
+        btn.disabled = false;
+        btn.textContent = "Завести клиента";
+      }
+    });
+  }
+
+  function setupVoiceMicForField(micBtn, textarea, statusEl) {
+    if (!micBtn || !textarea) return;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      micBtn.disabled = true;
+      micBtn.title = "Браузер не поддерживает голос";
+      micBtn.style.opacity = "0.5";
+      if (statusEl) statusEl.textContent = "недоступно";
+      return;
+    }
+    let rec = null, recording = false, baseText = "";
+    micBtn.addEventListener("click", () => {
+      if (recording) { rec?.stop(); return; }
+      try {
+        rec = new SR();
+        rec.lang = "ru-RU"; rec.continuous = true; rec.interimResults = true;
+      } catch (e) {
+        if (statusEl) statusEl.textContent = "Микрофон недоступен";
+        return;
+      }
+      baseText = (textarea.value || "").trim();
+      const sep = baseText ? "\n" : "";
+      rec.onstart = () => {
+        recording = true;
+        micBtn.classList.add("rec");
+        micBtn.textContent = "⏹ Стоп";
+        if (statusEl) statusEl.textContent = "Слушаю...";
+        haptic && haptic("impact");
+      };
+      rec.onresult = (ev) => {
+        let interim = "", final = "";
+        for (let i = ev.resultIndex; i < ev.results.length; i++) {
+          const t = ev.results[i][0].transcript;
+          if (ev.results[i].isFinal) final += t; else interim += t;
+        }
+        if (final) {
+          baseText = (baseText + sep + final).trim();
+          textarea.value = baseText;
+        } else if (interim) {
+          textarea.value = baseText + sep + interim;
+        }
+      };
+      rec.onerror = (ev) => {
+        if (statusEl) statusEl.textContent = "Ошибка: " + (ev.error || "");
+        recording = false;
+        micBtn.classList.remove("rec");
+        micBtn.textContent = "🎤 Диктовать";
+      };
+      rec.onend = () => {
+        recording = false;
+        micBtn.classList.remove("rec");
+        micBtn.textContent = "🎤 Диктовать";
+        if (statusEl && statusEl.textContent === "Слушаю...") statusEl.textContent = "";
+        haptic && haptic("impact");
+      };
+      try { rec.start(); } catch (e) {
+        if (statusEl) statusEl.textContent = "Не запустить: " + e.message;
+      }
+    });
+  }
+
   /* ===================== Список клиентов ===================== */
 
   async function renderList() {
     root.innerHTML = "";
     root.appendChild(headerEl("Клиенты", null));
+
+    // Большая кнопка «Новый клиент»
+    const addBtn = el(`
+      <div class="podbor-cta-row" style="margin:6px 0 14px;">
+        <button class="btn-primary" id="addClientBtn" type="button">＋ Новый клиент</button>
+      </div>
+    `);
+    addBtn.querySelector("#addClientBtn").addEventListener("click", () => {
+      haptic && haptic("impact");
+      location.hash = "#/clients/new";
+    });
+    root.appendChild(addBtn);
+
     const loading = el(`<div class="loader-inline"><div class="spinner"></div></div>`);
     root.appendChild(loading);
 
@@ -52,8 +248,8 @@ const Clients = (function () {
       root.appendChild(el(`
         <div class="empty">
           <p class="lede" style="text-align:center;padding:40px 20px;color:var(--muted)">
-            У тебя пока нет подборов с клиентами.<br>
-            Сделай первый — в кабинете «Подбор техники».
+            Пока нет клиентов.<br>
+            Заведите первого — кнопка выше.
           </p>
         </div>
       `));
