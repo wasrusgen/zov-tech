@@ -216,6 +216,34 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 .loader-logo path { fill: var(--walnut, #6B4A2B); }
 
+/* Бренд-блок @wasrusgen1 на splash */
+.brand-saw {
+  width: 96px;
+  height: auto;
+  display: block;
+  animation: logoBreath 2.2s ease-in-out infinite;
+}
+.brand-block { text-align: center; }
+.brand-wordmark {
+  font-family: "Inter", system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 28px;
+  letter-spacing: 0.01em;
+  color: #4A4A4A;
+  line-height: 1;
+}
+.brand-wordmark .brand-num { color: #F08720; }
+.brand-tagline {
+  font-family: "Caveat", cursive;
+  font-weight: 700;
+  font-size: 32px;
+  color: #F08720;
+  margin-top: 4px;
+  line-height: 1;
+  transform: rotate(-3deg);
+  display: inline-block;
+}
+
 .loader-caption {
   font-family: var(--font-display, "Newsreader", serif);
   font-style: italic;
@@ -260,7 +288,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   top: 0; left: -40%;
   width: 40%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, var(--walnut, #6B4A2B) 50%, transparent);
+  background: linear-gradient(90deg, transparent, #F08720 50%, transparent);
   animation: loaderBarSlide 1.4s ease-in-out infinite;
 }
 

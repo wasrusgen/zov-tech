@@ -61,11 +61,11 @@ def role_choice_inline(miniapp_url: str) -> InlineKeyboardMarkup:
 
 @router.message(CommandStart())
 async def cmd_start(message: Message, config: Config) -> None:
-    # Сразу убираем нижнюю reply-клавиатуру если она от предыдущих версий висит
     await message.answer(
-        "👋 Здравствуйте, я бот-помощник от Руслана ВАСИЛЬЕВА.\n\n"
+        "👋 <b>@wasrusgen1 · сборщик</b>\n"
+        "Рабочий кабинет Руслана Васильева.\n\n"
         "Выберите, кто вы — кабинет откроется одним тапом.\n\n"
-        "<i>«Сотрудник» — для замерщиков и сборщиков ЗОВ.</i>",
+        "<i>«Сотрудник» — для замерщиков и сборщиков.</i>",
         reply_markup=role_choice_inline(config.miniapp_url),
     )
 
