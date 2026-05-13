@@ -2004,15 +2004,14 @@
   margin-bottom: 28px;
 }
 .role-chooser-head .tagline {
-  font-family: "Caveat", "Brush Script MT", cursive;
-  font-weight: 700;
-  font-size: 34px;
-  line-height: 1;
+  font-family: "Cormorant Garamond", "Newsreader", Georgia, serif;
+  font-style: italic;
+  font-weight: 500;
+  font-size: 28px;
+  line-height: 1.15;
   color: var(--walnut, #6B4A2B);
-  margin: 0 0 8px;
-  transform: rotate(-2deg);
-  display: inline-block;
-  letter-spacing: 0.5px;
+  margin: 0 0 12px;
+  letter-spacing: 0.01em;
 }
 .role-chooser-head .display-title {
   font-size: 36px;
