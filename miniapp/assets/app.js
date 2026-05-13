@@ -116,74 +116,35 @@ function pluralRu(n, forms) {
   return forms[2];
 }
 
-function renderManagerHome(me) {
-  // === MOCK DATA (Этап 1 — визуал, без реального backend) ===
-  const firstName = (me.user?.full_name || "").split(/\s+/)[0] || "Артём";
-  const todayTask = {
-    time: "15:30",
-    tag: "ЗАМЕР",
-    client: "А. Пестова",
-    address: "ЖК Сады Пекина, корп. 3",
-    phone: "+7 999 000-00-00",
-  };
-  const projects = [
-    { name: "Семья Иваниковых", address: "ул. Орджоникидзе, 14 — 47", stage: "Согласование", date: "14 мая", progress: 0.40, statusLabel: "Ожидает клиента", statusKind: "waiting" },
-    { name: "Кабанова И. С.",   address: "Никольская набережная, 20", stage: "Производство", date: "21 мая", progress: 0.60, statusLabel: "В работе", statusKind: "active" },
-    { name: "Карелин А.",       address: "посёлок Сосновый, дом 4",   stage: "Замер",        date: "сегодня", progress: 0.10, statusLabel: "Срочно", statusKind: "urgent" },
-    { name: "Петросян Г.",      address: "ул. Лесная, 18 — 12",       stage: "Доставка",     date: "16 мая", progress: 0.85, statusLabel: "В работе", statusKind: "active" },
-    { name: "Тимирясов И.",     address: "пос. Барвиха, дом 8",       stage: "Монтаж",       date: "11 мая", progress: 0.95, statusLabel: "Завершается", statusKind: "active" },
-  ];
-  const unreadChats = 2;
-  const tasksTodayCount = todayTask ? 1 : 0;
-  const taskWord = pluralRu(tasksTodayCount, ["замер", "замера", "замеров"]);
-  const phraseTail = tasksTodayCount === 0 ? "ничего на сегодня" : `${tasksTodayCount === 1 ? "один" : tasksTodayCount} ${taskWord} сегодня`;
+async function renderManagerHome(me) {
+  const firstName = (me.user?.full_name || "").split(/\s+/)[0] || "Менеджер";
 
-  // === RENDER ===
   app.innerHTML = "";
   document.body.classList.add("has-bottom-nav");
 
-  // Greeting
-  app.appendChild(el(`
+  // Greeting + bell (placeholder)
+  const greetingEl = el(`
     <header class="greeting">
       <div class="greeting-text">
         <div class="greeting-kicker">${timeOfDay()}</div>
-        <div class="greeting-headline">${firstName},<br>
-          <span class="accent">${phraseTail}</span>
+        <div class="greeting-headline" id="greetingHeadline">${firstName},<br>
+          <span class="accent">смотрим день…</span>
         </div>
       </div>
-      <button class="bell-btn" aria-label="Уведомления">
-        ${ICONS.bell}
-        <span class="dot"></span>
-      </button>
     </header>
-  `));
+  `);
+  app.appendChild(greetingEl);
 
-  // Hero task
-  if (todayTask) {
-    app.appendChild(el(`
-      <section class="hero">
-        <div class="hero-meta">
-          <span class="left">
-            <span>На сегодня</span><span class="sep">—</span><span>${todayTask.time}</span>
-          </span>
-          <span class="hero-tag">${todayTask.tag}</span>
-        </div>
-        <div class="hero-client">${todayTask.client}</div>
-        <div class="hero-address">${todayTask.address}</div>
-        <div class="hero-actions">
-          <button class="btn-gold">${ICONS.ruler}<span>Начать замер</span></button>
-          <a class="btn-icon-dark" href="tel:${todayTask.phone}" aria-label="Позвонить">${ICONS.phone}</a>
-        </div>
-      </section>
-    `));
-  }
+  // Контейнер для «Сегодня» — наполнится после загрузки
+  const todayContainer = el(`<div id="todayContainer"></div>`);
+  app.appendChild(todayContainer);
 
   // Quick actions
   const quickActions = [
-    { icon: "user",    title: "Клиенты",       subtitle: "История подборов",   href: "#/clients" },
-    { icon: "package", title: "Подбор техники", subtitle: "Встройка + AI",      href: "#/podbor" },
-    { icon: "ruler",   title: "Заказать замер", subtitle: "Назначить замерщика", href: "#/request" },
-    { icon: "camera",  title: "Замер сейчас",  subtitle: "Заполнить вручную",  href: "#/measure" },
+    { icon: "user",    title: "Клиенты",        subtitle: "История + хронология", href: "#/clients" },
+    { icon: "package", title: "Подбор техники", subtitle: "Встройка + AI",        href: "#/podbor" },
+    { icon: "ruler",   title: "Заказать замер", subtitle: "Назначить замерщика",  href: "#/request" },
+    { icon: "camera",  title: "Замер сейчас",   subtitle: "Заполнить вручную",    href: "#/measure" },
   ];
   app.appendChild(el(`<div class="section-head"><span class="label">Быстрые действия</span></div>`));
   const grid = el(`<div class="quick-grid"></div>`);
@@ -204,36 +165,228 @@ function renderManagerHome(me) {
   });
   app.appendChild(grid);
 
-  // Active projects
-  app.appendChild(el(`
-    <div class="section-head">
-      <span class="label">Активные проекты <span class="count">· ${projects.length}</span></span>
-      <span class="more">Все</span>
+  // Активные проекты — будет наполняться позже из реальных данных
+  const projectsContainer = el(`<div id="projectsContainer"></div>`);
+  app.appendChild(projectsContainer);
+
+  renderBottomNav("home", { unreadChats: 0 });
+
+  // Параллельно грузим реальные данные
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/measurements`, {
+      method: "POST",
+      body: JSON.stringify({
+        initData: tg?.initData || "",
+        initDataUnsafe: tg?.initDataUnsafe || null,
+      }),
+    });
+    const data = await res.json();
+    const measurements = (data.measurements || []);
+
+    renderManagerToday(todayContainer, measurements, firstName, greetingEl);
+    renderManagerProjects(projectsContainer, measurements);
+  } catch (e) {
+    todayContainer.innerHTML = `<div class="error">Не удалось загрузить данные: ${escHtml(e.message)}</div>`;
+  }
+}
+
+function renderManagerToday(container, measurements, firstName, greetingEl) {
+  const today = _startOfDay(new Date());
+  const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+
+  // Сегодня = scheduled_at сегодня и не completed
+  const todayEvents = [];
+  const overdueEvents = [];
+  const noDateEvents = [];
+
+  for (const m of measurements) {
+    if (m.status === "completed") continue;
+    if (m.scheduled_at) {
+      const d = new Date(m.scheduled_at);
+      if (_startOfDay(d).getTime() === today.getTime()) {
+        todayEvents.push(m);
+      } else if (d < new Date()) {
+        overdueEvents.push(m);
+      }
+    } else if (m.status === "requested") {
+      // Заявка без даты — нужно подсказать замерщику
+      noDateEvents.push(m);
+    }
+  }
+  todayEvents.sort((a, b) => (a.scheduled_at || "").localeCompare(b.scheduled_at || ""));
+
+  // Обновляем приветствие
+  const cnt = todayEvents.length;
+  let tail;
+  if (cnt === 0) {
+    tail = overdueEvents.length
+      ? `${overdueEvents.length} ${pluralRu(overdueEvents.length, ["просрочка", "просрочки", "просрочек"])}`
+      : "ничего на сегодня";
+  } else {
+    const word = pluralRu(cnt, ["замер", "замера", "замеров"]);
+    tail = `${cnt === 1 ? "один" : cnt} ${word} сегодня`;
+  }
+  const headline = greetingEl.querySelector("#greetingHeadline");
+  if (headline) headline.innerHTML = `${escHtml(firstName)},<br><span class="accent">${escHtml(tail)}</span>`;
+
+  container.innerHTML = "";
+
+  // HERO — первое событие сегодня
+  if (todayEvents.length > 0) {
+    const m = todayEvents[0];
+    const d = new Date(m.scheduled_at);
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mi = String(d.getMinutes()).padStart(2, "0");
+    const phoneClean = (m.client_phone || "").replace(/[^\d+]/g, "");
+    const hero = el(`
+      <section class="hero">
+        <div class="hero-meta">
+          <span class="left"><span>На сегодня</span><span class="sep">—</span><span>${hh}:${mi}</span></span>
+          <span class="hero-tag">ЗАМЕР</span>
+        </div>
+        <div class="hero-client">${escHtml(m.client_name || "Без имени")}</div>
+        <div class="hero-address">${escHtml(m.address || "адрес не указан")}</div>
+        <div class="hero-actions">
+          <button class="btn-gold" id="heroOpen">${ICONS.ruler || "📐"}<span>Открыть заявку</span></button>
+          ${phoneClean ? `<a class="btn-icon-dark" href="tel:${phoneClean}" aria-label="Позвонить">${ICONS.phone || "📞"}</a>` : ""}
+        </div>
+      </section>
+    `);
+    hero.querySelector("#heroOpen").addEventListener("click", () => {
+      haptic("impact");
+      location.hash = `#/clients/measurement/${m.id}`;
+    });
+    container.appendChild(hero);
+  }
+
+  // Срочно: просрочки
+  if (overdueEvents.length > 0) {
+    container.appendChild(el(`<div class="section-head"><span class="label" style="color:#C0392B;">⚠️ Срочно · ${overdueEvents.length}</span></div>`));
+    const list = el(`<div class="today-list"></div>`);
+    overdueEvents.slice(0, 5).forEach(m => list.appendChild(renderTodayItem(m, "overdue")));
+    container.appendChild(list);
+  }
+
+  // Остальные на сегодня (кроме первого, который в hero)
+  if (todayEvents.length > 1) {
+    container.appendChild(el(`<div class="section-head" style="margin-top:18px;"><span class="label">📅 Ещё сегодня · ${todayEvents.length - 1}</span></div>`));
+    const list = el(`<div class="today-list"></div>`);
+    todayEvents.slice(1).forEach(m => list.appendChild(renderTodayItem(m, "today")));
+    container.appendChild(list);
+  }
+
+  // Заявки без даты — напомнить созвониться с замерщиком
+  if (noDateEvents.length > 0) {
+    container.appendChild(el(`<div class="section-head" style="margin-top:18px;"><span class="label">📞 Без даты · ${noDateEvents.length}</span></div>`));
+    const list = el(`<div class="today-list"></div>`);
+    noDateEvents.slice(0, 5).forEach(m => list.appendChild(renderTodayItem(m, "no_date")));
+    container.appendChild(list);
+  }
+
+  if (todayEvents.length === 0 && overdueEvents.length === 0 && noDateEvents.length === 0) {
+    container.appendChild(el(`
+      <section class="hero" style="background:var(--card,#fff);border:1px dashed rgba(107,74,43,0.25);">
+        <div class="hero-meta"><span class="left">Свободный день</span></div>
+        <div class="hero-address" style="margin-top:8px;">Замеров на сегодня нет.<br>Можно поработать с клиентами или заказать новые замеры.</div>
+      </section>
+    `));
+  }
+}
+
+function renderTodayItem(m, kind) {
+  const phoneClean = (m.client_phone || "").replace(/[^\d+]/g, "");
+  const callHref = phoneClean ? `tel:${phoneClean}` : "";
+  let timeText = "—";
+  if (m.scheduled_at) {
+    const d = new Date(m.scheduled_at);
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mi = String(d.getMinutes()).padStart(2, "0");
+    if (kind === "overdue") {
+      timeText = `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")} ${hh}:${mi}`;
+    } else {
+      timeText = `${hh}:${mi}`;
+    }
+  } else if (kind === "no_date") {
+    timeText = "?";
+  }
+  const row = el(`
+    <div class="inbox-row ${kind === "overdue" ? "overdue" : ""}">
+      <button class="inbox-row-main" type="button">
+        <div class="inbox-time">${escHtml(timeText)}</div>
+        <div class="inbox-row-body">
+          <div class="inbox-client">${escHtml(m.client_name || "—")}</div>
+          <div class="inbox-addr">${escHtml(m.address || "адрес не указан")}</div>
+        </div>
+        <div class="inbox-arrow">${ICONS.chevron || "›"}</div>
+      </button>
+      ${callHref ? `<a class="inbox-call" href="${callHref}" aria-label="Позвонить">📞</a>` : ""}
+    </div>
+  `);
+  row.querySelector(".inbox-row-main").addEventListener("click", () => {
+    haptic && haptic("impact");
+    location.hash = `#/clients/measurement/${m.id}`;
+  });
+  return row;
+}
+
+function renderManagerProjects(container, measurements) {
+  // Активные проекты = все замеры менеджера с любым статусом кроме completed/archived в обозримой перспективе.
+  // Берём последние 5 по дате создания.
+  const active = (measurements || [])
+    .filter(m => m.status !== "archived")
+    .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""))
+    .slice(0, 5);
+
+  container.innerHTML = "";
+  if (!active.length) return;
+
+  container.appendChild(el(`
+    <div class="section-head" style="margin-top:24px;">
+      <span class="label">Активные проекты <span class="count">· ${active.length}</span></span>
     </div>
   `));
   const list = el(`<div class="project-list"></div>`);
-  projects.forEach(p => {
+  for (const m of active) {
+    const stage = ({
+      requested: "Заявка на замер",
+      scheduled: "Замер назначен",
+      in_progress: "Замер в работе",
+      completed: "Замер выполнен",
+    })[m.status] || m.status;
+    const statusKind = m.status === "completed" ? "active"
+      : m.status === "requested" ? "waiting"
+      : m.status === "scheduled" ? "active"
+      : "waiting";
+    const dateLabel = m.scheduled_at
+      ? new Date(m.scheduled_at).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })
+      : (m.created_at ? formatDateHuman(m.created_at).slice(0, 10) : "—");
+    const progress = ({
+      requested: 0.15,
+      scheduled: 0.35,
+      in_progress: 0.55,
+      completed: 0.75,
+    })[m.status] || 0.10;
     const card = el(`
       <article class="project-card">
         <div class="project-head">
-          <div class="project-title">${p.name}</div>
-          <span class="project-pill ${p.statusKind}">${p.statusLabel}</span>
+          <div class="project-title">${escHtml(m.client_name || "Без имени")}</div>
+          <span class="project-pill ${statusKind}">${statusKind === "waiting" ? "Ожидает" : "В работе"}</span>
         </div>
-        <div class="project-address">${p.address}</div>
-        <div class="project-progress"><div class="bar" style="width:${Math.round(p.progress * 100)}%"></div></div>
+        <div class="project-address">${escHtml(m.address || "адрес не указан")}</div>
+        <div class="project-progress"><div class="bar" style="width:${Math.round(progress * 100)}%"></div></div>
         <div class="project-foot">
-          <span class="stage">${p.stage}</span>
-          <span>${p.date}</span>
+          <span class="stage">${stage}</span>
+          <span>${dateLabel}</span>
         </div>
       </article>
     `);
-    card.addEventListener("click", () => { haptic("impact"); tg?.showAlert?.(`Проект «${p.name}» — скоро`); });
+    card.addEventListener("click", () => {
+      haptic("impact");
+      location.hash = `#/clients/measurement/${m.id}`;
+    });
     list.appendChild(card);
-  });
-  app.appendChild(list);
-
-  // Bottom nav (fixed, outside #app)
-  renderBottomNav("home", { unreadChats });
+  }
+  container.appendChild(list);
 }
 
 function renderBottomNav(active, opts = {}) {

@@ -2538,6 +2538,14 @@
 .checklist-md .cl-table th, .checklist-md .cl-table td { border: 1px solid rgba(107, 74, 43, 0.18); padding: 4px 8px; text-align: left; }
 .checklist-md .cl-table th { background: rgba(107, 74, 43, 0.08); font-weight: 600; }
 
+/* ===== Главная менеджера: список «На сегодня» ===== */
+.today-list { display: flex; flex-direction: column; gap: 6px; }
+.inbox-row.overdue {
+  border-color: rgba(192, 57, 43, 0.35);
+  background: rgba(192, 57, 43, 0.04);
+}
+.inbox-row.overdue .inbox-time { color: #C0392B; }
+
 /* ===== Кабинет замерщика: week strip + grouped inbox ===== */
 
 /* Week strip — загрузка по дням */
