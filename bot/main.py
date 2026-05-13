@@ -34,7 +34,7 @@ async def main() -> None:
     try:
         await bot.set_chat_menu_button(
             menu_button=MenuButtonWebApp(
-                text="Кабинет",
+                text="CRM",
                 web_app=WebAppInfo(url=config.miniapp_url),
             ),
         )

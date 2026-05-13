@@ -62,10 +62,9 @@ def role_choice_inline(miniapp_url: str) -> InlineKeyboardMarkup:
 @router.message(CommandStart())
 async def cmd_start(message: Message, config: Config) -> None:
     await message.answer(
-        "👋 <b>@wasrusgen1 · CRM</b>\n"
-        "Рабочий кабинет Руслана Васильева.\n\n"
-        "Выберите, кто вы — кабинет откроется одним тапом.\n\n"
-        "<i>«Сотрудник» — для замерщиков и сборщиков.</i>",
+        "👋 Здравствуйте, Добрый человек 🙂\n\n"
+        "Я CRM <b>@wasrusgen1</b>!\n\n"
+        "Вы кто?",
         reply_markup=role_choice_inline(config.miniapp_url),
     )
 
