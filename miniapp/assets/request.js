@@ -10,6 +10,11 @@ const MeasurementRequest = (function () {
     address: "",
     assigned_to_tg_id: "",
     notes: "",
+    // Приблизительная дата визита
+    preferred_type: "tbd",   // specific | this_week | next_week | tbd
+    preferred_date: "",
+    preferred_time_of_day: "",  // morning | day | evening | ""
+    preferred_note: "",
   };
   let measurers = [];
 
@@ -18,7 +23,10 @@ const MeasurementRequest = (function () {
     document.body.classList.remove("has-bottom-nav");
     const oldNav = document.getElementById("bottom-nav");
     if (oldNav) oldNav.remove();
-    state = { client_name: "", client_phone: "", address: "", assigned_to_tg_id: "", notes: "" };
+    state = {
+      client_name: "", client_phone: "", address: "", assigned_to_tg_id: "", notes: "",
+      preferred_type: "tbd", preferred_date: "", preferred_time_of_day: "", preferred_note: "",
+    };
     render();
     loadMeasurers();
   }
@@ -67,6 +75,49 @@ const MeasurementRequest = (function () {
           </label>
         </div>
 
+        <div class="section-head" style="margin-top:18px;"><span class="label">⏰ Когда удобно клиенту</span></div>
+        <div class="preferred-options">
+          <label class="pref-opt">
+            <input type="radio" name="prefType" value="specific" data-pref="type">
+            <span class="pref-label">Конкретная дата</span>
+          </label>
+          <label class="pref-opt">
+            <input type="radio" name="prefType" value="this_week" data-pref="type">
+            <span class="pref-label">Эта неделя</span>
+          </label>
+          <label class="pref-opt">
+            <input type="radio" name="prefType" value="next_week" data-pref="type">
+            <span class="pref-label">Следующая неделя</span>
+          </label>
+          <label class="pref-opt">
+            <input type="radio" name="prefType" value="tbd" data-pref="type" checked>
+            <span class="pref-label">Согласовать с клиентом</span>
+          </label>
+        </div>
+
+        <div class="form-row two-col" id="prefSpecificBox" style="display:none;">
+          <label class="field">
+            <span class="field-label">Дата</span>
+            <input type="date" data-pref="date">
+          </label>
+          <label class="field">
+            <span class="field-label">Время дня</span>
+            <select data-pref="time_of_day">
+              <option value="">не важно</option>
+              <option value="morning">утром</option>
+              <option value="day">днём</option>
+              <option value="evening">вечером</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="form-row">
+          <label class="field">
+            <span class="field-label">Уточнение по времени</span>
+            <input type="text" data-pref="note" placeholder="например: после звонка, не раньше вторника">
+          </label>
+        </div>
+
         <div class="form-row">
           <label class="field">
             <span class="field-label">Заметки для замерщика</span>
@@ -96,6 +147,23 @@ const MeasurementRequest = (function () {
         state[e.target.dataset.bind] = e.target.value;
       });
     });
+    // Радио-кнопки + поля приблизительной даты
+    node.querySelectorAll("[data-pref]").forEach(inp => {
+      const key = inp.dataset.pref;
+      const mapKey = "preferred_" + key;
+      inp.addEventListener("change", e => {
+        const val = e.target.type === "radio" ? e.target.value : e.target.value;
+        state[mapKey] = val;
+        if (key === "type") togglePrefSpecific(node);
+      });
+    });
+    togglePrefSpecific(node);
+  }
+
+  function togglePrefSpecific(node) {
+    const box = node.querySelector("#prefSpecificBox");
+    if (!box) return;
+    box.style.display = state.preferred_type === "specific" ? "" : "none";
   }
 
   async function loadMeasurers() {
@@ -151,11 +219,17 @@ const MeasurementRequest = (function () {
         method: "POST",
         body: JSON.stringify({
           initData: tg?.initData || "",
+          initDataUnsafe: tg?.initDataUnsafe || null,
           client_name: name,
           client_phone: phone,
           address: state.address || "",
           assigned_to_tg_id: state.assigned_to_tg_id || "",
           notes: state.notes || "",
+          // Приблизительная дата визита
+          preferred_type: state.preferred_type || "tbd",
+          preferred_date: state.preferred_date || "",
+          preferred_time_of_day: state.preferred_time_of_day || "",
+          preferred_note: state.preferred_note || "",
         }),
       });
       const data = await res.json();

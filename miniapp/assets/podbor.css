@@ -2066,6 +2066,49 @@
   flex-shrink: 0;
 }
 
+/* ===== Заявка на замер: выбор «когда удобно» ===== */
+.preferred-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 8px 0 6px;
+}
+.pref-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--card, #fff);
+  border: 1px solid var(--line-strong, rgba(15, 15, 14, 0.16));
+  border-radius: 10px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s, border-color 0.12s;
+}
+.pref-opt input[type="radio"] {
+  margin: 0;
+  accent-color: var(--walnut, #6B4A2B);
+}
+.pref-opt input[type="radio"]:checked + .pref-label {
+  font-weight: 600;
+  color: var(--walnut, #6B4A2B);
+}
+.pref-opt:has(input:checked) {
+  background: var(--warm, rgba(107, 74, 43, 0.08));
+  border-color: var(--walnut, #6B4A2B);
+}
+.pref-label {
+  font-size: 13px;
+  color: var(--ink, #1F1A14);
+  flex: 1;
+}
+
+/* Блок «когда удобно» в карточке замерщика */
+.preferred-block {
+  background: var(--warm, rgba(107, 74, 43, 0.08));
+  border-left: 3px solid var(--walnut, #6B4A2B);
+}
+
 /* ===== Замер: фото с тегами ===== */
 .podbor-header .podbor-help {
   background: transparent;

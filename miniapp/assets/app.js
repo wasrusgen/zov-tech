@@ -511,7 +511,13 @@ function renderInboxItem(m) {
     scheduled:   "📅 назначен",
     in_progress: "🔵 в работе",
   })[m.status] || m.status;
-  const sched = m.scheduled_at ? formatDateHuman(m.scheduled_at) : "дата не назначена";
+  // Когда: точная дата если назначена, иначе приблизительная
+  let whenText;
+  if (m.scheduled_at) {
+    whenText = "📅 " + formatDateHuman(m.scheduled_at);
+  } else {
+    whenText = "🕐 " + formatPreferredHuman(m);
+  }
 
   const item = el(`
     <button class="lead-item" style="text-align:left;">
@@ -521,7 +527,7 @@ function renderInboxItem(m) {
           ${escHtml(m.address || "адрес не указан")}
         </div>
         <div class="lead-id" style="font-size:11px; color:var(--muted); margin-top:2px;">
-          ${escHtml(sched)} · ${statusLabel}
+          ${escHtml(whenText)} · ${statusLabel}
         </div>
       </div>
       <div class="lead-arrow">${ICONS.chevron || "›"}</div>
@@ -532,6 +538,33 @@ function renderInboxItem(m) {
     location.hash = `#/inbox/${m.id}`;
   });
   return item;
+}
+
+function formatPreferredHuman(m) {
+  const todMap = { morning: "утром", day: "днём", evening: "вечером" };
+  const t = m.preferred_type || "tbd";
+  const parts = [];
+  if (t === "specific") {
+    if (m.preferred_date) {
+      try {
+        const d = new Date(m.preferred_date);
+        parts.push(`${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}`);
+      } catch (e) { parts.push(m.preferred_date); }
+    }
+    if (m.preferred_time_of_day && todMap[m.preferred_time_of_day]) {
+      parts.push(todMap[m.preferred_time_of_day]);
+    }
+    if (!parts.length) parts.push("конкретная дата");
+  } else if (t === "this_week") {
+    parts.push("эта неделя");
+  } else if (t === "next_week") {
+    parts.push("следующая неделя");
+  } else {
+    parts.push("согласовать с клиентом");
+  }
+  let s = parts.join(" ");
+  if (m.preferred_note) s += " · " + m.preferred_note;
+  return s;
 }
 
 function formatDateHuman(iso) {
@@ -606,6 +639,20 @@ async function renderInboxDetail(measurementId) {
       </div>
     </div>
   `));
+
+  // Приблизительная дата от менеджера (если точной ещё нет — это подсказка)
+  if (!m.scheduled_at && (m.preferred_type || m.preferred_note)) {
+    const prefText = formatPreferredHuman(m);
+    app.appendChild(el(`
+      <section class="block preferred-block">
+        <div class="block-head">⏰ Когда удобно клиенту (от менеджера)</div>
+        <div style="padding:12px 4px;color:var(--ink);font-size:15px;font-weight:500;">${escHtml(prefText)}</div>
+        <div style="padding:0 4px 4px;color:var(--muted);font-size:12px;">
+          Позвоните клиенту и согласуйте точную дату — она появится ниже.
+        </div>
+      </section>
+    `));
+  }
 
   // Заметки от менеджера
   if (m.notes) {

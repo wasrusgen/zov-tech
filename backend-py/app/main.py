@@ -606,6 +606,12 @@ def _measurement_columns() -> list[str]:
         "address", "client_name", "client_phone",
         # Поля Commit C (структура замера по чек-листу)
         "zamer_no", "zamer_date", "floor_base", "photos_meta",
+        # Поля для приблизительной даты от менеджера (Commit C2)
+        # preferred_type: specific | this_week | next_week | tbd
+        # preferred_date: ISO date если specific
+        # preferred_time_of_day: morning | day | evening
+        # preferred_note: «после звонка», «не раньше вторника», ...
+        "preferred_type", "preferred_date", "preferred_time_of_day", "preferred_note",
     ]
 
 
@@ -637,6 +643,7 @@ def _row_for_measurement(measurement_id: str, ts: str, **fields) -> list[str]:
         "assigned_to_tg_id": "", "requested_by_tg_id": "", "scheduled_at": "",
         "address": "", "client_name": "", "client_phone": "",
         "zamer_no": "", "zamer_date": "", "floor_base": "", "photos_meta": "",
+        "preferred_type": "", "preferred_date": "", "preferred_time_of_day": "", "preferred_note": "",
     }
     base.update(fields)
     return [str(base.get(c, "")) for c in cols]
@@ -1120,6 +1127,16 @@ def _handle_measurement_request(body: dict[str, Any]) -> dict[str, Any]:
     assigned_to = str(body.get("assigned_to_tg_id") or "").strip()
     notes = (body.get("notes") or "").strip()
 
+    # Приблизительная дата визита (Commit C2)
+    preferred_type = (body.get("preferred_type") or "tbd").strip()
+    preferred_date = (body.get("preferred_date") or "").strip()
+    preferred_time_of_day = (body.get("preferred_time_of_day") or "").strip()
+    preferred_note = (body.get("preferred_note") or "").strip()
+    if preferred_type not in ("specific", "this_week", "next_week", "tbd"):
+        preferred_type = "tbd"
+    if preferred_time_of_day not in ("morning", "day", "evening", ""):
+        preferred_time_of_day = ""
+
     if not client_name or not client_phone:
         return {"error": "missing_client_info", "hint": "client_name and client_phone are required"}
 
@@ -1144,19 +1161,27 @@ def _handle_measurement_request(body: dict[str, Any]) -> dict[str, Any]:
         client_name=client_name,
         client_phone=client_phone,
         notes=notes,
+        preferred_type=preferred_type,
+        preferred_date=preferred_date,
+        preferred_time_of_day=preferred_time_of_day,
+        preferred_note=preferred_note,
     ))
 
     # Уведомление назначенному замерщику
     if assigned_to:
+        timing_line = _format_preferred_human(
+            preferred_type, preferred_date, preferred_time_of_day, preferred_note
+        )
         tg.send_message(
             int(assigned_to),
             f"📐 <b>Новая заявка на замер</b>\n\n"
             f"Клиент: <b>{client_name}</b>\n"
             f"Телефон: <code>{client_phone}</code>\n"
             f"Адрес: {address or '—'}\n"
+            f"Когда: {timing_line}\n"
             f"От менеджера: {user.get('full_name') or tg_id}\n\n"
             f"{notes if notes else ''}\n"
-            f"Откройте кабинет — назначьте дату."
+            f"Откройте кабинет — согласуйте точную дату с клиентом."
         )
 
     sheets.log_event("measurement_requested", tg_id, {
@@ -1206,6 +1231,10 @@ def _handle_measurement_inbox(body: dict[str, Any]) -> dict[str, Any]:
             "notes": row.get("notes", ""),
             "manager_tg_id": row.get("manager_tg_id", ""),
             "requested_by_tg_id": row.get("requested_by_tg_id", ""),
+            "preferred_type": row.get("preferred_type", ""),
+            "preferred_date": row.get("preferred_date", ""),
+            "preferred_time_of_day": row.get("preferred_time_of_day", ""),
+            "preferred_note": row.get("preferred_note", ""),
         })
     # Назначенная дата → первая; затем requested без даты
     def _sort_key(item):
@@ -1308,6 +1337,34 @@ def _format_date_human(iso: str) -> str:
         return iso
 
 
+def _format_preferred_human(p_type: str, p_date: str, p_tod: str, p_note: str) -> str:
+    """Приблизительная дата от менеджера в человекочитаемом виде."""
+    tod_map = {"morning": "утром", "day": "днём", "evening": "вечером"}
+    if p_type == "specific":
+        date_part = p_date
+        if p_date:
+            try:
+                from datetime import datetime as _dt
+                date_part = _dt.strptime(p_date, "%Y-%m-%d").strftime("%d.%m.%Y")
+            except Exception:
+                pass
+        parts = []
+        if date_part:
+            parts.append(date_part)
+        if p_tod in tod_map:
+            parts.append(tod_map[p_tod])
+        s = " ".join(parts) if parts else "конкретная дата"
+    elif p_type == "this_week":
+        s = "эта неделя"
+    elif p_type == "next_week":
+        s = "следующая неделя"
+    else:
+        s = "согласовать с клиентом"
+    if p_note:
+        s += f" · {p_note}"
+    return s
+
+
 def _handle_measurement_detail(body: dict[str, Any]) -> dict[str, Any]:
     """Возвращает один замер целиком — для детальной страницы и печати."""
     cfg = get_config()
@@ -1372,6 +1429,11 @@ def _handle_measurement_detail(body: dict[str, Any]) -> dict[str, Any]:
         "zamer_date": row.get("zamer_date", ""),
         "floor_base": row.get("floor_base", ""),
         "photos_meta": _safe_json(row.get("photos_meta", "")),
+        # Приблизительная дата от менеджера (Commit C2)
+        "preferred_type": row.get("preferred_type", ""),
+        "preferred_date": row.get("preferred_date", ""),
+        "preferred_time_of_day": row.get("preferred_time_of_day", ""),
+        "preferred_note": row.get("preferred_note", ""),
     }
 
 
