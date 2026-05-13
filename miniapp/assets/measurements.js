@@ -243,7 +243,7 @@ const Measurements = (function () {
     return node;
   }
 
-  /* ===================== Голосовой ввод заметок ===================== */
+  /* ===================== Голосовой ввод заметок (без дублей) ===================== */
   function setupVoiceMic(micBtn, textarea, statusEl, onChange) {
     if (!micBtn || !textarea) return;
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -257,6 +257,7 @@ const Measurements = (function () {
     let rec = null;
     let recording = false;
     let baseText = "";
+    let confirmedFinal = "";
 
     micBtn.addEventListener("click", () => {
       if (recording) { rec?.stop(); return; }
@@ -270,7 +271,7 @@ const Measurements = (function () {
         return;
       }
       baseText = (textarea.value || "").trim();
-      const sep = baseText ? "\n" : "";
+      confirmedFinal = "";
 
       rec.onstart = () => {
         recording = true;
@@ -280,19 +281,17 @@ const Measurements = (function () {
         haptic && haptic("impact");
       };
       rec.onresult = (ev) => {
-        let interim = "", final = "";
-        for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        // Пересчёт с нуля каждый раз — гарантия от дублей
+        let finalAll = "", interim = "";
+        for (let i = 0; i < ev.results.length; i++) {
           const t = ev.results[i][0].transcript;
-          if (ev.results[i].isFinal) final += t;
+          if (ev.results[i].isFinal) finalAll += t;
           else interim += t;
         }
-        if (final) {
-          baseText = (baseText + sep + final).trim();
-          textarea.value = baseText;
-          if (onChange) onChange(baseText);
-        } else if (interim) {
-          textarea.value = baseText + sep + interim;
-        }
+        confirmedFinal = finalAll.trim();
+        const fp = confirmedFinal ? (baseText ? " " : "") + confirmedFinal : "";
+        const ip = interim.trim() ? ((baseText || confirmedFinal) ? " " : "") + interim.trim() : "";
+        textarea.value = baseText + fp + ip;
       };
       rec.onerror = (ev) => {
         if (statusEl) statusEl.textContent = "Ошибка: " + (ev.error || "неизвестно");
@@ -304,6 +303,10 @@ const Measurements = (function () {
         recording = false;
         micBtn.classList.remove("rec");
         micBtn.textContent = "🎤 Диктовать";
+        if (confirmedFinal) {
+          baseText = (baseText + (baseText ? " " : "") + confirmedFinal).trim();
+          textarea.value = baseText;
+        }
         if (statusEl && statusEl.textContent === "Слушаю...") statusEl.textContent = "";
         if (onChange) onChange(textarea.value || "");
         haptic && haptic("impact");

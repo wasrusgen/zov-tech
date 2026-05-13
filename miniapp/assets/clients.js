@@ -37,8 +37,6 @@ const Clients = (function () {
     root.innerHTML = "";
     root.appendChild(headerEl("Новый клиент", "#/clients"));
 
-    let state = { full_name: "", phone: "", address: "", note: "" };
-
     const form = el(`
       <section class="podbor-step">
         <h2 class="display-title">Заводим<br><span class="accent">клиента</span></h2>
@@ -54,7 +52,8 @@ const Clients = (function () {
         <div class="form-row">
           <label class="field">
             <span class="field-label">Телефон *</span>
-            <input type="tel" id="ph" placeholder="+7 921 555-12-34" autocomplete="tel">
+            <input type="tel" id="ph" placeholder="+7 921 555-12-34" autocomplete="tel" inputmode="tel">
+            <span class="field-hint" id="phoneHint">Формат +7XXXXXXXXXX или 8XXXXXXXXXX</span>
             <span class="field-error" id="errPhone"></span>
           </label>
         </div>
@@ -62,6 +61,18 @@ const Clients = (function () {
           <label class="field">
             <span class="field-label">Адрес</span>
             <input type="text" id="ad" placeholder="СПб, Просвещения 87, кв. 12">
+            <span class="field-hint" id="addrHint">Укажите город, улицу, дом, кв.</span>
+            <span class="field-error" id="errAddr"></span>
+          </label>
+        </div>
+        <div class="form-row two-col">
+          <label class="field">
+            <span class="field-label">№ договора (опц.)</span>
+            <input type="text" id="cn" placeholder="например 1487В-М">
+          </label>
+          <label class="field">
+            <span class="field-label">Дата договора</span>
+            <input type="date" id="cd">
           </label>
         </div>
         <div class="form-row">
@@ -75,13 +86,20 @@ const Clients = (function () {
           </label>
         </div>
 
-        <div class="podbor-cta-row" style="margin-top:18px;">
+        <div class="podbor-cta-row" id="saveCta" style="margin-top:18px;">
           <button class="btn-primary" id="saveBtn" type="button">Завести клиента</button>
         </div>
         <div id="result" class="submit-result"></div>
       </section>
     `);
     root.appendChild(form);
+
+    // Авто-нормализация телефона при потере фокуса
+    const phoneInput = form.querySelector("#ph");
+    phoneInput.addEventListener("blur", () => {
+      const normalized = normalizePhone(phoneInput.value);
+      if (normalized.ok) phoneInput.value = normalized.value;
+    });
 
     // Голосовой ввод
     setupVoiceMicForField(
@@ -92,18 +110,35 @@ const Clients = (function () {
 
     form.querySelector("#saveBtn").addEventListener("click", async () => {
       const btn = form.querySelector("#saveBtn");
+      const cta = form.querySelector("#saveCta");
       const result = form.querySelector("#result");
-      form.querySelector("#errName").textContent = "";
-      form.querySelector("#errPhone").textContent = "";
+      ["errName", "errPhone", "errAddr"].forEach(id => {
+        const e = form.querySelector("#" + id);
+        if (e) e.textContent = "";
+      });
       const name = (form.querySelector("#fn").value || "").trim();
-      const phone = (form.querySelector("#ph").value || "").trim();
+      const phoneRaw = (form.querySelector("#ph").value || "").trim();
       const address = (form.querySelector("#ad").value || "").trim();
       const note = (form.querySelector("#nt").value || "").trim();
-      if (!name) { form.querySelector("#errName").textContent = "Укажите имя"; return; }
-      if (phone.replace(/\D/g, "").length < 10) {
-        form.querySelector("#errPhone").textContent = "Слишком короткий номер";
+      const contract_no = (form.querySelector("#cn").value || "").trim();
+      const contract_date = (form.querySelector("#cd").value || "").trim();
+
+      // Валидация на клиенте
+      if (!name || name.length < 2) {
+        form.querySelector("#errName").textContent = "Имя обязательно (минимум 2 символа)";
         return;
       }
+      const norm = normalizePhone(phoneRaw);
+      if (!norm.ok) {
+        form.querySelector("#errPhone").textContent =
+          "Введите корректный российский номер (+7XXXXXXXXXX или 8XXXXXXXXXX)";
+        return;
+      }
+      if (address && address.length < 5) {
+        form.querySelector("#errAddr").textContent = "Адрес слишком короткий — нужны улица + дом";
+        return;
+      }
+
       btn.disabled = true;
       btn.textContent = "Сохраняем...";
       try {
@@ -112,23 +147,28 @@ const Clients = (function () {
           body: JSON.stringify({
             initData: tg?.initData || "",
             initDataUnsafe: tg?.initDataUnsafe || null,
-            full_name: name, phone, address, note,
+            full_name: name, phone: norm.value, address, note,
+            contract_no, contract_date,
           }),
         });
         const data = await res.json();
         if (data.error) {
-          result.innerHTML = `<div class="error">Ошибка: ${data.error}</div>`;
+          const fieldErr = data.field ? form.querySelector("#err" + data.field[0].toUpperCase() + data.field.slice(1)) : null;
+          if (fieldErr) fieldErr.textContent = data.msg || data.error;
+          else result.innerHTML = `<div class="error">Ошибка: ${escHtml(data.msg || data.error)}</div>`;
           btn.disabled = false;
           btn.textContent = "Завести клиента";
           return;
         }
         haptic && haptic("success");
+        // Прячем CTA с «Сохраняем...» и показываем success + кнопки
+        cta.style.display = "none";
         result.innerHTML = `
           <div class="success">
             <div class="success-icon">${ICONS.check}</div>
             <div>
-              <div class="success-title">Клиент заведён</div>
-              <div class="success-sub">${escHtml(name)} · ${escHtml(phone)}</div>
+              <div class="success-title">Клиент #${data.client_no || "—"} заведён</div>
+              <div class="success-sub">${escHtml(name)} · ${escHtml(norm.value)}</div>
             </div>
           </div>
           <div class="podbor-cta-row" style="margin-top:14px;">
@@ -136,19 +176,33 @@ const Clients = (function () {
             <button class="btn-primary" id="openCard" type="button">Открыть карточку</button>
           </div>
         `;
-        const ckey = data.client_key || (phone.replace(/\D/g, "") || name.toLowerCase());
-        // Сбросим кэш — карточка клиента подтянет свежие данные
-        clientsCache = null;
-        form.querySelector("#another")?.addEventListener("click", () => renderNewClient());
-        form.querySelector("#openCard")?.addEventListener("click", () => {
+        const ckey = data.client_key || name.toLowerCase();
+        clientsCache = null;  // сброс кэша
+        // ВАЖНО: обработчики ищем В RESULT, не в form (где их нет)
+        result.querySelector("#another")?.addEventListener("click", () => renderNewClient());
+        result.querySelector("#openCard")?.addEventListener("click", () => {
           location.hash = `#/clients/client/${encodeURIComponent(ckey)}`;
         });
       } catch (e) {
-        result.innerHTML = `<div class="error">Сеть: ${e.message}</div>`;
+        result.innerHTML = `<div class="error">Сеть: ${escHtml(e.message)}</div>`;
         btn.disabled = false;
         btn.textContent = "Завести клиента";
       }
     });
+  }
+
+  function normalizePhone(raw) {
+    if (!raw) return { ok: false, value: "" };
+    const digits = String(raw).replace(/\D/g, "");
+    let normalized = digits;
+    if (normalized.length === 11 && normalized.startsWith("8")) {
+      normalized = "7" + normalized.slice(1);
+    }
+    if (normalized.length === 10) normalized = "7" + normalized;
+    if (normalized.length !== 11 || !normalized.startsWith("7")) {
+      return { ok: false, value: raw };
+    }
+    return { ok: true, value: "+" + normalized };
   }
 
   function setupVoiceMicForField(micBtn, textarea, statusEl) {
@@ -161,7 +215,10 @@ const Clients = (function () {
       if (statusEl) statusEl.textContent = "недоступно";
       return;
     }
-    let rec = null, recording = false, baseText = "";
+    let rec = null, recording = false;
+    let baseText = "";        // текст до начала записи
+    let confirmedFinal = "";  // финальные части накопленные в этой сессии записи
+
     micBtn.addEventListener("click", () => {
       if (recording) { rec?.stop(); return; }
       try {
@@ -172,7 +229,8 @@ const Clients = (function () {
         return;
       }
       baseText = (textarea.value || "").trim();
-      const sep = baseText ? "\n" : "";
+      confirmedFinal = "";
+
       rec.onstart = () => {
         recording = true;
         micBtn.classList.add("rec");
@@ -181,17 +239,18 @@ const Clients = (function () {
         haptic && haptic("impact");
       };
       rec.onresult = (ev) => {
-        let interim = "", final = "";
-        for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        // Пересчитываем ВСЕ финальные и interim с нуля каждый раз — гарантия от дублей
+        let finalAll = "";
+        let interim = "";
+        for (let i = 0; i < ev.results.length; i++) {
           const t = ev.results[i][0].transcript;
-          if (ev.results[i].isFinal) final += t; else interim += t;
+          if (ev.results[i].isFinal) finalAll += t;
+          else interim += t;
         }
-        if (final) {
-          baseText = (baseText + sep + final).trim();
-          textarea.value = baseText;
-        } else if (interim) {
-          textarea.value = baseText + sep + interim;
-        }
+        confirmedFinal = finalAll.trim();
+        const finalPart = confirmedFinal ? (baseText ? " " : "") + confirmedFinal : "";
+        const interimPart = interim.trim() ? ((baseText || confirmedFinal) ? " " : "") + interim.trim() : "";
+        textarea.value = baseText + finalPart + interimPart;
       };
       rec.onerror = (ev) => {
         if (statusEl) statusEl.textContent = "Ошибка: " + (ev.error || "");
@@ -203,6 +262,11 @@ const Clients = (function () {
         recording = false;
         micBtn.classList.remove("rec");
         micBtn.textContent = "🎤 Диктовать";
+        // Фиксируем итоговый текст: baseText + final
+        if (confirmedFinal) {
+          baseText = (baseText + (baseText ? " " : "") + confirmedFinal).trim();
+          textarea.value = baseText;
+        }
         if (statusEl && statusEl.textContent === "Слушаю...") statusEl.textContent = "";
         haptic && haptic("impact");
       };
@@ -326,12 +390,19 @@ const Clients = (function () {
     // Шапка
     const phoneNorm = (client.client_phone || "").replace(/[^\d+]/g, "");
     const callHref = phoneNorm ? `tel:${phoneNorm}` : "";
+    const noTag = client.client_no
+      ? `<span class="client-no-badge">#${escHtml(client.client_no)}</span>`
+      : "";
+    const contractTag = client.contract_no
+      ? `<div class="client-detail-meta">📋 договор ${escHtml(client.contract_no)}</div>`
+      : "";
     root.appendChild(el(`
       <div class="client-detail-head">
         <div class="client-avatar lg">${initial(client.client_name)}</div>
         <div style="flex:1;min-width:0;">
-          <h2 class="client-detail-name">${escHtml(client.client_name)}</h2>
+          <h2 class="client-detail-name">${escHtml(client.client_name)} ${noTag}</h2>
           ${client.client_phone ? `<div class="client-detail-phone">${escHtml(client.client_phone)}</div>` : ""}
+          ${contractTag}
         </div>
         ${callHref ? `<a class="client-call-btn" href="${callHref}" aria-label="Позвонить">📞</a>` : ""}
       </div>
@@ -392,6 +463,62 @@ const Clients = (function () {
     filesPlaceholder.replaceWith(renderClientFiles(client, myMeasurements));
     // Детальные списки внизу (свёрнуты)
     detailsPlaceholder.replaceWith(renderClientDetails(client, myMeasurements));
+
+    // Опасная зона — удалить клиента (soft-delete всех его записей)
+    const deleteZone = el(`
+      <details class="danger-zone" style="margin-top:24px;">
+        <summary>⚠️ Опасная зона</summary>
+        <div style="padding:12px 4px;">
+          <p style="font-size:13px;color:var(--muted);margin:0 0 12px;">
+            При удалении клиент будет архивирован вместе со всеми его заявками,
+            замерами и подборами. Из списка он исчезнет.
+          </p>
+          <button class="btn-danger" id="deleteClient" type="button">🗑 Удалить клиента</button>
+          <div id="deleteResult" style="margin-top:8px;font-size:12px;"></div>
+        </div>
+      </details>
+    `);
+    deleteZone.querySelector("#deleteClient").addEventListener("click", async () => {
+      const confirmed = await confirmDialog(`Удалить клиента ${client.client_name}? Это нельзя отменить из бота.`);
+      if (!confirmed) return;
+      const btn = deleteZone.querySelector("#deleteClient");
+      const result = deleteZone.querySelector("#deleteResult");
+      btn.disabled = true; btn.textContent = "Удаляем...";
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/client_delete`, {
+          method: "POST",
+          body: JSON.stringify({
+            initData: tg?.initData || "",
+            initDataUnsafe: tg?.initDataUnsafe || null,
+            client_key: (client.client_name || "").toLowerCase(),
+          }),
+        });
+        const data = await res.json();
+        if (data.error) {
+          result.innerHTML = `<span style="color:#C0392B;">Ошибка: ${escHtml(data.error)}</span>`;
+          btn.disabled = false; btn.textContent = "🗑 Удалить клиента";
+          return;
+        }
+        haptic && haptic("success");
+        clientsCache = null;
+        result.innerHTML = `<span style="color:#27AE60;">Архивировано ${data.archived} записей. Возвращаемся в список...</span>`;
+        setTimeout(() => { location.hash = "#/clients"; window.location.reload(); }, 1200);
+      } catch (e) {
+        result.innerHTML = `<span style="color:#C0392B;">Сеть: ${escHtml(e.message)}</span>`;
+        btn.disabled = false; btn.textContent = "🗑 Удалить клиента";
+      }
+    });
+    root.appendChild(deleteZone);
+  }
+
+  function confirmDialog(msg) {
+    return new Promise((resolve) => {
+      if (window.Telegram?.WebApp?.showConfirm) {
+        window.Telegram.WebApp.showConfirm(msg, (ok) => resolve(!!ok));
+      } else {
+        resolve(window.confirm(msg));
+      }
+    });
   }
 
   /* ===================== Хронология ===================== */

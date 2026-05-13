@@ -2066,6 +2066,57 @@
   flex-shrink: 0;
 }
 
+/* ===== Бейдж номера клиента + договор ===== */
+.client-no-badge {
+  display: inline-block;
+  background: var(--warm, rgba(107, 74, 43, 0.10));
+  color: var(--walnut, #6B4A2B);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  vertical-align: middle;
+  margin-left: 6px;
+}
+.client-detail-meta {
+  font-size: 12px;
+  color: var(--muted, #998877);
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  margin-top: 4px;
+}
+
+/* ===== Опасная зона удаления ===== */
+.danger-zone {
+  border: 1px dashed rgba(192, 57, 43, 0.35);
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: rgba(192, 57, 43, 0.03);
+}
+.danger-zone > summary {
+  font-size: 13px;
+  font-weight: 600;
+  color: #C0392B;
+  cursor: pointer;
+  padding: 4px 0;
+  list-style: none;
+  user-select: none;
+}
+.danger-zone[open] > summary { margin-bottom: 6px; }
+.btn-danger {
+  background: #C0392B;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-danger:active { background: #A93226; }
+.btn-danger:disabled { opacity: 0.6; cursor: wait; }
+
 /* ===== Карточка клиента: шапка + действия ===== */
 .client-detail-head { position: relative; display: flex; align-items: center; gap: 14px; }
 .client-call-btn {

@@ -116,6 +116,7 @@ async def _dispatch_post(request: Request):
         "geocode":               _handle_geocode,
         "client_note":           _handle_client_note,
         "client_create":         _handle_client_create,
+        "client_delete":         _handle_client_delete,
         "ping":          lambda b: {"pong": True, "time": _now_iso()},
         "seed_admin":    lambda b: _handle_seed_admin(),
         "test_ai":       lambda b: _handle_test_ai(),
@@ -234,6 +235,12 @@ async def api_client_note(request: Request):
 async def api_client_create(request: Request):
     body = await _safe_json(request)
     return _handle_client_create(body)
+
+
+@app.post("/api/client_delete")
+async def api_client_delete(request: Request):
+    body = await _safe_json(request)
+    return _handle_client_delete(body)
 
 
 @app.post("/api/grant_role")
@@ -646,6 +653,10 @@ def _measurement_columns() -> list[str]:
         "parking_type", "parking_note", "delivery_notes",
         # Google Calendar — событие при scheduled
         "gcal_event_id", "gcal_event_url",
+        # Идентификаторы клиента и договора (нумерация)
+        "client_no", "contract_no", "contract_date",
+        # Soft-delete
+        "archived_at",
     ]
 
 
@@ -681,6 +692,8 @@ def _row_for_measurement(measurement_id: str, ts: str, **fields) -> list[str]:
         "entrance": "", "floor": "", "gps_lat": "", "gps_lng": "",
         "parking_type": "", "parking_note": "", "delivery_notes": "",
         "gcal_event_id": "", "gcal_event_url": "",
+        "client_no": "", "contract_no": "", "contract_date": "",
+        "archived_at": "",
     }
     base.update(fields)
     return [str(base.get(c, "")) for c in cols]
@@ -991,6 +1004,8 @@ def _handle_clients(body: dict[str, Any]) -> dict[str, Any]:
                 "client_name": name or "Без имени",
                 "client_tg_id": ctg_id or None,
                 "client_phone": phone or "",
+                "client_no": "",
+                "contract_no": "",
                 "leads_count": 0,
                 "last_lead_at": "",
                 "last_lead_id": "",
@@ -1049,13 +1064,19 @@ def _handle_clients(body: dict[str, Any]) -> dict[str, Any]:
                 row = dict(zip(headers, r + [""] * (len(headers) - len(r))))
                 if str(row.get("manager_tg_id", "")) != str(tg_id):
                     continue
+                if row.get("archived_at"):
+                    continue  # soft-deleted клиент
                 client_name = (row.get("client_name") or "").strip()
                 client_phone = (row.get("client_phone") or "").strip()
                 client_tg_id = (row.get("client_tg_id") or "").strip()
+                client_no = (row.get("client_no") or "").strip()
+                contract_no = (row.get("contract_no") or "").strip()
                 key = client_tg_id or client_name.lower()
                 if not key:
                     continue
                 c = _ensure_client(key, client_name, client_phone, client_tg_id)
+                if client_no and not c.get("client_no"): c["client_no"] = client_no
+                if contract_no and not c.get("contract_no"): c["contract_no"] = contract_no
                 # Если у клиента нет ни одного лида — last_at берём из measurement.ts
                 ts = row.get("ts") or row.get("created_at") or ""
                 if ts > c["last_lead_at"]:
@@ -1453,9 +1474,52 @@ def _handle_measurement_logistics(body: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True, "id": measurement_id, "logistics": updates}
 
 
+def _normalize_phone(raw: str) -> tuple[str, bool]:
+    """Нормализует RU-телефон в формат +7XXXXXXXXXX.
+    Возвращает (нормализованный, валиден ли)."""
+    if not raw:
+        return "", False
+    digits = "".join(c for c in raw if c.isdigit())
+    # Если начинается с 8 — заменяем на 7
+    if len(digits) == 11 and digits.startswith("8"):
+        digits = "7" + digits[1:]
+    # Если 10 цифр — добавляем 7 в начало
+    if len(digits) == 10:
+        digits = "7" + digits
+    if len(digits) != 11 or not digits.startswith("7"):
+        return raw, False
+    return "+" + digits, True
+
+
+def _next_client_no(manager_tg_id: str) -> int:
+    """Следующий порядковый номер клиента для менеджера (1, 2, 3, ...)."""
+    try:
+        ws = sheets.sheet("Measurements")
+        rows = ws.get_all_values()
+    except Exception:
+        return 1
+    if not rows or len(rows) < 2:
+        return 1
+    headers = rows[0]
+    if "client_no" not in headers or "manager_tg_id" not in headers:
+        return 1
+    no_idx = headers.index("client_no")
+    mgr_idx = headers.index("manager_tg_id")
+    max_n = 0
+    for r in rows[1:]:
+        if mgr_idx < len(r) and str(r[mgr_idx]).strip() == str(manager_tg_id):
+            try:
+                n = int(str(r[no_idx]).strip()) if no_idx < len(r) and r[no_idx] else 0
+                if n > max_n:
+                    max_n = n
+            except (ValueError, TypeError):
+                pass
+    return max_n + 1
+
+
 def _handle_client_create(body: dict[str, Any]) -> dict[str, Any]:
     """Менеджер заводит клиента без замера/подбора.
-    body: {initData, full_name, phone, address?, note?}
+    body: {initData, full_name, phone, address?, note?, contract_no?, contract_date?}
     Создаёт пустую заявку-карточку (status='draft') чтобы клиент появился
     в списке клиентов менеджера и был доступен в карточке."""
     cfg = get_config()
@@ -1472,14 +1536,29 @@ def _handle_client_create(body: dict[str, Any]) -> dict[str, Any]:
         return {"error": "only_manager"}
 
     full_name = (body.get("full_name") or "").strip()
-    phone = (body.get("phone") or "").strip()
+    phone_raw = (body.get("phone") or "").strip()
     address = (body.get("address") or "").strip()
     note = (body.get("note") or "").strip()
-    if not full_name and not phone:
-        return {"error": "missing_client_id"}
+    contract_no = (body.get("contract_no") or "").strip()
+    contract_date = (body.get("contract_date") or "").strip()
+
+    # Валидация
+    if not full_name:
+        return {"error": "missing_name", "field": "full_name", "msg": "Укажите ФИО клиента"}
+    if len(full_name) < 2:
+        return {"error": "bad_name", "field": "full_name", "msg": "Имя слишком короткое"}
+
+    phone, phone_ok = _normalize_phone(phone_raw)
+    if not phone_ok:
+        return {"error": "bad_phone", "field": "phone", "msg": "Телефон в формате +7XXXXXXXXXX (10 цифр после +7)"}
+
+    if address and len(address) < 5:
+        return {"error": "bad_address", "field": "address", "msg": "Адрес слишком короткий"}
 
     _ensure_measurements_sheet()
     measurement_id = _short_id()
+    client_no = _next_client_no(str(tg_id))
+
     # Создаём «карточку клиента» как заявку со статусом draft
     sheets.append_row("Measurements", _row_for_measurement(
         measurement_id, _now_iso(),
@@ -1492,6 +1571,9 @@ def _handle_client_create(body: dict[str, Any]) -> dict[str, Any]:
         client_phone=phone,
         notes=note,
         preferred_note=note,
+        client_no=str(client_no),
+        contract_no=contract_no,
+        contract_date=contract_date,
     ))
 
     # Сохраняем заметку в ClientNotes если она передана
@@ -1504,15 +1586,67 @@ def _handle_client_create(body: dict[str, Any]) -> dict[str, Any]:
             pass
 
     sheets.log_event("client_created", tg_id, {
-        "id": measurement_id, "client": full_name, "phone": phone,
+        "id": measurement_id, "client": full_name, "phone": phone, "client_no": client_no,
     })
+    # client_key — формат совместимый с _handle_clients (которое использует name.lower())
     return {
         "ok": True,
         "id": measurement_id,
         "client_name": full_name,
         "client_phone": phone,
-        "client_key": _normalize_client_key(full_name, phone),
+        "client_no": client_no,
+        "contract_no": contract_no,
+        "client_key": full_name.lower(),
     }
+
+
+def _handle_client_delete(body: dict[str, Any]) -> dict[str, Any]:
+    """Soft-delete всех записей Measurements по клиенту (для текущего менеджера).
+    body: {initData, client_key} — client_key это name.lower() как в _handle_clients."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user or not sheets.has_role(user, "manager"):
+        return {"error": "only_manager"}
+
+    client_key = (body.get("client_key") or "").strip().lower()
+    if not client_key:
+        return {"error": "missing_client_key"}
+
+    try:
+        ws = sheets.sheet("Measurements")
+        rows = ws.get_all_values()
+    except Exception as e:
+        return {"error": f"sheets: {e}"}
+    if not rows or len(rows) < 2:
+        return {"ok": True, "archived": 0}
+
+    headers = rows[0]
+    if "archived_at" not in headers or "client_name" not in headers or "manager_tg_id" not in headers:
+        return {"error": "schema_missing"}
+    archived_idx = headers.index("archived_at") + 1
+    now = _now_iso()
+    count = 0
+    for i, r in enumerate(rows[1:], start=2):
+        row = dict(zip(headers, r + [""] * (len(headers) - len(r))))
+        if str(row.get("manager_tg_id", "")) != str(tg_id):
+            continue
+        if (row.get("client_name") or "").strip().lower() != client_key:
+            continue
+        if row.get("archived_at"):
+            continue  # уже архивирован
+        ws.update_cell(i, archived_idx, now)
+        count += 1
+
+    sheets.log_event("client_deleted", tg_id, {"client_key": client_key, "count": count})
+    return {"ok": True, "archived": count}
 
 
 def _normalize_client_key(name: str, phone: str) -> str:
