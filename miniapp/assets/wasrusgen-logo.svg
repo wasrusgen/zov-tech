@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 540" aria-label="@wasrusgen1">
+  <g fill="none" stroke="#C9A227" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+
+    <!-- ===== ПИЛА (циркулярная) ===== -->
+
+    <!-- Корпус мотора — трапеция со скруглениями -->
+    <path d="
+      M 200 50
+      L 380 30
+      Q 410 28 416 55
+      L 420 130
+      Q 421 158 395 162
+      L 235 178
+      Q 210 180 205 158
+      L 195 75
+      Q 192 56 200 50 Z
+    "/>
+
+    <!-- Отверстие под палец/ручку -->
+    <ellipse cx="365" cy="78" rx="14" ry="20"/>
+
+    <!-- Кожух пилы (верхняя дуга от корпуса вниз к диску) -->
+    <path d="
+      M 235 178
+      Q 215 220 205 240
+      L 175 285
+    "/>
+    <path d="
+      M 395 162
+      Q 420 195 415 230
+      L 430 285
+    "/>
+
+    <!-- Купол кожуха над диском -->
+    <path d="M 175 285 A 130 130 0 0 1 430 285" />
+
+    <!-- Диск пилы (полный круг видимой части) -->
+    <circle cx="302" cy="295" r="110" />
+
+    <!-- Зубья (треугольные шипы по нижней дуге) -->
+    <path d="
+      M 198 297
+      l -10 18 l 18 -3
+      l 0 16 l 18 -6
+      l 4 16 l 18 -8
+      l 8 14 l 17 -10
+      l 12 12 l 15 -12
+      l 16 10 l 12 -14
+      l 18 8 l 9 -16
+      l 18 6 l 5 -16
+      l 18 3 l 1 -18
+    "/>
+
+    <!-- Центральный болт-ось -->
+    <circle cx="302" cy="295" r="22" />
+    <circle cx="302" cy="295" r="9" fill="#C9A227" stroke="none"/>
+
+    <!-- Опорный брус (станина) -->
+    <line x1="60" y1="420" x2="540" y2="420" stroke-width="16"/>
+
+  </g>
+
+  <!-- ===== WORDMARK @WASRUSGEN1 ===== -->
+  <text
+    x="300" y="510"
+    text-anchor="middle"
+    font-family="Inter, system-ui, -apple-system, 'Segoe UI', sans-serif"
+    font-weight="900"
+    font-size="78"
+    letter-spacing="2"
+    fill="#C9A227"
+  >@WASRUSGEN1</text>
+</svg>
