@@ -192,10 +192,12 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
    Loader (брендированный — логотип ЗОВ + дыхание)
    ============================================================ */
 .loader {
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   min-height: 100vh;
-  gap: 22px;
+  gap: 18px;
   padding: 24px;
 }
 
@@ -218,12 +220,13 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 
 /* Бренд @wasrusgen1 на splash — SVG-лого + CRM */
 .brand-logo {
-  width: 80%;
-  max-width: 360px;
+  width: 70%;
+  max-width: 260px;
   height: auto;
   display: block;
   margin: 0 auto;
   animation: logoBreath 2.2s ease-in-out infinite;
+  filter: drop-shadow(0 6px 16px rgba(44, 62, 80, 0.18));
 }
 .brand-tagline-gold {
   font-family: "Inter", system-ui, sans-serif;
