@@ -58,12 +58,27 @@ const Clients = (function () {
           </label>
         </div>
         <div class="form-row">
-          <label class="field">
-            <span class="field-label">Адрес</span>
-            <input type="text" id="ad" placeholder="СПб, Просвещения 87, кв. 12">
-            <span class="field-hint" id="addrHint">Укажите город, улицу, дом, кв.</span>
-            <span class="field-error" id="errAddr"></span>
-          </label>
+          <span class="field-label">Адрес *</span>
+          <div class="addr-grid">
+            <label class="field">
+              <span class="field-sublabel">Город</span>
+              <input type="text" id="ad_city" placeholder="Санкт-Петербург" value="Санкт-Петербург" autocomplete="address-level2">
+            </label>
+            <label class="field">
+              <span class="field-sublabel">Улица</span>
+              <input type="text" id="ad_street" placeholder="пр. Просвещения" autocomplete="street-address">
+            </label>
+            <label class="field addr-house">
+              <span class="field-sublabel">Дом</span>
+              <input type="text" id="ad_house" placeholder="87" inputmode="text">
+            </label>
+            <label class="field addr-apt">
+              <span class="field-sublabel">Кв./офис</span>
+              <input type="text" id="ad_apt" placeholder="12" inputmode="numeric">
+            </label>
+          </div>
+          <span class="field-error" id="errAddr"></span>
+          <div class="geo-status" id="geoStatus"></div>
         </div>
         <div class="form-row two-col">
           <label class="field">
@@ -116,14 +131,21 @@ const Clients = (function () {
         const e = form.querySelector("#" + id);
         if (e) e.textContent = "";
       });
-      const name = (form.querySelector("#fn").value || "").trim();
-      const phoneRaw = (form.querySelector("#ph").value || "").trim();
-      const address = (form.querySelector("#ad").value || "").trim();
-      const note = (form.querySelector("#nt").value || "").trim();
-      const contract_no = (form.querySelector("#cn").value || "").trim();
-      const contract_date = (form.querySelector("#cd").value || "").trim();
+      const name          = (form.querySelector("#fn").value       || "").trim();
+      const phoneRaw      = (form.querySelector("#ph").value       || "").trim();
+      const adCity        = (form.querySelector("#ad_city").value  || "").trim();
+      const adStreet      = (form.querySelector("#ad_street").value|| "").trim();
+      const adHouse       = (form.querySelector("#ad_house").value || "").trim();
+      const adApt         = (form.querySelector("#ad_apt").value   || "").trim();
+      const note          = (form.querySelector("#nt").value       || "").trim();
+      const contract_no   = (form.querySelector("#cn").value       || "").trim();
+      const contract_date = (form.querySelector("#cd").value       || "").trim();
 
-      // Валидация на клиенте
+      // Собираем адрес из полей
+      const address = [adCity, adStreet, adHouse ? "д. " + adHouse : "", adApt ? "кв. " + adApt : ""]
+        .filter(Boolean).join(", ");
+
+      // Валидация
       if (!name || name.length < 2) {
         form.querySelector("#errName").textContent = "Имя обязательно (минимум 2 символа)";
         return;
@@ -134,12 +156,39 @@ const Clients = (function () {
           "Введите корректный российский номер (+7XXXXXXXXXX или 8XXXXXXXXXX)";
         return;
       }
-      if (address && address.length < 5) {
-        form.querySelector("#errAddr").textContent = "Адрес слишком короткий — нужны улица + дом";
+      if (!adCity || !adStreet || !adHouse) {
+        form.querySelector("#errAddr").textContent = "Укажите город, улицу и номер дома";
         return;
       }
 
       btn.disabled = true;
+      btn.textContent = "Проверяем адрес…";
+
+      // Геокодирование — проверяем адрес, продолжаем даже при неудаче
+      let gps_lat = null, gps_lng = null;
+      const geoEl = form.querySelector("#geoStatus");
+      try {
+        const geoRes = await fetch(`${BACKEND_URL}/api/geocode`, {
+          method: "POST",
+          body: JSON.stringify({
+            initData: tg?.initData || "",
+            initDataUnsafe: tg?.initDataUnsafe || null,
+            address: `${adCity}, ${adStreet}, д. ${adHouse}`,
+            city: adCity,
+          }),
+        });
+        const geoData = await geoRes.json();
+        if (geoData.ok && geoData.result) {
+          gps_lat = geoData.result.lat;
+          gps_lng = geoData.result.lng;
+          geoEl.innerHTML = `<span class="geo-ok">✓ ${escHtml(geoData.result.formatted || address)}</span>`;
+        } else {
+          geoEl.innerHTML = `<span class="geo-warn">⚠ Адрес не найден в геокодере — проверьте написание. Сохраняем без координат.</span>`;
+        }
+      } catch (_) {
+        geoEl.innerHTML = `<span class="geo-warn">⚠ Геокодер недоступен. Сохраняем без координат.</span>`;
+      }
+
       btn.textContent = "Сохраняем...";
       try {
         const res = await fetch(`${BACKEND_URL}/api/client_create`, {
@@ -148,7 +197,7 @@ const Clients = (function () {
             initData: tg?.initData || "",
             initDataUnsafe: tg?.initDataUnsafe || null,
             full_name: name, phone: norm.value, address, note,
-            contract_no, contract_date,
+            contract_no, contract_date, gps_lat, gps_lng,
           }),
         });
         const data = await res.json();
@@ -189,6 +238,25 @@ const Clients = (function () {
         btn.textContent = "Завести клиента";
       }
     });
+  }
+
+  // Разбирает сохранённый адрес «Город, Улица, д. NN, кв. MM» обратно в поля.
+  function splitAddress(combined) {
+    if (!combined) return { city: "Санкт-Петербург", street: "", house: "", apt: "" };
+    let s = combined.trim();
+    let apt = "";
+    const aptMatch = s.match(/,\s*кв\.?\s*([^\s,]+)/i);
+    if (aptMatch) { apt = aptMatch[1]; s = s.replace(aptMatch[0], ""); }
+    let house = "";
+    const houseMatch = s.match(/,\s*д\.?\s*([^\s,]+)/i);
+    if (houseMatch) { house = houseMatch[1]; s = s.replace(houseMatch[0], ""); }
+    s = s.replace(/,$/, "").trim();
+    const parts = s.split(",").map(p => p.trim()).filter(Boolean);
+    let city = "", street = "";
+    if (parts.length >= 2) { city = parts[0]; street = parts.slice(1).join(", "); }
+    else if (parts.length === 1) { city = parts[0]; }
+    if (!city) city = "Санкт-Петербург";
+    return { city, street, house, apt };
   }
 
   function normalizePhone(raw) {
@@ -644,6 +712,7 @@ const Clients = (function () {
     root.innerHTML = "";
     root.appendChild(headerEl("Редактировать клиента", "#/clients"));
 
+    const addrParts = splitAddress(client.address || "");
     const form = el(`
       <section class="podbor-step">
         <h2 class="display-title">Редактируем<br><span class="accent">клиента</span></h2>
@@ -664,10 +733,27 @@ const Clients = (function () {
           </label>
         </div>
         <div class="form-row">
-          <label class="field">
-            <span class="field-label">Адрес</span>
-            <input type="text" id="ed_addr" value="${escAttr(client.address || "")}" placeholder="СПб, Просвещения 87, кв. 12">
-          </label>
+          <span class="field-label">Адрес</span>
+          <div class="addr-grid">
+            <label class="field">
+              <span class="field-sublabel">Город</span>
+              <input type="text" id="ed_city" value="${escAttr(addrParts.city)}" placeholder="Санкт-Петербург" autocomplete="address-level2">
+            </label>
+            <label class="field">
+              <span class="field-sublabel">Улица</span>
+              <input type="text" id="ed_street" value="${escAttr(addrParts.street)}" placeholder="пр. Просвещения" autocomplete="street-address">
+            </label>
+            <label class="field addr-house">
+              <span class="field-sublabel">Дом</span>
+              <input type="text" id="ed_house" value="${escAttr(addrParts.house)}" placeholder="87" inputmode="text">
+            </label>
+            <label class="field addr-apt">
+              <span class="field-sublabel">Кв./офис</span>
+              <input type="text" id="ed_apt" value="${escAttr(addrParts.apt)}" placeholder="12" inputmode="numeric">
+            </label>
+          </div>
+          <span class="field-error" id="ed_errAddr"></span>
+          <div class="geo-status" id="ed_geoStatus"></div>
         </div>
         <div class="form-row two-col">
           <label class="field">
@@ -695,15 +781,19 @@ const Clients = (function () {
     });
 
     form.querySelector("#ed_save").addEventListener("click", async () => {
-      const fn = form.querySelector("#ed_fn").value.trim();
-      const ph = form.querySelector("#ed_ph").value.trim();
-      const addr = form.querySelector("#ed_addr").value.trim();
-      const cno = form.querySelector("#ed_cno").value.trim();
-      const cdate = form.querySelector("#ed_cdate").value.trim();
-      const errName = form.querySelector("#ed_errName");
+      const fn       = form.querySelector("#ed_fn").value.trim();
+      const ph       = form.querySelector("#ed_ph").value.trim();
+      const edCity   = (form.querySelector("#ed_city").value   || "").trim();
+      const edStreet = (form.querySelector("#ed_street").value || "").trim();
+      const edHouse  = (form.querySelector("#ed_house").value  || "").trim();
+      const edApt    = (form.querySelector("#ed_apt").value    || "").trim();
+      const cno      = form.querySelector("#ed_cno").value.trim();
+      const cdate    = form.querySelector("#ed_cdate").value.trim();
+      const errName  = form.querySelector("#ed_errName");
       const errPhone = form.querySelector("#ed_errPhone");
-      const result = form.querySelector("#ed_result");
-      errName.textContent = ""; errPhone.textContent = ""; result.innerHTML = "";
+      const errAddr  = form.querySelector("#ed_errAddr");
+      const result   = form.querySelector("#ed_result");
+      errName.textContent = ""; errPhone.textContent = ""; errAddr.textContent = ""; result.innerHTML = "";
 
       if (!fn || fn.length < 2) {
         errName.textContent = "Имя слишком короткое";
@@ -714,14 +804,43 @@ const Clients = (function () {
         errPhone.textContent = "Телефон в формате +7XXXXXXXXXX";
         return;
       }
-      if (addr && addr.length < 5) {
-        result.innerHTML = `<span style="color:#C0392B;">Адрес слишком короткий</span>`;
+      if (!edCity || !edStreet || !edHouse) {
+        errAddr.textContent = "Укажите город, улицу и номер дома";
         return;
       }
 
-      const btn = form.querySelector("#ed_save");
-      btn.disabled = true; btn.textContent = "Сохраняем...";
+      const address = [edCity, edStreet, edHouse ? "д. " + edHouse : "", edApt ? "кв. " + edApt : ""]
+        .filter(Boolean).join(", ");
 
+      const btn = form.querySelector("#ed_save");
+      btn.disabled = true; btn.textContent = "Проверяем адрес…";
+
+      // Геокодирование — необязательно, продолжаем даже при неудаче
+      let gps_lat = null, gps_lng = null;
+      const geoEl = form.querySelector("#ed_geoStatus");
+      try {
+        const geoRes = await fetch(`${BACKEND_URL}/api/geocode`, {
+          method: "POST",
+          body: JSON.stringify({
+            initData: tg?.initData || "",
+            initDataUnsafe: tg?.initDataUnsafe || null,
+            address: `${edCity}, ${edStreet}, д. ${edHouse}`,
+            city: edCity,
+          }),
+        });
+        const geoData = await geoRes.json();
+        if (geoData.ok && geoData.result) {
+          gps_lat = geoData.result.lat;
+          gps_lng = geoData.result.lng;
+          geoEl.innerHTML = `<span class="geo-ok">✓ ${escHtml(geoData.result.formatted || address)}</span>`;
+        } else {
+          geoEl.innerHTML = `<span class="geo-warn">⚠ Адрес не найден — сохраняем без координат.</span>`;
+        }
+      } catch (_) {
+        geoEl.innerHTML = `<span class="geo-warn">⚠ Геокодер недоступен. Сохраняем без координат.</span>`;
+      }
+
+      btn.textContent = "Сохраняем...";
       try {
         const res = await fetch(`${BACKEND_URL}/api/client_update`, {
           method: "POST",
@@ -731,9 +850,11 @@ const Clients = (function () {
             client_key: (client.client_name || "").toLowerCase(),
             full_name: fn,
             phone: norm.value,
-            address: addr,
+            address,
             contract_no: cno,
             contract_date: cdate,
+            gps_lat,
+            gps_lng,
           }),
         });
         const data = await res.json();

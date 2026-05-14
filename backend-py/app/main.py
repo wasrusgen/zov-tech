@@ -2119,6 +2119,8 @@ def _handle_client_create(body: dict[str, Any]) -> dict[str, Any]:
     note = (body.get("note") or "").strip()
     contract_no = (body.get("contract_no") or "").strip()
     contract_date = (body.get("contract_date") or "").strip()
+    gps_lat = body.get("gps_lat")
+    gps_lng = body.get("gps_lng")
 
     # Валидация
     if not full_name:
@@ -2152,6 +2154,8 @@ def _handle_client_create(body: dict[str, Any]) -> dict[str, Any]:
         client_no=str(client_no),
         contract_no=contract_no,
         contract_date=contract_date,
+        gps_lat=gps_lat,
+        gps_lng=gps_lng,
     ))
 
     # Сохраняем заметку в ClientNotes если она передана
@@ -2303,6 +2307,8 @@ def _handle_client_update(body: dict[str, Any]) -> dict[str, Any]:
     new_address = body.get("address")
     new_contract_no = body.get("contract_no")
     new_contract_date = body.get("contract_date")
+    new_gps_lat = body.get("gps_lat")
+    new_gps_lng = body.get("gps_lng")
 
     if new_name and len(new_name) < 2:
         return {"error": "bad_name", "msg": "Имя слишком короткое"}
@@ -2337,6 +2343,8 @@ def _handle_client_update(body: dict[str, Any]) -> dict[str, Any]:
     address_col = col_idx("address")
     contract_no_col = col_idx("contract_no")
     contract_date_col = col_idx("contract_date")
+    gps_lat_col = col_idx("gps_lat")
+    gps_lng_col = col_idx("gps_lng")
 
     updated = 0
     for i, r in enumerate(rows[1:], start=2):
@@ -2357,6 +2365,10 @@ def _handle_client_update(body: dict[str, Any]) -> dict[str, Any]:
             ws.update_cell(i, contract_no_col, new_contract_no.strip())
         if isinstance(new_contract_date, str) and contract_date_col:
             ws.update_cell(i, contract_date_col, new_contract_date.strip())
+        if new_gps_lat is not None and gps_lat_col:
+            ws.update_cell(i, gps_lat_col, new_gps_lat)
+        if new_gps_lng is not None and gps_lng_col:
+            ws.update_cell(i, gps_lng_col, new_gps_lng)
         updated += 1
 
     sheets.log_event("client_updated", tg_id, {"client_key": client_key, "updated": updated})

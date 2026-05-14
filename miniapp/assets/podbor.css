@@ -3320,6 +3320,190 @@
   border-top: 1px dashed var(--line);
 }
 
+/* ===== Поля адреса (addr-grid) ===== */
+.addr-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 6px;
+}
+.addr-grid .field { margin: 0; }
+.addr-house { grid-column: 1; }
+.addr-apt   { grid-column: 2; }
+.field-sublabel {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted, #998877);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 3px;
+}
+.geo-status {
+  font-size: 12.5px;
+  line-height: 1.4;
+  min-height: 18px;
+  margin-top: 5px;
+}
+.geo-ok   { color: #27AE60; }
+.geo-warn { color: #C0392B; }
+
+/* ===== Пикер клиента (замер) ===== */
+.client-picker-wrap { margin-bottom: 2px; }
+.picker-open-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--paper, #FBF7F0);
+  border: 1.5px dashed rgba(107,74,43,0.28);
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--walnut, #6B4A2B);
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+}
+.picker-open-btn:active { background: rgba(107,74,43,0.06); }
+.picker-open-btn .picker-open-icon {
+  width: 32px; height: 32px; flex-shrink: 0;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #845A2E 0%, #5C3A1C 100%);
+  display: flex; align-items: center; justify-content: center;
+  color: #F5DAAA; font-size: 16px;
+}
+.picker-chosen-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--paper, #FBF7F0);
+  border: 1.5px solid rgba(107,74,43,0.22);
+  border-radius: 10px;
+}
+.picker-chosen-info { flex: 1; min-width: 0; }
+.picker-chosen-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink, #1F1A14);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.picker-chosen-sub {
+  font-size: 12px;
+  color: var(--muted, #998877);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.picker-change-btn {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  background: transparent;
+  border: 1px solid rgba(107,74,43,0.28);
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--walnut, #6B4A2B);
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.picker-change-btn:active { background: rgba(107,74,43,0.08); }
+
+/* Оверлей пикера */
+.client-picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 800;
+  background: rgba(20,15,10,0.45);
+  display: flex;
+  align-items: flex-end;
+}
+.picker-sheet {
+  width: 100%;
+  max-height: 80vh;
+  background: var(--bg, #F5EFE6);
+  border-radius: 18px 18px 0 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.18);
+}
+.picker-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--line, rgba(107,74,43,0.12));
+  flex-shrink: 0;
+}
+.picker-sheet-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink, #1F1A14);
+}
+.picker-sheet-close {
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(107,74,43,0.09);
+  border: none; border-radius: 50%;
+  font-size: 16px; cursor: pointer;
+  color: var(--walnut, #6B4A2B);
+  font-family: inherit;
+}
+.picker-search-wrap {
+  padding: 10px 14px;
+  flex-shrink: 0;
+}
+.picker-search {
+  width: 100%;
+  padding: 9px 12px;
+  background: white;
+  border: 1px solid rgba(107,74,43,0.18);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--ink, #1F1A14);
+  box-sizing: border-box;
+}
+.picker-search:focus { outline: none; border-color: var(--walnut, #6B4A2B); }
+.picker-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0 env(safe-area-inset-bottom, 16px);
+}
+.picker-row {
+  display: flex;
+  flex-direction: column;
+  padding: 11px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(107,74,43,0.07);
+  transition: background 0.1s;
+}
+.picker-row:active { background: rgba(107,74,43,0.06); }
+.picker-row-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink, #1F1A14);
+}
+.picker-row-sub {
+  font-size: 12px;
+  color: var(--muted, #998877);
+  margin-top: 1px;
+}
+.picker-empty-state {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--muted, #998877);
+  font-size: 14px;
+}
+
 /* ===== Печать / PDF ===== */
 @media print {
   body { background: white !important; color: black !important; }

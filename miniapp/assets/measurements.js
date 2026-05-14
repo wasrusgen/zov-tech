@@ -28,6 +28,7 @@ const Measurements = (function () {
   let root = null;
   let measurementId = ""; // если задан — update-mode (закрытие заявки)
   let prefilledClient = null;
+  let pickedClient    = null; // клиент из пикера (только для нового замера)
 
   function loadState() {
     try {
@@ -60,6 +61,7 @@ const Measurements = (function () {
     saveState();
     photos = [];
     prefilledClient = null;
+    pickedClient    = null;
   }
 
   /* ===================== Mount + Render ===================== */
@@ -73,6 +75,7 @@ const Measurements = (function () {
     photos = [];
     measurementId = "";
     prefilledClient = null;
+    pickedClient    = null;
 
     const hashMatch = (location.hash.split("?")[1] || "");
     const fragQp = new URLSearchParams(hashMatch);
@@ -155,7 +158,7 @@ const Measurements = (function () {
 
   function renderForm() {
     const isUpdate = !!measurementId && prefilledClient;
-    const clientBlock = isUpdate ? renderClientReadOnly() : renderClientInputs();
+    const clientBlock = isUpdate ? renderClientReadOnly() : renderClientPicker();
 
     const node = el(`
       <section class="podbor-step">
@@ -363,31 +366,164 @@ const Measurements = (function () {
     `);
   }
 
-  function renderClientInputs() {
-    return el(`
-      <div>
+  /* ===================== Пикер клиента ===================== */
+
+  function renderClientPicker() {
+    const wrap = el(`
+      <div class="client-picker-wrap">
+        <div class="form-row" id="pcChoiceRow"></div>
         <div class="form-row">
           <label class="field">
-            <span class="field-label">ФИО клиента *</span>
-            <input type="text" data-bind="client_name" value="${escAttr(state.client_name)}" placeholder="Иванов Иван Иванович">
-            <span class="field-error" id="nameError"></span>
-          </label>
-        </div>
-        <div class="form-row">
-          <label class="field">
-            <span class="field-label">Телефон *</span>
-            <input type="tel" data-bind="client_phone" value="${escAttr(state.client_phone)}" placeholder="+7 921 555-12-34">
-            <span class="field-error" id="phoneError"></span>
-          </label>
-        </div>
-        <div class="form-row">
-          <label class="field">
-            <span class="field-label">Адрес</span>
-            <input type="text" data-bind="address" value="${escAttr(state.address)}" placeholder="СПб, Просвещения 87, кв. 12">
+            <span class="field-label">Адрес объекта</span>
+            <input type="text" data-bind="address" id="pcAddr"
+                   value="${escAttr(state.address)}"
+                   placeholder="СПб, пр. Просвещения, д. 87, кв. 12">
           </label>
         </div>
       </div>
     `);
+
+    const choiceRow = wrap.querySelector("#pcChoiceRow");
+    const addrInput = wrap.querySelector("#pcAddr");
+
+    addrInput.addEventListener("input", e => {
+      state.address = e.target.value;
+      saveState();
+    });
+
+    function refresh() {
+      choiceRow.innerHTML = "";
+      if (pickedClient) {
+        const card = el(`
+          <div class="picker-chosen-card">
+            <div class="picker-chosen-info">
+              <div class="picker-chosen-name">${escHtml(pickedClient.client_name)}</div>
+              <div class="picker-chosen-sub">
+                ${escHtml(pickedClient.client_phone || "")}${pickedClient.contract_no ? " · дог. " + escHtml(pickedClient.contract_no) : ""}
+              </div>
+            </div>
+            <button class="picker-change-btn" type="button">Изменить</button>
+          </div>
+        `);
+        card.querySelector(".picker-change-btn").addEventListener("click", openOverlay);
+        choiceRow.appendChild(card);
+        if (!addrInput.value && pickedClient.address) {
+          addrInput.value = pickedClient.address;
+          state.address = pickedClient.address;
+          saveState();
+        }
+      } else {
+        const empty = el(`
+          <div class="picker-empty-state">
+            <button class="picker-open-btn" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                   stroke-linecap="round" stroke-linejoin="round" width="18" height="18" aria-hidden="true">
+                <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+              </svg>
+              Выбрать клиента из CRM
+            </button>
+            <span class="field-error" id="nameError"></span>
+          </div>
+        `);
+        empty.querySelector(".picker-open-btn").addEventListener("click", openOverlay);
+        choiceRow.appendChild(empty);
+      }
+    }
+
+    async function openOverlay() {
+      const overlay = el(`
+        <div class="client-picker-overlay">
+          <div class="picker-sheet">
+            <div class="picker-sheet-head">
+              <span class="picker-sheet-title">Выбор клиента</span>
+              <button class="picker-close-btn" type="button">✕</button>
+            </div>
+            <div class="picker-search-wrap">
+              <input class="picker-search" type="search"
+                     placeholder="Поиск по ФИО или телефону…" autocomplete="off">
+            </div>
+            <div class="picker-list" id="pcList">
+              <div class="picker-loading">Загружаем список…</div>
+            </div>
+          </div>
+        </div>
+      `);
+      document.body.appendChild(overlay);
+      requestAnimationFrame(() => overlay.classList.add("open"));
+
+      const listEl   = overlay.querySelector("#pcList");
+      const searchEl = overlay.querySelector(".picker-search");
+
+      function closeOverlay() {
+        overlay.classList.remove("open");
+        setTimeout(() => overlay.remove(), 220);
+      }
+      overlay.querySelector(".picker-close-btn").addEventListener("click", closeOverlay);
+      overlay.addEventListener("click", e => { if (e.target === overlay) closeOverlay(); });
+
+      let clients = [];
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/clients`, {
+          method: "POST",
+          body: JSON.stringify({
+            initData: tg?.initData || "",
+            initDataUnsafe: tg?.initDataUnsafe || null,
+          }),
+        });
+        const data = await res.json();
+        clients = (data.clients || []).sort((a, b) =>
+          (a.client_name || "").localeCompare(b.client_name || "", "ru")
+        );
+      } catch (e) {
+        listEl.innerHTML = `<div class="picker-error">Ошибка загрузки: ${escHtml(e.message)}</div>`;
+        return;
+      }
+
+      function renderList(q) {
+        q = (q || "").toLowerCase().trim();
+        const filtered = q
+          ? clients.filter(c =>
+              (c.client_name || "").toLowerCase().includes(q) ||
+              (c.client_phone || "").replace(/\D/g, "").includes(q.replace(/\D/g, ""))
+            )
+          : clients;
+        listEl.innerHTML = "";
+        if (!filtered.length) {
+          listEl.innerHTML = `<div class="picker-empty-msg">${q ? "Ничего не найдено" : "Список клиентов пуст"}</div>`;
+          return;
+        }
+        filtered.forEach(c => {
+          const row = el(`
+            <div class="picker-row">
+              <div class="picker-row-name">${escHtml(c.client_name || "—")}</div>
+              <div class="picker-row-sub">
+                ${c.client_phone ? `<span>${escHtml(c.client_phone)}</span>` : ""}
+                ${c.contract_no ? `<span class="picker-contract">дог. ${escHtml(c.contract_no)}</span>` : ""}
+              </div>
+            </div>
+          `);
+          row.addEventListener("click", () => {
+            pickedClient = {
+              client_name:  c.client_name  || "",
+              client_phone: c.client_phone || "",
+              address:      c.address      || "",
+              contract_no:  c.contract_no  || "",
+              client_no:    c.client_no    || "",
+            };
+            closeOverlay();
+            refresh();
+          });
+          listEl.appendChild(row);
+        });
+      }
+
+      renderList("");
+      searchEl.focus();
+      searchEl.addEventListener("input", () => renderList(searchEl.value));
+    }
+
+    refresh();
+    return wrap;
   }
 
   function bindInputs(node) {
@@ -703,19 +839,12 @@ const Measurements = (function () {
 
     const isUpdate = !!measurementId && prefilledClient;
     if (!isUpdate) {
-      const name = (state.client_name || "").trim();
-      const phone = (state.client_phone || "").trim();
-      const nameErr = node.querySelector("#nameError");
-      const phoneErr = node.querySelector("#phoneError");
-      if (nameErr) nameErr.textContent = "";
-      if (phoneErr) phoneErr.textContent = "";
-      if (!name) {
-        if (nameErr) nameErr.textContent = "Укажите имя клиента";
-        btn.disabled = false; btn.textContent = "Сохранить замер";
-        return;
-      }
-      if (phone.replace(/\D/g, "").length < 10) {
-        if (phoneErr) phoneErr.textContent = "Слишком короткий номер";
+      if (!pickedClient) {
+        const nameErr = node.querySelector("#nameError");
+        if (nameErr) {
+          nameErr.textContent = "Выберите клиента из списка";
+          nameErr.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
         btn.disabled = false; btn.textContent = "Сохранить замер";
         return;
       }
@@ -735,9 +864,9 @@ const Measurements = (function () {
       zamer_date: state.zamer_date || "",
       notes: state.notes || "",
       // Клиент
-      client_name: isUpdate ? prefilledClient.name : state.client_name,
-      client_phone: isUpdate ? prefilledClient.phone : state.client_phone,
-      address: isUpdate ? prefilledClient.address : state.address,
+      client_name:  isUpdate ? prefilledClient.name  : pickedClient.client_name,
+      client_phone: isUpdate ? prefilledClient.phone : pickedClient.client_phone,
+      address:      isUpdate ? prefilledClient.address : state.address,
       measurement_id: measurementId || undefined,
     };
 
