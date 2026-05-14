@@ -2309,7 +2309,41 @@
 .client-note-block .block-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
+}
+.client-note-block .block-head > span:first-child {
+  flex: 1;
+}
+
+/* Кнопка-переключатель Изменить / Свернуть */
+.note-edit-toggle {
+  padding: 4px 12px;
+  background: transparent;
+  border: 1px solid rgba(107, 74, 43, 0.30);
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--walnut, #6B4A2B);
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
+}
+.note-edit-toggle:active {
+  background: rgba(107, 74, 43, 0.10);
+}
+
+/* Просмотр-режим */
+.note-view {
+  padding: 6px 2px 4px;
+}
+.note-text {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink, #1F1A14);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0 0 4px;
 }
 .client-note-block .note-meta {
   font-size: 11px;

@@ -1205,58 +1205,98 @@ const Clients = (function () {
       <section class="block client-note-block">
         <div class="block-head">
           <span>📝 Примечание</span>
+          <button class="note-edit-toggle" id="noteEditBtn" type="button" title="Редактировать">Изменить</button>
+        </div>
+
+        <!-- Режим просмотра -->
+        <div class="note-view" id="noteView">
+          <p class="note-text" id="noteDisplayText" style="color:var(--muted,#998877);font-style:italic;">Загружаем...</p>
           <span class="note-meta" id="noteMeta"></span>
         </div>
-        <div class="note-editor">
-          <textarea id="noteText" rows="3" placeholder="Заметки по клиенту — характер, предпочтения, договорённости, статус..."></textarea>
+
+        <!-- Режим редактирования (скрыт по умолчанию) -->
+        <div class="note-editor" id="noteEditor" style="display:none;">
+          <textarea id="noteText" rows="4" placeholder="Заметки по клиенту — характер, предпочтения, договорённости, статус..."></textarea>
           <div class="note-actions">
             <button class="btn-mic" id="noteMic" type="button" title="Голосовой ввод">🎤 Диктовать</button>
-            <button class="btn-secondary" id="noteSave" type="button">Сохранить</button>
+            <button class="btn-secondary" id="noteCancel" type="button">Отмена</button>
+            <button class="btn-primary" id="noteSave" type="button">Сохранить</button>
           </div>
           <div class="note-status" id="noteStatus"></div>
         </div>
       </section>
     `);
 
-    const textarea = section.querySelector("#noteText");
-    const meta = section.querySelector("#noteMeta");
-    const status = section.querySelector("#noteStatus");
+    const view      = section.querySelector("#noteView");
+    const editor    = section.querySelector("#noteEditor");
+    const displayTx = section.querySelector("#noteDisplayText");
+    const textarea  = section.querySelector("#noteText");
+    const meta      = section.querySelector("#noteMeta");
+    const status    = section.querySelector("#noteStatus");
+    const editBtn   = section.querySelector("#noteEditBtn");
+    let savedText   = "";
+
+    function showView(text, updatedAt) {
+      savedText = text || "";
+      displayTx.style.fontStyle = text ? "normal" : "italic";
+      displayTx.style.color     = text ? "var(--ink,#1F1A14)" : "var(--muted,#998877)";
+      displayTx.textContent     = text || "Нет примечания";
+      if (updatedAt) meta.textContent = "обновлено " + formatDate(updatedAt);
+      editor.style.display = "none";
+      view.style.display   = "";
+      editBtn.textContent  = "Изменить";
+    }
+
+    function showEditor() {
+      textarea.value       = savedText;
+      status.textContent   = "";
+      status.className     = "note-status";
+      editor.style.display = "";
+      view.style.display   = "none";
+      editBtn.textContent  = "Свернуть";
+      textarea.focus();
+    }
 
     // Загружаем сохранённую заметку
-    fetchClientNote(client).then(data => {
-      if (data?.note) textarea.value = data.note;
-      if (data?.updated_at) {
-        meta.textContent = "обновлено " + formatDate(data.updated_at);
-      }
-    }).catch(() => {});
+    fetchClientNote(client)
+      .then(data => showView(data?.note || "", data?.updated_at || ""))
+      .catch(() => showView("", ""));
+
+    // Переключатель просмотр ↔ редактирование
+    editBtn.addEventListener("click", () => {
+      if (editor.style.display === "none") showEditor();
+      else showView(savedText, meta.textContent.replace("обновлено ", ""));
+    });
+
+    // Отмена — вернуть исходный текст
+    section.querySelector("#noteCancel").addEventListener("click", () => {
+      showView(savedText, meta.textContent.replace("обновлено ", ""));
+    });
 
     // Сохранение
     section.querySelector("#noteSave").addEventListener("click", async () => {
       const btn = section.querySelector("#noteSave");
-      btn.disabled = true;
-      btn.textContent = "Сохраняем...";
+      btn.disabled = true; btn.textContent = "Сохраняем...";
+      status.textContent = ""; status.className = "note-status";
       try {
         const data = await saveClientNote(client, textarea.value);
         if (data?.ok) {
-          status.textContent = "✓ сохранено";
-          status.className = "note-status ok";
-          if (data.updated_at) meta.textContent = "обновлено " + formatDate(data.updated_at);
-          setTimeout(() => { status.textContent = ""; }, 2500);
+          haptic && haptic("success");
+          showView(textarea.value, data.updated_at || "");
         } else {
           status.textContent = "Ошибка: " + (data?.error || "не сохранилось");
           status.className = "note-status err";
+          btn.disabled = false; btn.textContent = "Сохранить";
         }
       } catch (e) {
         status.textContent = "Сеть: " + e.message;
         status.className = "note-status err";
+        btn.disabled = false; btn.textContent = "Сохранить";
       }
-      btn.disabled = false;
-      btn.textContent = "Сохранить";
     });
 
-    // Голосовой ввод через Web Speech API
-    const micBtn = section.querySelector("#noteMic");
-    setupVoiceInput(micBtn, textarea, status);
+    // Голосовой ввод
+    setupVoiceInput(section.querySelector("#noteMic"), textarea, status);
 
     return section;
   }
