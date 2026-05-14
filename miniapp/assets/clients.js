@@ -205,75 +205,101 @@ const Clients = (function () {
     return { ok: true, value: "+" + normalized };
   }
 
-  function setupVoiceMicForField(micBtn, textarea, statusEl) {
-    if (!micBtn || !textarea) return;
+  // Единая фабрика голосового ввода.
+  // continuous=false + авто-рестарт по фразам — исключает дубли, стабильно на Android/iOS.
+  function _buildVoiceEngine(micBtn, textarea, opts) {
+    // opts: { statusEl, statusClass, onChange }
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
       micBtn.disabled = true;
       micBtn.title = "Браузер не поддерживает голос";
       micBtn.style.opacity = "0.5";
-      if (statusEl) statusEl.textContent = "недоступно";
+      if (opts.statusEl) opts.statusEl.textContent = "недоступно";
       return;
     }
-    let rec = null, recording = false;
-    let baseText = "";        // текст до начала записи
-    let confirmedFinal = "";  // финальные части накопленные в этой сессии записи
 
-    micBtn.addEventListener("click", () => {
-      if (recording) { rec?.stop(); return; }
+    let active = false;   // пользователь включил микрофон
+    let baseText = "";    // подтверждённый текст (растёт по фразам)
+    let curRec = null;
+
+    function _setStatus(txt, cls) {
+      if (!opts.statusEl) return;
+      opts.statusEl.textContent = txt;
+      if (opts.statusClass && cls) opts.statusEl.className = opts.statusClass + (cls !== "ok" ? " " + cls : "");
+    }
+
+    function startPhrase() {
+      let rec;
       try {
         rec = new SR();
-        rec.lang = "ru-RU"; rec.continuous = true; rec.interimResults = true;
+        rec.lang = "ru-RU";
+        rec.continuous    = false;  // одна фраза — один сеанс, нет накопленных results
+        rec.interimResults = true;
       } catch (e) {
-        if (statusEl) statusEl.textContent = "Микрофон недоступен";
+        _setStatus("Микрофон недоступен", "err");
+        active = false; micBtn.classList.remove("rec"); micBtn.textContent = "🎤 Диктовать";
         return;
       }
-      baseText = (textarea.value || "").trim();
-      confirmedFinal = "";
+      curRec = rec;
 
-      rec.onstart = () => {
-        recording = true;
-        micBtn.classList.add("rec");
-        micBtn.textContent = "⏹ Стоп";
-        if (statusEl) statusEl.textContent = "Слушаю...";
-        haptic && haptic("impact");
-      };
       rec.onresult = (ev) => {
-        // Пересчитываем ВСЕ финальные и interim с нуля каждый раз — гарантия от дублей
-        let finalAll = "";
-        let interim = "";
+        // Только результаты ЭТОЙ фразы — ev.results всегда свежий (continuous=false)
+        let fin = "", itr = "";
         for (let i = 0; i < ev.results.length; i++) {
-          const t = ev.results[i][0].transcript;
-          if (ev.results[i].isFinal) finalAll += t;
-          else interim += t;
+          const t = ev.results[i][0].transcript.trim();
+          if (!t) continue;
+          if (ev.results[i].isFinal) fin += (fin ? " " : "") + t;
+          else              itr += (itr ? " " : "") + t;
         }
-        confirmedFinal = finalAll.trim();
-        const finalPart = confirmedFinal ? (baseText ? " " : "") + confirmedFinal : "";
-        const interimPart = interim.trim() ? ((baseText || confirmedFinal) ? " " : "") + interim.trim() : "";
-        textarea.value = baseText + finalPart + interimPart;
+        const shown = fin || itr;
+        textarea.value = baseText + (baseText && shown ? " " : "") + shown;
       };
-      rec.onerror = (ev) => {
-        if (statusEl) statusEl.textContent = "Ошибка: " + (ev.error || "");
-        recording = false;
-        micBtn.classList.remove("rec");
-        micBtn.textContent = "🎤 Диктовать";
-      };
+
       rec.onend = () => {
-        recording = false;
-        micBtn.classList.remove("rec");
-        micBtn.textContent = "🎤 Диктовать";
-        // Фиксируем итоговый текст: baseText + final
-        if (confirmedFinal) {
-          baseText = (baseText + (baseText ? " " : "") + confirmedFinal).trim();
-          textarea.value = baseText;
+        // Зафиксировать текущий текст как base и запустить следующую фразу (если active)
+        baseText = textarea.value.trim();
+        if (active) {
+          startPhrase();
+        } else {
+          micBtn.classList.remove("rec");
+          micBtn.textContent = "🎤 Диктовать";
+          _setStatus("", "ok");
+          if (opts.onChange) opts.onChange(textarea.value || "");
+          haptic && haptic("impact");
         }
-        if (statusEl && statusEl.textContent === "Слушаю...") statusEl.textContent = "";
-        haptic && haptic("impact");
       };
-      try { rec.start(); } catch (e) {
-        if (statusEl) statusEl.textContent = "Не запустить: " + e.message;
+
+      rec.onerror = (ev) => {
+        if (ev.error === "no-speech") return; // тишина — onend сработает, авто-перезапуск
+        _setStatus("Ошибка: " + (ev.error || ""), "err");
+        active = false; micBtn.classList.remove("rec"); micBtn.textContent = "🎤 Диктовать";
+      };
+
+      try { rec.start(); }
+      catch (e) {
+        _setStatus("Не запустить: " + e.message, "err");
+        active = false; micBtn.classList.remove("rec"); micBtn.textContent = "🎤 Диктовать";
       }
+    }
+
+    micBtn.addEventListener("click", () => {
+      if (active) {
+        active = false;
+        curRec?.stop(); // onend → видит active=false → сбросит кнопку
+        return;
+      }
+      active   = true;
+      baseText = (textarea.value || "").trim();
+      micBtn.classList.add("rec");
+      micBtn.textContent = "⏹ Стоп";
+      _setStatus("Слушаю...", "ok");
+      haptic && haptic("impact");
+      startPhrase();
     });
+  }
+
+  function setupVoiceMicForField(micBtn, textarea, statusEl) {
+    _buildVoiceEngine(micBtn, textarea, { statusEl });
   }
 
   /* ===================== Список клиентов ===================== */
@@ -1263,81 +1289,9 @@ const Clients = (function () {
   }
 
   function setupVoiceInput(micBtn, textarea, status) {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) {
-      micBtn.disabled = true;
-      micBtn.title = "Браузер не поддерживает голосовой ввод";
-      micBtn.style.opacity = "0.5";
-      return;
-    }
-    let rec = null;
-    let recording = false;
-    let baseText = "";         // что было в textarea ДО старта записи
-    let confirmedFinal = "";   // финальная фраза текущей сессии записи
-
-    micBtn.addEventListener("click", () => {
-      if (recording) { rec?.stop(); return; }
-      try {
-        rec = new SR();
-        rec.lang = "ru-RU";
-        rec.continuous = true;
-        rec.interimResults = true;
-      } catch (e) {
-        status.textContent = "Микрофон недоступен: " + e.message;
-        status.className = "note-status err";
-        return;
-      }
-      baseText = (textarea.value || "").trim();
-      confirmedFinal = "";
-
-      rec.onstart = () => {
-        recording = true;
-        micBtn.classList.add("rec");
-        micBtn.textContent = "⏹ Стоп";
-        status.textContent = "Слушаю...";
-        status.className = "note-status";
-        haptic && haptic("impact");
-      };
-      // Защита от дублей: пересчитываем ВСЕ финальные и interim с нуля
-      // на каждом событии. Не полагаемся на ev.resultIndex (в Chrome он
-      // ведёт себя нестабильно при паузах — отсюда дублирование слов).
-      rec.onresult = (ev) => {
-        let finalAll = "", interim = "";
-        for (let i = 0; i < ev.results.length; i++) {
-          const t = ev.results[i][0].transcript;
-          if (ev.results[i].isFinal) finalAll += t;
-          else interim += t;
-        }
-        confirmedFinal = finalAll.trim();
-        const sep = baseText ? " " : "";
-        const fp = confirmedFinal ? sep + confirmedFinal : "";
-        const ip = interim.trim() ? ((baseText || confirmedFinal) ? " " : "") + interim.trim() : "";
-        textarea.value = baseText + fp + ip;
-      };
-      rec.onerror = (ev) => {
-        status.textContent = "Ошибка распознавания: " + (ev.error || "неизвестно");
-        status.className = "note-status err";
-        recording = false;
-        micBtn.classList.remove("rec");
-        micBtn.textContent = "🎤 Диктовать";
-      };
-      rec.onend = () => {
-        recording = false;
-        micBtn.classList.remove("rec");
-        micBtn.textContent = "🎤 Диктовать";
-        if (status.textContent === "Слушаю...") status.textContent = "";
-        // Фиксируем подтверждённый текст в baseText на случай повторного запуска
-        if (confirmedFinal) {
-          baseText = (baseText + (baseText ? " " : "") + confirmedFinal).trim();
-          textarea.value = baseText;
-        }
-        haptic && haptic("impact");
-      };
-      try { rec.start(); }
-      catch (e) {
-        status.textContent = "Не запустить: " + e.message;
-        status.className = "note-status err";
-      }
+    _buildVoiceEngine(micBtn, textarea, {
+      statusEl:    status,
+      statusClass: "note-status",
     });
   }
 
