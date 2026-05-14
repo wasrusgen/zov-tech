@@ -117,6 +117,9 @@ async def _dispatch_post(request: Request):
         "client_note":           _handle_client_note,
         "client_create":         _handle_client_create,
         "client_delete":         _handle_client_delete,
+        "measurement_design_upload": _handle_measurement_design_upload,
+        "measurement_decision":  _handle_measurement_decision,
+        "manager_pending":       _handle_manager_pending,
         "ping":          lambda b: {"pong": True, "time": _now_iso()},
         "seed_admin":    lambda b: _handle_seed_admin(),
         "test_ai":       lambda b: _handle_test_ai(),
@@ -243,6 +246,24 @@ async def api_client_delete(request: Request):
     return _handle_client_delete(body)
 
 
+@app.post("/api/measurement_design_upload")
+async def api_measurement_design_upload(request: Request):
+    body = await _safe_json(request)
+    return _handle_measurement_design_upload(body)
+
+
+@app.post("/api/measurement_decision")
+async def api_measurement_decision(request: Request):
+    body = await _safe_json(request)
+    return _handle_measurement_decision(body)
+
+
+@app.post("/api/manager_pending")
+async def api_manager_pending(request: Request):
+    body = await _safe_json(request)
+    return _handle_manager_pending(body)
+
+
 @app.post("/api/grant_role")
 async def api_grant_role(request: Request):
     """Админ выдаёт роль другому пользователю.
@@ -274,7 +295,13 @@ async def api_photo(measurement_id: str, filename: str):
     if not p.exists() or not p.is_file():
         return JSONResponse({"error": "not_found"}, status_code=404)
     ext = filename.rsplit(".", 1)[-1].lower()
-    media = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp"}.get(ext, "application/octet-stream")
+    media = {
+        "jpg": "image/jpeg", "jpeg": "image/jpeg",
+        "png": "image/png", "webp": "image/webp",
+        "pdf": "application/pdf",
+        "dwg": "application/acad",
+        "dxf": "application/dxf",
+    }.get(ext, "application/octet-stream")
     return FileResponse(str(p), media_type=media)
 
 
@@ -657,6 +684,12 @@ def _measurement_columns() -> list[str]:
         "client_no", "contract_no", "contract_date",
         # Soft-delete
         "archived_at",
+        # Чертёж/документы — DWG, PDF, PNG превью (B)
+        "design_files",
+        # Решение менеджера про подбор техники после замера (E)
+        # podbor_decision: pending | needed | not_needed | later | done
+        # podbor_decision_at — когда зафиксировано решение
+        "podbor_decision", "podbor_decision_at", "podbor_lead_id",
     ]
 
 
@@ -694,6 +727,8 @@ def _row_for_measurement(measurement_id: str, ts: str, **fields) -> list[str]:
         "gcal_event_id": "", "gcal_event_url": "",
         "client_no": "", "contract_no": "", "contract_date": "",
         "archived_at": "",
+        "design_files": "",
+        "podbor_decision": "", "podbor_decision_at": "", "podbor_lead_id": "",
     }
     base.update(fields)
     return [str(base.get(c, "")) for c in cols]
@@ -859,8 +894,9 @@ def _handle_measurement(body: dict[str, Any]) -> dict[str, Any]:
                 f"✅ <b>Замер выполнен</b>\n"
                 f"Клиент: <b>{client_name or '—'}</b>\n"
                 f"Замерщик: {user.get('full_name') or tg_id}\n"
-                f"Фото: {len(saved_photos)} шт · площадь {m.get('area_m2') or '—'} м²\n\n"
-                f"Откройте кабинет — можно запускать подбор техники."
+                f"Фото: {len(saved_photos)} шт\n\n"
+                f"❓ <b>Клиенту потребуется помощь с подбором техники?</b>\n"
+                f"Откройте кабинет — на главной появится карточка с этим вопросом."
             )
     elif filled_by == "client_self" and manager_tg_id:
         tg.send_message(
@@ -1474,6 +1510,223 @@ def _handle_measurement_logistics(body: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True, "id": measurement_id, "logistics": updates}
 
 
+_DESIGN_DATA_URL_RE = re.compile(r"^data:([\w/\-+.]+);base64,(.+)$", re.DOTALL)
+_DESIGN_ALLOWED_EXT = {"dwg", "dxf", "pdf", "png", "jpg", "jpeg", "webp"}
+_DESIGN_SAFE_NAME_RE = re.compile(r"[^A-Za-z0-9_.\-]+")
+
+
+def _save_design_file(measurement_id: str, data_url: str, raw_filename: str = "") -> str | None:
+    """Сохраняет чертёж/документ (DWG, PDF, PNG) в PHOTOS_DIR/<id>/design_<n>.<ext>.
+    Возвращает имя файла или None."""
+    if not isinstance(data_url, str):
+        return None
+    m = _DESIGN_DATA_URL_RE.match(data_url.strip())
+    if not m:
+        return None
+    mime = m.group(1).lower()
+    try:
+        raw = base64.b64decode(m.group(2), validate=False)
+    except Exception:
+        return None
+    if len(raw) > 30 * 1024 * 1024:  # 30 MB cap (DWG могут быть тяжёлыми)
+        return None
+    if not _SAFE_ID_RE.match(measurement_id):
+        return None
+
+    # Расширение из mime, fallback на filename
+    ext_map = {
+        "application/x-autocad": "dwg",
+        "image/vnd.dwg": "dwg",
+        "application/acad": "dwg",
+        "application/dxf": "dxf",
+        "application/pdf": "pdf",
+        "image/png": "png",
+        "image/jpeg": "jpg",
+        "image/jpg": "jpg",
+        "image/webp": "webp",
+    }
+    ext = ext_map.get(mime, "")
+    if not ext and raw_filename:
+        rname = raw_filename.lower().rsplit(".", 1)
+        if len(rname) == 2 and rname[1] in _DESIGN_ALLOWED_EXT:
+            ext = rname[1]
+    if not ext or ext not in _DESIGN_ALLOWED_EXT:
+        return None
+
+    target_dir = PHOTOS_DIR / measurement_id
+    try:
+        target_dir.mkdir(parents=True, exist_ok=True)
+        # Подбираем уникальное имя design_1.ext, design_2.ext...
+        n = 1
+        while (target_dir / f"design_{n}.{ext}").exists():
+            n += 1
+        name = f"design_{n}.{ext}"
+        # Если был передан осмысленный filename — используем его (sanitized)
+        if raw_filename:
+            base = raw_filename.rsplit(".", 1)[0]
+            safe = _DESIGN_SAFE_NAME_RE.sub("_", base)[:60].strip("_")
+            if safe:
+                name = f"design_{safe}.{ext}"
+                k = 1
+                while (target_dir / name).exists():
+                    k += 1
+                    name = f"design_{safe}_{k}.{ext}"
+        (target_dir / name).write_bytes(raw)
+        return name
+    except Exception:
+        log.warning("Не удалось сохранить design-файл для %s", measurement_id)
+        return None
+
+
+def _handle_measurement_design_upload(body: dict[str, Any]) -> dict[str, Any]:
+    """Загрузка чертежа/документа к замеру.
+    body: {initData, measurement_id, files: [{name, data_url}, ...]}"""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+
+    measurement_id = (body.get("measurement_id") or "").strip()
+    if not measurement_id:
+        return {"error": "missing_measurement_id"}
+    row = sheets.find_row("Measurements", "id", measurement_id)
+    if not row:
+        return {"error": "measurement_not_found"}
+    # Право: менеджер-владелец, замерщик, технолог, админ
+    is_owner = str(row.get("manager_tg_id")) == str(tg_id) or \
+               str(row.get("requested_by_tg_id")) == str(tg_id) or \
+               str(row.get("assigned_to_tg_id")) == str(tg_id)
+    if not is_owner and not sheets.has_role(user, "manager"):
+        return {"error": "forbidden"}
+
+    files = body.get("files") or []
+    if not isinstance(files, list) or not files:
+        return {"error": "no_files"}
+
+    saved = []
+    for f in files[:10]:  # хард-кап 10 файлов за раз
+        if not isinstance(f, dict):
+            continue
+        data_url = f.get("data_url") or ""
+        name = f.get("name") or ""
+        fn = _save_design_file(measurement_id, data_url, name)
+        if fn:
+            saved.append(fn)
+
+    if not saved:
+        return {"error": "no_valid_files"}
+
+    # Объединяем с уже сохранёнными
+    existing = [s for s in (row.get("design_files") or "").split(",") if s]
+    combined = existing + saved
+    sheets.update_cell_by_key("Measurements", "id", measurement_id, "design_files", ",".join(combined))
+
+    sheets.log_event("design_uploaded", tg_id, {"id": measurement_id, "count": len(saved)})
+    return {
+        "ok": True,
+        "id": measurement_id,
+        "saved": saved,
+        "total": len(combined),
+        "design_files": combined,
+    }
+
+
+def _handle_measurement_decision(body: dict[str, Any]) -> dict[str, Any]:
+    """Менеджер фиксирует решение про подбор техники после замера.
+    body: {initData, measurement_id, decision: needed|not_needed|later|done, lead_id?}"""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user or not sheets.has_role(user, "manager"):
+        return {"error": "only_manager"}
+
+    measurement_id = (body.get("measurement_id") or "").strip()
+    decision = (body.get("decision") or "").strip()
+    if decision not in ("needed", "not_needed", "later", "done"):
+        return {"error": "bad_decision"}
+    row = sheets.find_row("Measurements", "id", measurement_id)
+    if not row:
+        return {"error": "measurement_not_found"}
+    if str(row.get("manager_tg_id")) != str(tg_id) and str(row.get("requested_by_tg_id")) != str(tg_id):
+        return {"error": "forbidden"}
+
+    sheets.update_cell_by_key("Measurements", "id", measurement_id, "podbor_decision", decision)
+    sheets.update_cell_by_key("Measurements", "id", measurement_id, "podbor_decision_at", _now_iso())
+    lead_id = (body.get("lead_id") or "").strip()
+    if lead_id:
+        sheets.update_cell_by_key("Measurements", "id", measurement_id, "podbor_lead_id", lead_id)
+
+    sheets.log_event("podbor_decision", tg_id, {"id": measurement_id, "decision": decision})
+    return {"ok": True, "id": measurement_id, "decision": decision}
+
+
+def _handle_manager_pending(body: dict[str, Any]) -> dict[str, Any]:
+    """Возвращает actionable карты для менеджера на главной:
+    завершённые замеры где ещё не зафиксировано решение про подбор."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user or not sheets.has_role(user, "manager"):
+        return {"error": "only_manager"}
+
+    try:
+        ws = sheets.sheet("Measurements")
+        rows = ws.get_all_values()
+    except Exception:
+        return {"ok": True, "pending": []}
+    if not rows or len(rows) < 2:
+        return {"ok": True, "pending": []}
+
+    headers = rows[0]
+    out = []
+    for r in rows[1:]:
+        row = dict(zip(headers, r + [""] * (len(headers) - len(r))))
+        if str(row.get("manager_tg_id", "")) != str(tg_id) and \
+           str(row.get("requested_by_tg_id", "")) != str(tg_id):
+            continue
+        if row.get("archived_at"):
+            continue
+        if row.get("status") != "completed":
+            continue
+        decision = row.get("podbor_decision") or ""
+        # Показываем pending (нет решения) + later (отложено) — для повторного предложения
+        if decision in ("needed", "not_needed", "done"):
+            continue
+        out.append({
+            "id": row.get("id", ""),
+            "client_name": row.get("client_name", ""),
+            "client_phone": row.get("client_phone", ""),
+            "address": row.get("address", ""),
+            "ts": row.get("ts", ""),
+            "decision": decision,  # пусто или "later"
+        })
+    # Сортируем самые свежие сверху
+    out.sort(key=lambda x: x.get("ts", ""), reverse=True)
+    return {"ok": True, "count": len(out), "pending": out}
+
+
 def _normalize_phone(raw: str) -> tuple[str, bool]:
     """Нормализует RU-телефон в формат +7XXXXXXXXXX.
     Возвращает (нормализованный, валиден ли)."""
@@ -1929,6 +2182,15 @@ def _handle_measurement_detail(body: dict[str, Any]) -> dict[str, Any]:
         # Google Calendar
         "gcal_event_id":  row.get("gcal_event_id", ""),
         "gcal_event_url": row.get("gcal_event_url", ""),
+        # Чертёж и решение про подбор
+        "design_files":   [f for f in (row.get("design_files") or "").split(",") if f],
+        "podbor_decision":    row.get("podbor_decision", ""),
+        "podbor_decision_at": row.get("podbor_decision_at", ""),
+        "podbor_lead_id":     row.get("podbor_lead_id", ""),
+        # Номера
+        "client_no":      row.get("client_no", ""),
+        "contract_no":    row.get("contract_no", ""),
+        "contract_date":  row.get("contract_date", ""),
     }
 
 

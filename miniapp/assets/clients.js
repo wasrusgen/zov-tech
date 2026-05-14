@@ -834,6 +834,107 @@ const Clients = (function () {
       }
       root.appendChild(list);
     }
+
+    // Чертежи / DWG
+    root.appendChild(renderDesignFilesBlock(m));
+  }
+
+  /* ===================== Чертежи / DWG ===================== */
+
+  function renderDesignFilesBlock(measurement) {
+    const section = el(`
+      <section class="block design-upload">
+        <div class="block-head">📐 Чертёж / DWG</div>
+        <div class="design-files-list" id="designFilesList"></div>
+        <label class="design-upload-label">Прикрепить файлы (DWG, DXF, PDF, изображение)</label>
+        <input type="file" class="design-upload-input" id="designFilesInput"
+               accept=".dwg,.dxf,.pdf,.png,.jpg,.jpeg,image/png,image/jpeg,application/pdf,application/acad,image/vnd.dwg"
+               multiple>
+        <div class="design-upload-status" id="designUploadStatus"></div>
+      </section>
+    `);
+
+    const list = section.querySelector("#designFilesList");
+    const input = section.querySelector("#designFilesInput");
+    const status = section.querySelector("#designUploadStatus");
+
+    function refreshList(files) {
+      list.innerHTML = "";
+      const arr = (files || measurement.design_files || []).filter(Boolean);
+      if (!arr.length) {
+        list.innerHTML = `<div class="muted" style="font-size:12px;padding:4px 0;">Чертежей пока нет</div>`;
+        return;
+      }
+      for (const fn of arr) {
+        const url = `${BACKEND_URL}/api/photo/${measurement.id}/${fn}`;
+        const ext = (fn.split(".").pop() || "").toLowerCase();
+        const icon = (ext === "dwg" || ext === "dxf") ? "📐"
+                   : (ext === "pdf") ? "📄"
+                   : "🖼️";
+        const item = el(`
+          <a class="design-file-item" href="${url}" target="_blank" rel="noopener" download>
+            <span class="design-file-icon">${icon}</span>
+            <span class="design-file-name">${escHtml(fn)}</span>
+            <span class="design-file-size">${ext.toUpperCase()}</span>
+          </a>
+        `);
+        list.appendChild(item);
+      }
+    }
+    refreshList();
+
+    input.addEventListener("change", async (ev) => {
+      const files = Array.from(ev.target.files || []);
+      ev.target.value = "";
+      if (!files.length) return;
+
+      status.textContent = `Загружаем ${files.length} файл(а/ов)…`;
+      try {
+        // Читаем по одному в base64 data URL
+        const payload = [];
+        for (const f of files) {
+          if (f.size > 30 * 1024 * 1024) {
+            status.textContent = `Файл ${f.name} больше 30 МБ — пропустили`;
+            continue;
+          }
+          const dataUrl = await new Promise((resolve, reject) => {
+            const r = new FileReader();
+            r.onerror = reject;
+            r.onload = () => resolve(r.result);
+            r.readAsDataURL(f);
+          });
+          payload.push({ name: f.name, data_url: dataUrl });
+          if (payload.length >= 10) break;
+        }
+        if (!payload.length) {
+          status.textContent = "Нет подходящих файлов";
+          return;
+        }
+        const res = await fetch(`${BACKEND_URL}/api/measurement_design_upload`, {
+          method: "POST",
+          body: JSON.stringify({
+            initData: tg?.initData || "",
+            initDataUnsafe: tg?.initDataUnsafe || null,
+            measurement_id: measurement.id,
+            files: payload,
+          }),
+        });
+        const data = await res.json();
+        if (data.error) {
+          status.textContent = "Ошибка: " + data.error;
+          return;
+        }
+        haptic && haptic("success");
+        measurement.design_files = data.design_files || [];
+        refreshList(measurement.design_files);
+        status.textContent = `✓ загружено ${payload.length}`;
+        setTimeout(() => { status.textContent = ""; }, 3000);
+      } catch (e) {
+        status.textContent = "Сеть: " + e.message;
+      }
+    });
+
+    return section;
   }
 
   async function fetchMeasurementDetail(measurementId) {

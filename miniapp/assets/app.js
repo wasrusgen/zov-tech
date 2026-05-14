@@ -171,22 +171,111 @@ async function renderManagerHome(me) {
 
   renderBottomNav("home", { unreadChats: 0 });
 
+  // Контейнер для карточек «Замер готов — что делать с подбором?»
+  const pendingContainer = el(`<div id="pendingContainer"></div>`);
+  app.insertBefore(pendingContainer, todayContainer);
+
   // Параллельно грузим реальные данные
   try {
-    const res = await fetch(`${BACKEND_URL}/api/measurements`, {
-      method: "POST",
-      body: JSON.stringify({
-        initData: tg?.initData || "",
-        initDataUnsafe: tg?.initDataUnsafe || null,
+    const [resM, resP] = await Promise.all([
+      fetch(`${BACKEND_URL}/api/measurements`, {
+        method: "POST",
+        body: JSON.stringify({ initData: tg?.initData || "", initDataUnsafe: tg?.initDataUnsafe || null }),
       }),
-    });
-    const data = await res.json();
+      fetch(`${BACKEND_URL}/api/manager_pending`, {
+        method: "POST",
+        body: JSON.stringify({ initData: tg?.initData || "", initDataUnsafe: tg?.initDataUnsafe || null }),
+      }),
+    ]);
+    const data = await resM.json();
+    const pendingData = await resP.json();
     const measurements = (data.measurements || []);
+    const pending = (pendingData.pending || []);
 
+    renderManagerPending(pendingContainer, pending);
     renderManagerToday(todayContainer, measurements, firstName, greetingEl);
     renderManagerProjects(projectsContainer, measurements);
   } catch (e) {
     todayContainer.innerHTML = `<div class="error">Не удалось загрузить данные: ${escHtml(e.message)}</div>`;
+  }
+}
+
+/* ----------------- Менеджер: карточки «Замер готов — подбор?» ----------------- */
+function renderManagerPending(container, pending) {
+  container.innerHTML = "";
+  if (!pending.length) return;
+
+  container.appendChild(el(`
+    <div class="section-head"><span class="label">✅ Замеры готовы · ${pending.length}</span></div>
+  `));
+
+  for (const p of pending) {
+    const isLater = p.decision === "later";
+    const card = el(`
+      <section class="pending-card${isLater ? " later" : ""}">
+        <div class="pending-head">
+          <span class="pending-icon">✅</span>
+          <div>
+            <div class="pending-title">${escHtml(p.client_name || "Без имени")}</div>
+            <div class="pending-sub">Замер выполнен · ${escHtml(p.address || "адрес не указан")}</div>
+          </div>
+        </div>
+        <div class="pending-question">${isLater ? "Снова: " : ""}Клиенту потребуется помощь с подбором техники?</div>
+        <div class="pending-actions">
+          <button class="btn-primary" data-act="yes" type="button">Да, поможем</button>
+          <button class="btn-secondary" data-act="no" type="button">Нет</button>
+          <button class="btn-secondary" data-act="later" type="button">Позже</button>
+        </div>
+        <div class="pending-result" data-id="${p.id}"></div>
+      </section>
+    `);
+    card.querySelectorAll("button[data-act]").forEach(btn => {
+      btn.addEventListener("click", () => handlePodborDecision(p, btn.dataset.act, card));
+    });
+    container.appendChild(card);
+  }
+}
+
+async function handlePodborDecision(item, act, card) {
+  const decisionMap = { yes: "needed", no: "not_needed", later: "later" };
+  const decision = decisionMap[act];
+  if (!decision) return;
+  const resultEl = card.querySelector(".pending-result");
+  if (resultEl) resultEl.textContent = "Сохраняем...";
+  card.querySelectorAll("button").forEach(b => b.disabled = true);
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/measurement_decision`, {
+      method: "POST",
+      body: JSON.stringify({
+        initData: tg?.initData || "",
+        initDataUnsafe: tg?.initDataUnsafe || null,
+        measurement_id: item.id,
+        decision,
+      }),
+    });
+    const data = await res.json();
+    if (data.error) {
+      if (resultEl) resultEl.innerHTML = `<span style="color:#C0392B;">Ошибка: ${escHtml(data.error)}</span>`;
+      card.querySelectorAll("button").forEach(b => b.disabled = false);
+      return;
+    }
+    haptic && haptic("success");
+    if (decision === "needed") {
+      // Переходим в подбор техники с pre-fill из клиента
+      sessionStorage.setItem("prefillClient", JSON.stringify({
+        name: item.client_name, phone: item.client_phone,
+      }));
+      location.hash = `#/podbor?client_name=${encodeURIComponent(item.client_name || "")}&client_phone=${encodeURIComponent(item.client_phone || "")}`;
+    } else {
+      // Анимируем удаление карточки
+      card.style.transition = "opacity 0.25s, transform 0.25s";
+      card.style.opacity = "0";
+      card.style.transform = "translateX(20px)";
+      setTimeout(() => card.remove(), 250);
+    }
+  } catch (e) {
+    if (resultEl) resultEl.innerHTML = `<span style="color:#C0392B;">Сеть: ${escHtml(e.message)}</span>`;
+    card.querySelectorAll("button").forEach(b => b.disabled = false);
   }
 }
 
