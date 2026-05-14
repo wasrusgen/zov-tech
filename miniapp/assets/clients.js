@@ -419,13 +419,52 @@ const Clients = (function () {
     // Управление карточкой — кнопки прямо под шапкой
     root.appendChild(renderClientManagement(client));
 
-    // Быстрые действия для менеджера
+    // Быстрые действия для менеджера — кастомные SVG-иконки в орехе
+    const QA_ICON_PODBOR = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9l4.2-1.4L12 3z"/>
+        <path d="M19 14.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8z"/>
+        <path d="M5 16.5l.5 1.3 1.3.5-1.3.5-.5 1.3-.5-1.3-1.3-.5 1.3-.5.5-1.3z"/>
+      </svg>`;
+    const QA_ICON_RULER = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.4 2.4 0 0 1 0-3.4l2.6-2.6a2.4 2.4 0 0 1 3.4 0z"/>
+        <path d="M14.5 12.5 12 15"/>
+        <path d="M11.5 9.5 9 12"/>
+        <path d="M8.5 6.5 6 9"/>
+        <path d="M17.5 15.5 15 18"/>
+      </svg>`;
+    const QA_ICON_WRENCH = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+      </svg>`;
+    const QA_ICON_COPY = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="8" y="8" width="13" height="13" rx="2"/>
+        <path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/>
+      </svg>`;
     const actionsRow = el(`
       <div class="client-quick-actions">
-        <button class="qa-btn" data-act="podbor">🤖<span>Подбор техники</span></button>
-        <button class="qa-btn" data-act="measure">📐<span>Заказать замер</span></button>
-        <button class="qa-btn" data-act="assembly">🔨<span>Заказать сборку</span></button>
-        <button class="qa-btn" data-act="copy">📋<span>Копировать ФИО+тел</span></button>
+        <button class="qa-btn" data-act="podbor" type="button">
+          <span class="qa-icon">${QA_ICON_PODBOR}</span>
+          <span class="qa-label">Подбор техники</span>
+        </button>
+        <button class="qa-btn" data-act="measure" type="button">
+          <span class="qa-icon">${QA_ICON_RULER}</span>
+          <span class="qa-label">Заказать замер</span>
+        </button>
+        <button class="qa-btn" data-act="assembly" type="button">
+          <span class="qa-icon">${QA_ICON_WRENCH}</span>
+          <span class="qa-label">Заказать сборку</span>
+        </button>
+        <button class="qa-btn" data-act="copy" type="button">
+          <span class="qa-icon">${QA_ICON_COPY}</span>
+          <span class="qa-label">Копировать ФИО+тел</span>
+        </button>
       </div>
     `);
     actionsRow.querySelectorAll(".qa-btn").forEach(btn => {
@@ -1233,13 +1272,11 @@ const Clients = (function () {
     }
     let rec = null;
     let recording = false;
-    let baseText = ""; // текст до начала записи — чтобы не перетирать
+    let baseText = "";         // что было в textarea ДО старта записи
+    let confirmedFinal = "";   // финальная фраза текущей сессии записи
 
     micBtn.addEventListener("click", () => {
-      if (recording) {
-        rec?.stop();
-        return;
-      }
+      if (recording) { rec?.stop(); return; }
       try {
         rec = new SR();
         rec.lang = "ru-RU";
@@ -1251,7 +1288,7 @@ const Clients = (function () {
         return;
       }
       baseText = (textarea.value || "").trim();
-      const sep = baseText ? "\n" : "";
+      confirmedFinal = "";
 
       rec.onstart = () => {
         recording = true;
@@ -1261,20 +1298,21 @@ const Clients = (function () {
         status.className = "note-status";
         haptic && haptic("impact");
       };
+      // Защита от дублей: пересчитываем ВСЕ финальные и interim с нуля
+      // на каждом событии. Не полагаемся на ev.resultIndex (в Chrome он
+      // ведёт себя нестабильно при паузах — отсюда дублирование слов).
       rec.onresult = (ev) => {
-        let interim = "";
-        let final = "";
-        for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        let finalAll = "", interim = "";
+        for (let i = 0; i < ev.results.length; i++) {
           const t = ev.results[i][0].transcript;
-          if (ev.results[i].isFinal) final += t;
+          if (ev.results[i].isFinal) finalAll += t;
           else interim += t;
         }
-        if (final) {
-          baseText = (baseText + sep + final).trim();
-          textarea.value = baseText;
-        } else if (interim) {
-          textarea.value = baseText + sep + interim;
-        }
+        confirmedFinal = finalAll.trim();
+        const sep = baseText ? " " : "";
+        const fp = confirmedFinal ? sep + confirmedFinal : "";
+        const ip = interim.trim() ? ((baseText || confirmedFinal) ? " " : "") + interim.trim() : "";
+        textarea.value = baseText + fp + ip;
       };
       rec.onerror = (ev) => {
         status.textContent = "Ошибка распознавания: " + (ev.error || "неизвестно");
@@ -1288,6 +1326,11 @@ const Clients = (function () {
         micBtn.classList.remove("rec");
         micBtn.textContent = "🎤 Диктовать";
         if (status.textContent === "Слушаю...") status.textContent = "";
+        // Фиксируем подтверждённый текст в baseText на случай повторного запуска
+        if (confirmedFinal) {
+          baseText = (baseText + (baseText ? " " : "") + confirmedFinal).trim();
+          textarea.value = baseText;
+        }
         haptic && haptic("impact");
       };
       try { rec.start(); }

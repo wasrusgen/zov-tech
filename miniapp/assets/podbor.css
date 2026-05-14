@@ -2134,34 +2134,74 @@
 }
 .client-call-btn:active { transform: scale(0.95); }
 
+/* ===== Быстрые действия — 2×2 объёмные кнопки-карточки ===== */
 .client-quick-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
   margin: 14px 0 18px;
 }
-.client-quick-actions .qa-btn {
+
+.qa-btn {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 12px 6px;
-  background: var(--card, #fff);
-  border: 1px solid rgba(107, 74, 43, 0.18);
-  border-radius: 12px;
+  gap: 9px;
+  padding: 15px 10px 13px;
+  background:
+    linear-gradient(160deg,
+      rgba(255, 255, 255, 0.80) 0%,
+      rgba(245, 237, 220, 0.62) 100%);
+  border: 1px solid rgba(107, 74, 43, 0.16);
+  border-radius: 14px;
   cursor: pointer;
   font-family: inherit;
-  font-size: 19px;
-  line-height: 1;
+  box-shadow:
+    0 2px 0 rgba(107, 74, 43, 0.20),
+    0 1px 5px rgba(0, 0, 0, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.90);
+  transition: transform 0.10s ease, box-shadow 0.10s ease;
+  -webkit-tap-highlight-color: transparent;
 }
-.client-quick-actions .qa-btn:active { background: var(--paper-2, #F5EDDC); }
-.client-quick-actions .qa-btn span {
-  font-size: 11px;
-  font-weight: 500;
+
+.qa-btn:active {
+  transform: translateY(2px);
+  box-shadow:
+    0 0px 0 rgba(107, 74, 43, 0.20),
+    inset 0 1px 4px rgba(0, 0, 0, 0.14),
+    inset 0 0 0 1px rgba(107, 74, 43, 0.10);
+}
+
+/* Круглый орехово-коричневый чип с иконкой */
+.qa-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #845A2E 0%, #5C3A1C 100%);
+  box-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  color: #F5DAAA;
+  flex-shrink: 0;
+}
+
+.qa-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* Подпись под иконкой */
+.qa-label {
+  font-size: 11.5px;
+  font-weight: 600;
   color: var(--ink, #1F1A14);
-  margin-top: 4px;
-  line-height: 1.2;
+  line-height: 1.25;
   text-align: center;
+  letter-spacing: 0.01em;
 }
 
 /* ===== Хронология клиента ===== */
