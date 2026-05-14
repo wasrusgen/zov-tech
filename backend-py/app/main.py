@@ -116,6 +116,7 @@ async def _dispatch_post(request: Request):
         "geocode":               _handle_geocode,
         "client_note":           _handle_client_note,
         "client_create":         _handle_client_create,
+        "client_update":         _handle_client_update,
         "client_delete":         _handle_client_delete,
         "measurement_design_upload": _handle_measurement_design_upload,
         "measurement_decision":  _handle_measurement_decision,
@@ -247,6 +248,12 @@ async def api_client_create(request: Request):
 async def api_client_delete(request: Request):
     body = await _safe_json(request)
     return _handle_client_delete(body)
+
+
+@app.post("/api/client_update")
+async def api_client_update(request: Request):
+    body = await _safe_json(request)
+    return _handle_client_update(body)
 
 
 @app.post("/api/measurement_design_upload")
@@ -942,7 +949,7 @@ def _handle_podbor(body: dict[str, Any]) -> dict[str, Any]:
     user = sheets.find_user(tg_id)
     if not user:
         return {"error": "user_not_found"}
-    if user.get("role") != "manager":
+    if not sheets.has_role(user, "manager"):
         return {"error": "only_manager_can_request_podbor"}
 
     checklist = body.get("checklist") or {}
@@ -1061,12 +1068,17 @@ def _handle_clients(body: dict[str, Any]) -> dict[str, Any]:
                 "client_name": name or "Без имени",
                 "client_tg_id": ctg_id or None,
                 "client_phone": phone or "",
+                "address": "",
                 "client_no": "",
                 "contract_no": "",
+                "contract_date": "",
                 "leads_count": 0,
+                "measurements_count": 0,
                 "last_lead_at": "",
                 "last_lead_id": "",
                 "leads": [],
+                # in_work=True если есть хотя бы один лид или замер не-draft
+                "in_work": False,
             }
         else:
             # Заполним пустые поля если в этой записи есть данные
@@ -1100,6 +1112,7 @@ def _handle_clients(body: dict[str, Any]) -> dict[str, Any]:
                     continue
                 c = _ensure_client(key, client_name, phone, client_tg_id)
                 c["leads_count"] += 1
+                c["in_work"] = True  # есть подбор — клиент в работе
                 lead_id = row.get("id", "")
                 created_at = row.get("created_at", "")
                 status = row.get("status", "")
@@ -1128,18 +1141,52 @@ def _handle_clients(body: dict[str, Any]) -> dict[str, Any]:
                 client_tg_id = (row.get("client_tg_id") or "").strip()
                 client_no = (row.get("client_no") or "").strip()
                 contract_no = (row.get("contract_no") or "").strip()
+                contract_date = (row.get("contract_date") or "").strip()
+                address = (row.get("address") or "").strip()
+                m_status = (row.get("status") or "").strip()
                 key = client_tg_id or client_name.lower()
                 if not key:
                     continue
                 c = _ensure_client(key, client_name, client_phone, client_tg_id)
                 if client_no and not c.get("client_no"): c["client_no"] = client_no
                 if contract_no and not c.get("contract_no"): c["contract_no"] = contract_no
+                if contract_date and not c.get("contract_date"): c["contract_date"] = contract_date
+                if address and not c.get("address"): c["address"] = address
+                if client_phone and not c.get("client_phone"): c["client_phone"] = client_phone
+                c["measurements_count"] = c.get("measurements_count", 0) + 1
+                # Замер не-draft = клиент в работе (requested/scheduled/completed)
+                if m_status and m_status != "draft":
+                    c["in_work"] = True
                 # Если у клиента нет ни одного лида — last_at берём из measurement.ts
                 ts = row.get("ts") or row.get("created_at") or ""
                 if ts > c["last_lead_at"]:
                     c["last_lead_at"] = ts
     except Exception as e:
         log.warning("Failed to read Measurements for clients: %s", e)
+
+    # 3. Из Assemblies — есть сборка = клиент в работе
+    try:
+        ws = sheets.sheet("Assemblies")
+        rows = ws.get_all_values()
+        if rows and len(rows) >= 2:
+            headers = rows[0]
+            for r in rows[1:]:
+                row = dict(zip(headers, r + [""] * (len(headers) - len(r))))
+                if str(row.get("manager_tg_id", "")) != str(tg_id):
+                    continue
+                if row.get("archived_at"):
+                    continue
+                a_name = (row.get("client_name") or "").strip()
+                a_ctg = (row.get("client_tg_id") or "").strip()
+                a_phone = (row.get("client_phone") or "").strip()
+                key = a_ctg or a_name.lower()
+                if not key:
+                    continue
+                c = _ensure_client(key, a_name, a_phone, a_ctg)
+                c["in_work"] = True
+    except Exception:
+        # Лист может ещё не существовать — не критично
+        pass
 
     # Сортируем по дате последней активности (новые сверху)
     clients = sorted(by_client.values(), key=lambda x: x.get("last_lead_at") or "", reverse=True)
@@ -2133,6 +2180,8 @@ def _handle_client_create(body: dict[str, Any]) -> dict[str, Any]:
 
 def _handle_client_delete(body: dict[str, Any]) -> dict[str, Any]:
     """Soft-delete всех записей Measurements по клиенту (для текущего менеджера).
+    Удаление разрешено ТОЛЬКО если у клиента нет реальной работы:
+    нет лидов и все его замеры в статусе 'draft' (карточка не использована).
     body: {initData, client_key} — client_key это name.lower() как в _handle_clients."""
     cfg = get_config()
     auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
@@ -2151,6 +2200,40 @@ def _handle_client_delete(body: dict[str, Any]) -> dict[str, Any]:
     if not client_key:
         return {"error": "missing_client_key"}
 
+    # Проверка: есть ли у клиента работа в Leads
+    try:
+        ws_l = sheets.sheet("Leads")
+        rows_l = ws_l.get_all_values()
+        if rows_l and len(rows_l) >= 2:
+            headers_l = rows_l[0]
+            for r in rows_l[1:]:
+                row = dict(zip(headers_l, r + [""] * (len(headers_l) - len(r))))
+                if str(row.get("manager_tg_id", "")) != str(tg_id):
+                    continue
+                if (row.get("client_name") or "").strip().lower() != client_key:
+                    continue
+                return {"error": "in_work", "msg": "У клиента есть подбор — удаление запрещено. Используйте редактирование."}
+    except Exception:
+        pass
+
+    # Проверка: есть ли у клиента сборки
+    try:
+        ws_a = sheets.sheet("Assemblies")
+        rows_a = ws_a.get_all_values()
+        if rows_a and len(rows_a) >= 2:
+            headers_a = rows_a[0]
+            for r in rows_a[1:]:
+                row = dict(zip(headers_a, r + [""] * (len(headers_a) - len(r))))
+                if str(row.get("manager_tg_id", "")) != str(tg_id):
+                    continue
+                if row.get("archived_at"):
+                    continue
+                if (row.get("client_name") or "").strip().lower() != client_key:
+                    continue
+                return {"error": "in_work", "msg": "У клиента есть сборка — удаление запрещено. Используйте редактирование."}
+    except Exception:
+        pass
+
     try:
         ws = sheets.sheet("Measurements")
         rows = ws.get_all_values()
@@ -2162,6 +2245,20 @@ def _handle_client_delete(body: dict[str, Any]) -> dict[str, Any]:
     headers = rows[0]
     if "archived_at" not in headers or "client_name" not in headers or "manager_tg_id" not in headers:
         return {"error": "schema_missing"}
+
+    # Проверка: есть ли не-draft замеры?
+    for r in rows[1:]:
+        row = dict(zip(headers, r + [""] * (len(headers) - len(r))))
+        if str(row.get("manager_tg_id", "")) != str(tg_id):
+            continue
+        if (row.get("client_name") or "").strip().lower() != client_key:
+            continue
+        if row.get("archived_at"):
+            continue
+        status = (row.get("status") or "").strip()
+        if status and status != "draft":
+            return {"error": "in_work", "msg": "У клиента есть замер в работе — удаление запрещено. Используйте редактирование."}
+
     archived_idx = headers.index("archived_at") + 1
     now = _now_iso()
     count = 0
@@ -2172,12 +2269,99 @@ def _handle_client_delete(body: dict[str, Any]) -> dict[str, Any]:
         if (row.get("client_name") or "").strip().lower() != client_key:
             continue
         if row.get("archived_at"):
-            continue  # уже архивирован
+            continue
         ws.update_cell(i, archived_idx, now)
         count += 1
 
     sheets.log_event("client_deleted", tg_id, {"client_key": client_key, "count": count})
     return {"ok": True, "archived": count}
+
+
+def _handle_client_update(body: dict[str, Any]) -> dict[str, Any]:
+    """Менеджер обновляет данные клиента (имя, телефон, адрес, договор).
+    Обновляет ВСЕ строки Measurements этого менеджера для этого клиента.
+    body: {initData, client_key, full_name?, phone?, address?, contract_no?, contract_date?}"""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user or not sheets.has_role(user, "manager"):
+        return {"error": "only_manager"}
+
+    client_key = (body.get("client_key") or "").strip().lower()
+    if not client_key:
+        return {"error": "missing_client_key"}
+
+    new_name = (body.get("full_name") or "").strip()
+    new_phone_raw = (body.get("phone") or "").strip()
+    new_address = body.get("address")
+    new_contract_no = body.get("contract_no")
+    new_contract_date = body.get("contract_date")
+
+    if new_name and len(new_name) < 2:
+        return {"error": "bad_name", "msg": "Имя слишком короткое"}
+
+    new_phone = ""
+    if new_phone_raw:
+        norm, ok = _normalize_phone(new_phone_raw)
+        if not ok:
+            return {"error": "bad_phone", "msg": "Телефон в формате +7XXXXXXXXXX"}
+        new_phone = norm
+
+    if isinstance(new_address, str) and new_address.strip() and len(new_address.strip()) < 5:
+        return {"error": "bad_address", "msg": "Адрес слишком короткий"}
+
+    try:
+        ws = sheets.sheet("Measurements")
+        rows = ws.get_all_values()
+    except Exception as e:
+        return {"error": f"sheets: {e}"}
+    if not rows or len(rows) < 2:
+        return {"ok": True, "updated": 0}
+
+    headers = rows[0]
+    if "client_name" not in headers or "manager_tg_id" not in headers:
+        return {"error": "schema_missing"}
+
+    def col_idx(name: str) -> int | None:
+        return headers.index(name) + 1 if name in headers else None
+
+    name_col = col_idx("client_name")
+    phone_col = col_idx("client_phone")
+    address_col = col_idx("address")
+    contract_no_col = col_idx("contract_no")
+    contract_date_col = col_idx("contract_date")
+
+    updated = 0
+    for i, r in enumerate(rows[1:], start=2):
+        row = dict(zip(headers, r + [""] * (len(headers) - len(r))))
+        if str(row.get("manager_tg_id", "")) != str(tg_id):
+            continue
+        if (row.get("client_name") or "").strip().lower() != client_key:
+            continue
+        if row.get("archived_at"):
+            continue
+        if new_name and name_col:
+            ws.update_cell(i, name_col, new_name)
+        if new_phone and phone_col:
+            ws.update_cell(i, phone_col, new_phone)
+        if isinstance(new_address, str) and address_col:
+            ws.update_cell(i, address_col, new_address.strip())
+        if isinstance(new_contract_no, str) and contract_no_col:
+            ws.update_cell(i, contract_no_col, new_contract_no.strip())
+        if isinstance(new_contract_date, str) and contract_date_col:
+            ws.update_cell(i, contract_date_col, new_contract_date.strip())
+        updated += 1
+
+    sheets.log_event("client_updated", tg_id, {"client_key": client_key, "updated": updated})
+    new_key = new_name.lower() if new_name else client_key
+    return {"ok": True, "updated": updated, "client_key": new_key}
 
 
 def _normalize_client_key(name: str, phone: str) -> str:
@@ -2399,13 +2583,12 @@ def _handle_measurement_detail(body: dict[str, Any]) -> dict[str, Any]:
     if not row:
         return {"error": "measurement_not_found"}
 
-    # Только владелец-менеджер или клиент-владелец видит замер
-    if user.get("role") == "manager":
-        if str(row.get("manager_tg_id", "")) != str(tg_id):
-            return {"error": "forbidden"}
-    else:
-        if str(row.get("client_tg_id", "")) != str(tg_id):
-            return {"error": "forbidden"}
+    # Доступ: владелец-менеджер, назначенный мастер (замер/сборка), клиент-владелец
+    is_owner_manager = sheets.has_role(user, "manager") and str(row.get("manager_tg_id", "")) == str(tg_id)
+    is_assigned_master = sheets.is_master(user) and str(row.get("assigned_to_tg_id", "")) == str(tg_id)
+    is_client = str(row.get("client_tg_id", "")) == str(tg_id)
+    if not (is_owner_manager or is_assigned_master or is_client):
+        return {"error": "forbidden"}
 
     def _safe_json(s: str) -> Any:
         try:
@@ -2477,10 +2660,14 @@ def _handle_measurements_list(body: dict[str, Any]) -> dict[str, Any]:
     cfg = get_config()
     auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
     if not auth or not auth.get("user"):
-        return {"error": "invalid_init_data"}
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
     tg_id = auth["user"]["id"]
     user = sheets.find_user(tg_id)
-    if not user or user.get("role") != "manager":
+    if not user or not sheets.has_role(user, "manager"):
         return {"error": "only_manager"}
 
     client_tg_id = body.get("client_tg_id") or ""
@@ -2502,12 +2689,14 @@ def _handle_measurements_list(body: dict[str, Any]) -> dict[str, Any]:
         row = dict(zip(headers, r + [""] * (len(headers) - len(r))))
         if str(row.get("manager_tg_id", "")) != str(tg_id):
             continue
+        # Скрываем soft-deleted
+        if row.get("archived_at"):
+            continue
         # Опциональные фильтры по клиенту
         if client_tg_id and str(row.get("client_tg_id", "")) != str(client_tg_id):
             continue
-        # Из notes / других JSON-полей вытащим client_name если был передан в measurement
-        # (он не сохраняется в отдельной колонке — только в JSON-обвязке)
-        # Для MVP — фильтр по имени делаем после парсинга JSON-полей
+        if client_name and (row.get("client_name") or "").strip().lower() != client_name:
+            continue
         photo_files = [p for p in (row.get("photos") or "").split(",") if p]
         out.append({
             "id": row.get("id", ""),
@@ -2522,6 +2711,15 @@ def _handle_measurements_list(body: dict[str, Any]) -> dict[str, Any]:
             "status": row.get("status", ""),
             "photos": photo_files,
             "photo_count": len(photo_files),
+            # Ключевые поля для рендера карточки клиента и таймлайна
+            "client_name": row.get("client_name", ""),
+            "client_phone": row.get("client_phone", ""),
+            "address": row.get("address", ""),
+            "scheduled_at": row.get("scheduled_at", ""),
+            "client_no": row.get("client_no", ""),
+            "contract_no": row.get("contract_no", ""),
+            "contract_date": row.get("contract_date", ""),
+            "assigned_to_tg_id": row.get("assigned_to_tg_id", ""),
         })
 
     # Сортируем по дате desc

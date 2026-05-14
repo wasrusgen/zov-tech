@@ -394,15 +394,23 @@ const Clients = (function () {
       ? `<span class="client-no-badge">#${escHtml(client.client_no)}</span>`
       : "";
     const contractTag = client.contract_no
-      ? `<div class="client-detail-meta">📋 договор ${escHtml(client.contract_no)}</div>`
+      ? `<div class="client-detail-meta">📋 договор ${escHtml(client.contract_no)}${client.contract_date ? ` · ${escHtml(client.contract_date)}` : ""}</div>`
       : "";
+    const addressTag = client.address
+      ? `<div class="client-detail-meta">📍 ${escHtml(client.address)}</div>`
+      : "";
+    const statusTag = client.in_work
+      ? ""
+      : `<div class="client-detail-meta" style="color:var(--accent-2,#76BD22);">● ещё не в работе</div>`;
     root.appendChild(el(`
       <div class="client-detail-head">
         <div class="client-avatar lg">${initial(client.client_name)}</div>
         <div style="flex:1;min-width:0;">
           <h2 class="client-detail-name">${escHtml(client.client_name)} ${noTag}</h2>
           ${client.client_phone ? `<div class="client-detail-phone">${escHtml(client.client_phone)}</div>` : ""}
+          ${addressTag}
           ${contractTag}
+          ${statusTag}
         </div>
         ${callHref ? `<a class="client-call-btn" href="${callHref}" aria-label="Позвонить">📞</a>` : ""}
       </div>
@@ -474,25 +482,40 @@ const Clients = (function () {
     // Детальные списки внизу (свёрнуты)
     detailsPlaceholder.replaceWith(renderClientDetails(client, myMeasurements));
 
-    // Опасная зона — удалить клиента (soft-delete всех его записей)
-    const deleteZone = el(`
-      <details class="danger-zone" style="margin-top:24px;">
-        <summary>⚠️ Опасная зона</summary>
-        <div style="padding:12px 4px;">
-          <p style="font-size:13px;color:var(--muted);margin:0 0 12px;">
-            При удалении клиент будет архивирован вместе со всеми его заявками,
-            замерами и подборами. Из списка он исчезнет.
-          </p>
-          <button class="btn-danger" id="deleteClient" type="button">🗑 Удалить клиента</button>
-          <div id="deleteResult" style="margin-top:8px;font-size:12px;"></div>
+    // Управление карточкой клиента — редактировать + (условно) удалить
+    root.appendChild(renderClientManagement(client));
+  }
+
+  /* ===================== Управление карточкой (edit / delete) ===================== */
+
+  function renderClientManagement(client) {
+    const inWork = !!client.in_work;
+    const wrap = el(`
+      <section class="block client-manage" style="margin-top:18px;">
+        <div class="block-head">⚙️ Управление карточкой</div>
+        <div class="client-manage-info" style="padding:6px 4px 10px;font-size:12.5px;color:var(--muted);line-height:1.4;">
+          ${inWork
+            ? "Клиент в работе. Удалить нельзя, можно только отредактировать данные."
+            : "Клиент ещё не передан в работу — можно изменить данные или удалить карточку."}
         </div>
-      </details>
+        <div class="podbor-cta-row" style="gap:8px;flex-wrap:wrap;">
+          <button class="btn-secondary" id="editClient" type="button">✏️ Редактировать</button>
+          ${inWork ? "" : `<button class="btn-danger" id="deleteClient" type="button">🗑 Удалить клиента</button>`}
+        </div>
+        <div id="manageResult" style="margin-top:10px;font-size:12.5px;"></div>
+      </section>
     `);
-    deleteZone.querySelector("#deleteClient").addEventListener("click", async () => {
+
+    wrap.querySelector("#editClient")?.addEventListener("click", () => {
+      haptic && haptic("impact");
+      renderEditClient(client);
+    });
+
+    wrap.querySelector("#deleteClient")?.addEventListener("click", async () => {
       const confirmed = await confirmDialog(`Удалить клиента ${client.client_name}? Это нельзя отменить из бота.`);
       if (!confirmed) return;
-      const btn = deleteZone.querySelector("#deleteClient");
-      const result = deleteZone.querySelector("#deleteResult");
+      const btn = wrap.querySelector("#deleteClient");
+      const result = wrap.querySelector("#manageResult");
       btn.disabled = true; btn.textContent = "Удаляем...";
       try {
         const res = await fetch(`${BACKEND_URL}/api/client_delete`, {
@@ -505,7 +528,8 @@ const Clients = (function () {
         });
         const data = await res.json();
         if (data.error) {
-          result.innerHTML = `<span style="color:#C0392B;">Ошибка: ${escHtml(data.error)}</span>`;
+          const msg = data.msg || data.error;
+          result.innerHTML = `<span style="color:#C0392B;">${escHtml(msg)}</span>`;
           btn.disabled = false; btn.textContent = "🗑 Удалить клиента";
           return;
         }
@@ -518,7 +542,127 @@ const Clients = (function () {
         btn.disabled = false; btn.textContent = "🗑 Удалить клиента";
       }
     });
-    root.appendChild(deleteZone);
+
+    return wrap;
+  }
+
+  /* ===================== Форма редактирования клиента ===================== */
+
+  function renderEditClient(client) {
+    root.innerHTML = "";
+    root.appendChild(headerEl("Редактировать клиента", "#/clients"));
+
+    const form = el(`
+      <section class="podbor-step">
+        <h2 class="display-title">Редактируем<br><span class="accent">клиента</span></h2>
+        <p class="lede">Изменения применятся ко всем заявкам и замерам этого клиента.</p>
+
+        <div class="form-row">
+          <label class="field">
+            <span class="field-label">ФИО клиента *</span>
+            <input type="text" id="ed_fn" value="${escAttr(client.client_name || "")}" placeholder="Иванов Иван Иванович">
+            <span class="field-error" id="ed_errName"></span>
+          </label>
+        </div>
+        <div class="form-row">
+          <label class="field">
+            <span class="field-label">Телефон *</span>
+            <input type="tel" id="ed_ph" value="${escAttr(client.client_phone || "")}" placeholder="+7 921 555-12-34" inputmode="tel">
+            <span class="field-error" id="ed_errPhone"></span>
+          </label>
+        </div>
+        <div class="form-row">
+          <label class="field">
+            <span class="field-label">Адрес</span>
+            <input type="text" id="ed_addr" value="${escAttr(client.address || "")}" placeholder="СПб, Просвещения 87, кв. 12">
+          </label>
+        </div>
+        <div class="form-row two-col">
+          <label class="field">
+            <span class="field-label">№ договора</span>
+            <input type="text" id="ed_cno" value="${escAttr(client.contract_no || "")}" placeholder="2026-0123">
+          </label>
+          <label class="field">
+            <span class="field-label">Дата договора</span>
+            <input type="date" id="ed_cdate" value="${escAttr(client.contract_date || "")}">
+          </label>
+        </div>
+
+        <div class="podbor-cta-row" style="margin-top:18px;gap:8px;">
+          <button class="btn-secondary" id="ed_cancel" type="button">Отмена</button>
+          <button class="btn-primary" id="ed_save" type="button">Сохранить</button>
+        </div>
+        <div id="ed_result" style="margin-top:10px;font-size:13px;"></div>
+      </section>
+    `);
+    root.appendChild(form);
+
+    form.querySelector("#ed_cancel").addEventListener("click", () => {
+      const key = client.client_tg_id || (client.client_name || "").toLowerCase();
+      location.hash = `#/clients/client/${encodeURIComponent(key)}`;
+    });
+
+    form.querySelector("#ed_save").addEventListener("click", async () => {
+      const fn = form.querySelector("#ed_fn").value.trim();
+      const ph = form.querySelector("#ed_ph").value.trim();
+      const addr = form.querySelector("#ed_addr").value.trim();
+      const cno = form.querySelector("#ed_cno").value.trim();
+      const cdate = form.querySelector("#ed_cdate").value.trim();
+      const errName = form.querySelector("#ed_errName");
+      const errPhone = form.querySelector("#ed_errPhone");
+      const result = form.querySelector("#ed_result");
+      errName.textContent = ""; errPhone.textContent = ""; result.innerHTML = "";
+
+      if (!fn || fn.length < 2) {
+        errName.textContent = "Имя слишком короткое";
+        return;
+      }
+      const norm = normalizePhone(ph);
+      if (!norm.ok) {
+        errPhone.textContent = "Телефон в формате +7XXXXXXXXXX";
+        return;
+      }
+      if (addr && addr.length < 5) {
+        result.innerHTML = `<span style="color:#C0392B;">Адрес слишком короткий</span>`;
+        return;
+      }
+
+      const btn = form.querySelector("#ed_save");
+      btn.disabled = true; btn.textContent = "Сохраняем...";
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/client_update`, {
+          method: "POST",
+          body: JSON.stringify({
+            initData: tg?.initData || "",
+            initDataUnsafe: tg?.initDataUnsafe || null,
+            client_key: (client.client_name || "").toLowerCase(),
+            full_name: fn,
+            phone: norm.value,
+            address: addr,
+            contract_no: cno,
+            contract_date: cdate,
+          }),
+        });
+        const data = await res.json();
+        if (data.error) {
+          result.innerHTML = `<span style="color:#C0392B;">${escHtml(data.msg || data.error)}</span>`;
+          btn.disabled = false; btn.textContent = "Сохранить";
+          return;
+        }
+        haptic && haptic("success");
+        clientsCache = null;
+        const newKey = data.client_key || fn.toLowerCase();
+        result.innerHTML = `<span style="color:#27AE60;">✓ обновлено ${data.updated} запис(ей). Открываем карточку...</span>`;
+        setTimeout(() => {
+          location.hash = `#/clients/client/${encodeURIComponent(newKey)}`;
+          window.location.reload();
+        }, 800);
+      } catch (e) {
+        result.innerHTML = `<span style="color:#C0392B;">Сеть: ${escHtml(e.message)}</span>`;
+        btn.disabled = false; btn.textContent = "Сохранить";
+      }
+    });
   }
 
   function confirmDialog(msg) {
@@ -549,6 +693,9 @@ const Clients = (function () {
 
     for (const m of measurements) {
       const photoCount = m.photo_count || (m.photos || []).length;
+      // Скрываем draft-карточки из таймлайна — это пустая «техническая» строка,
+      // которая создаётся при заведении клиента. В таймлайн попадают только реальные события.
+      if (m.status === "draft") continue;
       // Создание заявки / замера
       events.push({
         ts: m.created_at,
