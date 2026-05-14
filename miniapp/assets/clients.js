@@ -413,6 +413,7 @@ const Clients = (function () {
       <div class="client-quick-actions">
         <button class="qa-btn" data-act="podbor">🤖<span>Подбор техники</span></button>
         <button class="qa-btn" data-act="measure">📐<span>Заказать замер</span></button>
+        <button class="qa-btn" data-act="assembly">🔨<span>Заказать сборку</span></button>
         <button class="qa-btn" data-act="copy">📋<span>Копировать ФИО+тел</span></button>
       </div>
     `);
@@ -428,6 +429,15 @@ const Clients = (function () {
             name: client.client_name, phone: client.client_phone,
           }));
           location.hash = "#/request";
+        } else if (act === "assembly") {
+          // Pre-fill assembly with client info + address из последнего замера
+          sessionStorage.setItem("prefillAssembly", JSON.stringify({
+            name: client.client_name,
+            phone: client.client_phone,
+            address: (myMeasurements[0] && myMeasurements[0].address) || "",
+            measurement_id: (myMeasurements[0] && myMeasurements[0].id) || "",
+          }));
+          location.hash = "#/assembly/new";
         } else if (act === "copy") {
           const txt = `${client.client_name || ""} ${client.client_phone || ""}`.trim();
           (navigator.clipboard?.writeText(txt) || Promise.resolve())

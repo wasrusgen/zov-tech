@@ -3052,6 +3052,63 @@
   flex-shrink: 0;
 }
 
+/* ===== Сборки (Phase 4) ===== */
+.assembly-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 0;
+}
+.assembly-card {
+  background: var(--card, #FFFFFF);
+  border: 1px solid var(--line, rgba(15,15,14,0.08));
+  border-left: 3px solid #B07E00;
+  border-radius: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.assembly-card:active {
+  transform: scale(0.98);
+}
+.assembly-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.assembly-card-status {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted, #998877);
+  text-transform: lowercase;
+}
+.assembly-card-date {
+  font-size: 12px;
+  color: var(--muted);
+  font-family: var(--font-mono, monospace);
+}
+.assembly-card-name {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+.assembly-card-address {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.assembly-card-scope {
+  font-size: 12.5px;
+  color: var(--ink-2, #2A2622);
+  line-height: 1.35;
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--line);
+}
+
 /* ===== Печать / PDF ===== */
 @media print {
   body { background: white !important; color: black !important; }

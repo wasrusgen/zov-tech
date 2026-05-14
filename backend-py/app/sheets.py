@@ -132,6 +132,15 @@ def has_role(user: dict[str, Any] | None, role: str) -> bool:
     return role in parse_roles(user.get("role", ""))
 
 
+def is_master(user: dict[str, Any] | None) -> bool:
+    """«Мастер» — единая роль для замерщика+сборщика.
+    True если у пользователя есть либо measurer, либо assembler."""
+    if not user:
+        return False
+    roles = parse_roles(user.get("role", ""))
+    return "measurer" in roles or "assembler" in roles
+
+
 def primary_role(user: dict[str, Any] | None) -> str:
     """Первая (главная) роль для legacy-кода: manager > measurer > assembler > client."""
     if not user:
@@ -144,16 +153,25 @@ def primary_role(user: dict[str, Any] | None) -> str:
 
 
 def grant_role(tg_id: int, role: str) -> bool:
-    """Добавляет роль пользователю (если её ещё нет). Возвращает True если что-то изменилось."""
+    """Добавляет роль пользователю (если её ещё нет). Возвращает True если что-то изменилось.
+    Замерщик и сборщик объединены в одну роль «мастер» — при выдаче одной автоматически выдаётся вторая."""
     if role not in VALID_ROLES:
         return False
     user = find_user(tg_id)
     if not user:
         return False
     current = parse_roles(user.get("role", ""))
-    if role in current:
+    changed = False
+    if role not in current:
+        current.append(role)
+        changed = True
+    # Парный «мастер»: measurer ↔ assembler — выдаём вместе
+    paired = {"measurer": "assembler", "assembler": "measurer"}.get(role)
+    if paired and paired not in current:
+        current.append(paired)
+        changed = True
+    if not changed:
         return False
-    current.append(role)
     return update_cell_by_key("Users", "tg_id", tg_id, "role", ",".join(current))
 
 

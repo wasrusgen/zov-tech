@@ -145,6 +145,7 @@ async function renderManagerHome(me) {
     { icon: "plus",    title: "Новый клиент",   subtitle: "Завести карточку",     href: "#/clients/new" },
     { icon: "package", title: "Подбор техники", subtitle: "Встройка + AI",        href: "#/podbor" },
     { icon: "ruler",   title: "Заказать замер", subtitle: "Назначить замерщика",  href: "#/request" },
+    { icon: "wrench",  title: "Сборки",         subtitle: "Заявки на сборку",     href: "#/assembly" },
   ];
   app.appendChild(el(`<div class="section-head"><span class="label">Быстрые действия</span></div>`));
   const grid = el(`<div class="quick-grid"></div>`);
@@ -747,6 +748,67 @@ async function renderStaff(me) {
       location.hash = "#/measure";
     });
     app.appendChild(quick);
+  }
+
+  // Сборки — отдельный блок, доступен мастеру (measurer ∨ assembler)
+  if (caps.measurer || caps.assembler) {
+    const assemblySection = el(`
+      <section class="block" style="margin-top:18px;">
+        <div class="block-head">🔨 Сборки</div>
+        <div id="assemblyList"><div class="loader-inline"><div class="spinner"></div></div></div>
+      </section>
+    `);
+    app.appendChild(assemblySection);
+    renderStaffAssemblies(assemblySection.querySelector("#assemblyList"));
+  }
+}
+
+async function renderStaffAssemblies(container) {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/assembly_list`, {
+      method: "POST",
+      body: JSON.stringify({
+        initData: tg?.initData || "",
+        initDataUnsafe: tg?.initDataUnsafe || null,
+      }),
+    });
+    const data = await res.json();
+    if (data.error) {
+      container.innerHTML = `<div class="error">Ошибка: ${escHtml(data.error)}</div>`;
+      return;
+    }
+    const items = (data.assemblies || []).filter(a => a.status !== "completed" && a.status !== "cancelled");
+    if (!items.length) {
+      container.innerHTML = `<div class="empty" style="padding:12px;text-align:center;color:var(--muted);font-size:13px;">Сборок нет</div>`;
+      return;
+    }
+    container.innerHTML = "";
+    for (const a of items) {
+      const dateStr = a.scheduled_at ? formatDateHuman(a.scheduled_at) : "— дата не назначена";
+      const statusLabel = {
+        created: "📝 создана",
+        scheduled: "📅 назначена",
+        in_progress: "🔧 в работе",
+      }[a.status] || a.status;
+      const card = el(`
+        <article class="assembly-card" data-id="${a.id}">
+          <div class="assembly-card-head">
+            <span class="assembly-card-status">${statusLabel}</span>
+            <span class="assembly-card-date">${escHtml(dateStr)}</span>
+          </div>
+          <div class="assembly-card-name">${escHtml(a.client_name || "Без имени")}</div>
+          <div class="assembly-card-address">${escHtml(a.address || "адрес не указан")}</div>
+          ${a.scope_of_work ? `<div class="assembly-card-scope">${escHtml(a.scope_of_work.slice(0, 100))}${a.scope_of_work.length > 100 ? "…" : ""}</div>` : ""}
+        </article>
+      `);
+      card.addEventListener("click", () => {
+        haptic && haptic("impact");
+        location.hash = `#/assembly/${a.id}`;
+      });
+      container.appendChild(card);
+    }
+  } catch (e) {
+    container.innerHTML = `<div class="error">Сеть: ${escHtml(e.message)}</div>`;
   }
 }
 
@@ -1464,6 +1526,11 @@ async function init() {
       hideSplash();
       return;
     }
+    if (location.hash.startsWith("#/assembly")) {
+      Assembly.mount(app);
+      hideSplash();
+      return;
+    }
     if (me.role === "staff") {
       renderStaff(me);
     } else if (me.role === "manager") {
@@ -1490,6 +1557,8 @@ function routeByHash() {
     MeasurementRequest.mount(app);
   } else if (location.hash.startsWith("#/inbox/")) {
     renderInboxDetail(location.hash.replace("#/inbox/", ""));
+  } else if (location.hash.startsWith("#/assembly")) {
+    Assembly.mount(app);
   } else {
     // Главный экран по роли
     const me = window.__zovMe;

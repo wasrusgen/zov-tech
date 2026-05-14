@@ -120,6 +120,9 @@ async def _dispatch_post(request: Request):
         "measurement_design_upload": _handle_measurement_design_upload,
         "measurement_decision":  _handle_measurement_decision,
         "manager_pending":       _handle_manager_pending,
+        "assembly_create":       _handle_assembly_create,
+        "assembly_list":         _handle_assembly_list,
+        "assembly_detail":       _handle_assembly_detail,
         "ping":          lambda b: {"pong": True, "time": _now_iso()},
         "seed_admin":    lambda b: _handle_seed_admin(),
         "test_ai":       lambda b: _handle_test_ai(),
@@ -262,6 +265,24 @@ async def api_measurement_decision(request: Request):
 async def api_manager_pending(request: Request):
     body = await _safe_json(request)
     return _handle_manager_pending(body)
+
+
+@app.post("/api/assembly_create")
+async def api_assembly_create(request: Request):
+    body = await _safe_json(request)
+    return _handle_assembly_create(body)
+
+
+@app.post("/api/assembly_list")
+async def api_assembly_list(request: Request):
+    body = await _safe_json(request)
+    return _handle_assembly_list(body)
+
+
+@app.post("/api/assembly_detail")
+async def api_assembly_detail(request: Request):
+    body = await _safe_json(request)
+    return _handle_assembly_detail(body)
 
 
 @app.post("/api/grant_role")
@@ -1725,6 +1746,263 @@ def _handle_manager_pending(body: dict[str, Any]) -> dict[str, Any]:
     # Сортируем самые свежие сверху
     out.sort(key=lambda x: x.get("ts", ""), reverse=True)
     return {"ok": True, "count": len(out), "pending": out}
+
+
+# =================================================================
+# Сборки (Phase 4) — workflow от подписанного договора до приёмки
+# =================================================================
+
+def _assembly_columns() -> list[str]:
+    return [
+        "id", "ts",
+        # Связи
+        "manager_tg_id", "assigned_to_tg_id",
+        "client_name", "client_phone", "address",
+        "measurement_id", "lead_id", "client_tg_id",
+        # Скоуп и расписание
+        "scope_of_work",       # текстовое описание
+        "scheduled_at",        # ISO
+        # Статус: created | scheduled | in_progress | completed | cancelled
+        "status",
+        "started_at", "completed_at",
+        # Фото-отчёт: списки имён файлов через запятую (внутри PHOTOS_DIR/<assembly_id>/)
+        "photos_before", "photos_in_progress", "photos_after",
+        # Приёмка ППР: подпись клиента (PNG dataURL → файл) + ФИО/дата
+        "signature_file", "signed_by_name", "signed_at",
+        # Google Calendar
+        "gcal_event_id", "gcal_event_url",
+        # Прочее
+        "manager_note",
+        "archived_at",
+    ]
+
+
+def _ensure_assemblies_sheet() -> None:
+    """Догоняет схему Assemblies (добавляет недостающие колонки)."""
+    try:
+        ws = sheets.sheet("Assemblies")
+        existing = ws.row_values(1)
+    except Exception:
+        sheets.ensure_sheet("Assemblies", _assembly_columns())
+        return
+    want = _assembly_columns()
+    missing = [c for c in want if c not in existing]
+    if missing:
+        new_headers = existing + missing
+        ws.update("A1", [new_headers])
+        log.info("Assemblies: дополнили колонки: %s", missing)
+
+
+def _row_for_assembly(assembly_id: str, ts: str, **fields) -> list[str]:
+    cols = _assembly_columns()
+    base = {c: "" for c in cols}
+    base["id"] = assembly_id
+    base["ts"] = ts
+    base["status"] = "created"
+    base.update(fields)
+    return [str(base.get(c, "")) for c in cols]
+
+
+def _handle_assembly_create(body: dict[str, Any]) -> dict[str, Any]:
+    """Менеджер заводит сборку.
+    body: {initData, client_name, client_phone?, address, scope_of_work,
+           measurement_id?, lead_id?, scheduled_at?, manager_note?}"""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user or not sheets.has_role(user, "manager"):
+        return {"error": "only_manager"}
+
+    _ensure_assemblies_sheet()
+
+    client_name = (body.get("client_name") or "").strip()
+    address = (body.get("address") or "").strip()
+    scope = (body.get("scope_of_work") or "").strip()
+    if not client_name:
+        return {"error": "missing_client_name"}
+    if not address:
+        return {"error": "missing_address"}
+    if not scope:
+        return {"error": "missing_scope"}
+
+    phone_raw = (body.get("client_phone") or "").strip()
+    phone_norm, _ = _normalize_phone(phone_raw) if phone_raw else ("", False)
+
+    assembly_id = _short_id()
+    ts = _now_iso()
+    scheduled_at = (body.get("scheduled_at") or "").strip()
+    status = "scheduled" if scheduled_at else "created"
+
+    fields = {
+        "manager_tg_id": tg_id,
+        "client_name": client_name,
+        "client_phone": phone_norm or phone_raw,
+        "address": address,
+        "scope_of_work": scope,
+        "measurement_id": (body.get("measurement_id") or "").strip(),
+        "lead_id": (body.get("lead_id") or "").strip(),
+        "client_tg_id": (body.get("client_tg_id") or "").strip(),
+        "scheduled_at": scheduled_at,
+        "status": status,
+        "manager_note": (body.get("manager_note") or "").strip(),
+    }
+
+    # Google Calendar — если дата назначена
+    if scheduled_at:
+        try:
+            from . import gcalendar
+            ev = gcalendar.create_event(
+                summary=f"🔨 Сборка: {client_name}",
+                description=f"{scope}\n\nКлиент: {client_name}\nТел: {phone_norm or phone_raw}\nАдрес: {address}",
+                start_iso=scheduled_at,
+                duration_min=240,  # 4 часа на сборку
+                location=address,
+            )
+            if ev:
+                fields["gcal_event_id"] = ev.get("id", "")
+                fields["gcal_event_url"] = ev.get("html_link", "")
+        except Exception as e:
+            log.warning("Не удалось создать событие Calendar для сборки: %s", e)
+
+    sheets.append_row("Assemblies", _row_for_assembly(assembly_id, ts, **fields))
+    sheets.log_event("assembly_created", tg_id, {"id": assembly_id, "client": client_name})
+
+    return {"ok": True, "id": assembly_id, "status": status}
+
+
+def _handle_assembly_list(body: dict[str, Any]) -> dict[str, Any]:
+    """Список сборок.
+    Менеджер: видит свои (manager_tg_id == self).
+    Мастер: видит назначенные ему (assigned_to_tg_id == self) + неназначенные status='created'."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+
+    is_manager = sheets.has_role(user, "manager")
+    is_master = sheets.is_master(user)
+    if not is_manager and not is_master:
+        return {"error": "forbidden"}
+
+    _ensure_assemblies_sheet()
+    try:
+        ws = sheets.sheet("Assemblies")
+        rows = ws.get_all_values()
+    except Exception:
+        return {"ok": True, "assemblies": []}
+    if not rows or len(rows) < 2:
+        return {"ok": True, "assemblies": []}
+
+    headers = rows[0]
+    out = []
+    for r in rows[1:]:
+        row = dict(zip(headers, r + [""] * (len(headers) - len(r))))
+        if row.get("archived_at"):
+            continue
+        # Фильтр по роли
+        visible = False
+        if is_manager and str(row.get("manager_tg_id")) == str(tg_id):
+            visible = True
+        if is_master:
+            if str(row.get("assigned_to_tg_id")) == str(tg_id):
+                visible = True
+            elif not row.get("assigned_to_tg_id") and row.get("status") in ("created", "scheduled"):
+                visible = True
+        if not visible:
+            continue
+        out.append({
+            "id": row.get("id", ""),
+            "ts": row.get("ts", ""),
+            "client_name": row.get("client_name", ""),
+            "client_phone": row.get("client_phone", ""),
+            "address": row.get("address", ""),
+            "scope_of_work": row.get("scope_of_work", ""),
+            "scheduled_at": row.get("scheduled_at", ""),
+            "status": row.get("status", ""),
+            "assigned_to_tg_id": row.get("assigned_to_tg_id", ""),
+            "manager_tg_id": row.get("manager_tg_id", ""),
+            "gcal_event_url": row.get("gcal_event_url", ""),
+            "measurement_id": row.get("measurement_id", ""),
+            "lead_id": row.get("lead_id", ""),
+        })
+    out.sort(key=lambda x: x.get("scheduled_at") or x.get("ts", ""), reverse=True)
+    return {"ok": True, "count": len(out), "assemblies": out}
+
+
+def _handle_assembly_detail(body: dict[str, Any]) -> dict[str, Any]:
+    """Детальная карточка сборки."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+
+    assembly_id = (body.get("assembly_id") or "").strip()
+    if not assembly_id:
+        return {"error": "missing_assembly_id"}
+    _ensure_assemblies_sheet()
+    row = sheets.find_row("Assemblies", "id", assembly_id)
+    if not row:
+        return {"error": "assembly_not_found"}
+
+    # Право: менеджер-владелец, назначенный мастер, неназначенная сборка (status=created)
+    is_owner = str(row.get("manager_tg_id")) == str(tg_id) or \
+               str(row.get("assigned_to_tg_id")) == str(tg_id)
+    is_open_slot = (not row.get("assigned_to_tg_id")) and row.get("status") in ("created", "scheduled")
+    if not is_owner and not is_open_slot:
+        return {"error": "forbidden"}
+
+    def _list(s: str) -> list[str]:
+        return [x for x in (s or "").split(",") if x]
+
+    return {
+        "ok": True,
+        "id": row.get("id", ""),
+        "ts": row.get("ts", ""),
+        "manager_tg_id": row.get("manager_tg_id", ""),
+        "assigned_to_tg_id": row.get("assigned_to_tg_id", ""),
+        "client_name": row.get("client_name", ""),
+        "client_phone": row.get("client_phone", ""),
+        "address": row.get("address", ""),
+        "measurement_id": row.get("measurement_id", ""),
+        "lead_id": row.get("lead_id", ""),
+        "scope_of_work": row.get("scope_of_work", ""),
+        "scheduled_at": row.get("scheduled_at", ""),
+        "status": row.get("status", ""),
+        "started_at": row.get("started_at", ""),
+        "completed_at": row.get("completed_at", ""),
+        "photos_before": _list(row.get("photos_before", "")),
+        "photos_in_progress": _list(row.get("photos_in_progress", "")),
+        "photos_after": _list(row.get("photos_after", "")),
+        "signature_file": row.get("signature_file", ""),
+        "signed_by_name": row.get("signed_by_name", ""),
+        "signed_at": row.get("signed_at", ""),
+        "gcal_event_id": row.get("gcal_event_id", ""),
+        "gcal_event_url": row.get("gcal_event_url", ""),
+        "manager_note": row.get("manager_note", ""),
+    }
 
 
 def _normalize_phone(raw: str) -> tuple[str, bool]:
