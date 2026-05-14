@@ -416,6 +416,9 @@ const Clients = (function () {
       </div>
     `));
 
+    // Управление карточкой — кнопки прямо под шапкой
+    root.appendChild(renderClientManagement(client));
+
     // Быстрые действия для менеджера
     const actionsRow = el(`
       <div class="client-quick-actions">
@@ -482,28 +485,48 @@ const Clients = (function () {
     // Детальные списки внизу (свёрнуты)
     detailsPlaceholder.replaceWith(renderClientDetails(client, myMeasurements));
 
-    // Управление карточкой клиента — редактировать + (условно) удалить
-    root.appendChild(renderClientManagement(client));
+    // (управление перенесено наверх — сразу под шапку)
   }
 
   /* ===================== Управление карточкой (edit / delete) ===================== */
 
+  // Кастомные SVG-иконки в брендовом монолинейном стиле (stroke-width 1.7)
+  const ICON_EDIT_SVG = `
+    <svg class="ct-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3.5 20.5h4.5l10-10-4.5-4.5-10 10v4.5z"/>
+      <path d="M14 6l4 4"/>
+      <path d="M14.5 4.5l1.5-1.5a2 2 0 0 1 2.8 0l1.7 1.7a2 2 0 0 1 0 2.8L19 9"/>
+    </svg>`;
+  const ICON_TRASH_SVG = `
+    <svg class="ct-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M4 7h16"/>
+      <path d="M9.5 7V5.2A1.7 1.7 0 0 1 11.2 3.5h1.6A1.7 1.7 0 0 1 14.5 5.2V7"/>
+      <path d="M6 7l1.1 12.3a1.8 1.8 0 0 0 1.8 1.7h6.2a1.8 1.8 0 0 0 1.8-1.7L18 7"/>
+      <path d="M10 11.5v5.5"/>
+      <path d="M14 11.5v5.5"/>
+    </svg>`;
+
   function renderClientManagement(client) {
     const inWork = !!client.in_work;
     const wrap = el(`
-      <section class="block client-manage" style="margin-top:18px;">
-        <div class="block-head">⚙️ Управление карточкой</div>
-        <div class="client-manage-info" style="padding:6px 4px 10px;font-size:12.5px;color:var(--muted);line-height:1.4;">
-          ${inWork
-            ? "Клиент в работе. Удалить нельзя, можно только отредактировать данные."
-            : "Клиент ещё не передан в работу — можно изменить данные или удалить карточку."}
+      <div class="client-toolbar ${inWork ? "is-locked" : "is-free"}">
+        <button class="ct-btn ct-edit" id="editClient" type="button" aria-label="Редактировать">
+          ${ICON_EDIT_SVG}
+          <span class="ct-label">Редактировать</span>
+        </button>
+        ${inWork ? "" : `
+          <button class="ct-btn ct-delete" id="deleteClient" type="button" aria-label="Удалить">
+            ${ICON_TRASH_SVG}
+            <span class="ct-label">Удалить</span>
+          </button>`}
+        <div class="ct-hint">${inWork
+          ? "В работе — данные можно править"
+          : "Не в работе — можно править или удалить"}
         </div>
-        <div class="podbor-cta-row" style="gap:8px;flex-wrap:wrap;">
-          <button class="btn-secondary" id="editClient" type="button">✏️ Редактировать</button>
-          ${inWork ? "" : `<button class="btn-danger" id="deleteClient" type="button">🗑 Удалить клиента</button>`}
-        </div>
-        <div id="manageResult" style="margin-top:10px;font-size:12.5px;"></div>
-      </section>
+        <div class="ct-result" id="manageResult"></div>
+      </div>
     `);
 
     wrap.querySelector("#editClient")?.addEventListener("click", () => {
@@ -515,8 +538,10 @@ const Clients = (function () {
       const confirmed = await confirmDialog(`Удалить клиента ${client.client_name}? Это нельзя отменить из бота.`);
       if (!confirmed) return;
       const btn = wrap.querySelector("#deleteClient");
+      const labelEl = btn.querySelector(".ct-label");
       const result = wrap.querySelector("#manageResult");
-      btn.disabled = true; btn.textContent = "Удаляем...";
+      btn.disabled = true;
+      if (labelEl) labelEl.textContent = "Удаляем…";
       try {
         const res = await fetch(`${BACKEND_URL}/api/client_delete`, {
           method: "POST",
@@ -529,17 +554,19 @@ const Clients = (function () {
         const data = await res.json();
         if (data.error) {
           const msg = data.msg || data.error;
-          result.innerHTML = `<span style="color:#C0392B;">${escHtml(msg)}</span>`;
-          btn.disabled = false; btn.textContent = "🗑 Удалить клиента";
+          result.innerHTML = `<span class="ct-err">${escHtml(msg)}</span>`;
+          btn.disabled = false;
+          if (labelEl) labelEl.textContent = "Удалить";
           return;
         }
         haptic && haptic("success");
         clientsCache = null;
-        result.innerHTML = `<span style="color:#27AE60;">Архивировано ${data.archived} записей. Возвращаемся в список...</span>`;
+        result.innerHTML = `<span class="ct-ok">Архивировано ${data.archived} записей. Возвращаемся в список…</span>`;
         setTimeout(() => { location.hash = "#/clients"; window.location.reload(); }, 1200);
       } catch (e) {
-        result.innerHTML = `<span style="color:#C0392B;">Сеть: ${escHtml(e.message)}</span>`;
-        btn.disabled = false; btn.textContent = "🗑 Удалить клиента";
+        result.innerHTML = `<span class="ct-err">Сеть: ${escHtml(e.message)}</span>`;
+        btn.disabled = false;
+        if (labelEl) labelEl.textContent = "Удалить";
       }
     });
 
@@ -729,8 +756,11 @@ const Clients = (function () {
     events.sort((a, b) => (b.ts || "").localeCompare(a.ts || ""));
 
     const section = el(`
-      <section class="block client-timeline-block">
-        <div class="block-head">🕒 Хронология · ${events.length}</div>
+      <details class="block client-timeline-block client-collapse">
+        <summary class="block-head collapse-head">
+          <span class="collapse-title">🕒 Хронология · ${events.length}</span>
+          <span class="collapse-chev" aria-hidden="true">›</span>
+        </summary>
         ${events.length === 0
           ? `<div class="empty" style="padding:14px;text-align:center;color:var(--muted);font-size:13px;">Пока нет событий</div>`
           : `<div class="timeline">${events.map(ev => `
@@ -743,7 +773,7 @@ const Clients = (function () {
                 </div>
               </a>
             `).join("")}</div>`}
-      </section>
+      </details>
     `);
     return section;
   }
