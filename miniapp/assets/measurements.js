@@ -369,26 +369,94 @@ const Measurements = (function () {
   /* ===================== Пикер клиента ===================== */
 
   function renderClientPicker() {
+    // Разбивает строку адреса на поля (локальная копия splitAddress из clients.js)
+    function _splitAddr(s) {
+      if (!s) return { city: "Санкт-Петербург", street: "", house: "", apt: "", entrance: "", floor: "" };
+      s = s.trim();
+      const grab = (re) => { const m = s.match(re); if (m) { s = s.replace(m[0], ""); return m[1]; } return ""; };
+      const floor    = grab(/,\s*этаж\s+([^\s,]+)/i);
+      const entrance = grab(/,\s*подъезд\s+([^\s,]+)/i);
+      const apt      = grab(/,\s*кв\.?\s*([^\s,]+)/i);
+      const house    = grab(/,\s*д\.?\s*([^\s,]+)/i);
+      s = s.replace(/,$/, "").trim();
+      const parts = s.split(",").map(p => p.trim()).filter(Boolean);
+      let city = "", street = "";
+      if (parts.length >= 2) { city = parts[0]; street = parts.slice(1).join(", "); }
+      else if (parts.length === 1) { city = parts[0]; }
+      if (!city) city = "Санкт-Петербург";
+      return { city, street, house, apt, entrance, floor };
+    }
+
+    const initParts = _splitAddr(state.address || "");
+
     const wrap = el(`
       <div class="client-picker-wrap">
         <div class="form-row" id="pcChoiceRow"></div>
         <div class="form-row">
-          <label class="field">
-            <span class="field-label">Адрес объекта</span>
-            <input type="text" data-bind="address" id="pcAddr"
-                   value="${escAttr(state.address)}"
-                   placeholder="СПб, пр. Просвещения, д. 87, кв. 12">
-          </label>
+          <span class="field-label">Адрес объекта</span>
+          <div class="addr-grid">
+            <label class="field">
+              <span class="field-sublabel">Город</span>
+              <input type="text" id="pcCity" value="${escAttr(initParts.city)}" placeholder="Санкт-Петербург" autocomplete="address-level2">
+            </label>
+            <label class="field">
+              <span class="field-sublabel">Улица</span>
+              <input type="text" id="pcStreet" value="${escAttr(initParts.street)}" placeholder="пр. Просвещения" autocomplete="street-address">
+            </label>
+            <label class="field addr-house">
+              <span class="field-sublabel">Дом</span>
+              <input type="text" id="pcHouse" value="${escAttr(initParts.house)}" placeholder="87" inputmode="text">
+            </label>
+            <label class="field addr-apt">
+              <span class="field-sublabel">Кв./офис</span>
+              <input type="text" id="pcApt" value="${escAttr(initParts.apt)}" placeholder="12" inputmode="numeric">
+            </label>
+            <label class="field addr-entrance">
+              <span class="field-sublabel">Подъезд</span>
+              <input type="text" id="pcEntrance" value="${escAttr(initParts.entrance)}" placeholder="1" inputmode="numeric">
+            </label>
+            <label class="field addr-floor">
+              <span class="field-sublabel">Этаж</span>
+              <input type="text" id="pcFloor" value="${escAttr(initParts.floor)}" placeholder="3" inputmode="numeric">
+            </label>
+          </div>
+          <span class="field-error" id="pcAddrErr"></span>
         </div>
       </div>
     `);
 
     const choiceRow = wrap.querySelector("#pcChoiceRow");
-    const addrInput = wrap.querySelector("#pcAddr");
 
-    addrInput.addEventListener("input", e => {
-      state.address = e.target.value;
+    function readAndSaveAddr() {
+      const city     = (wrap.querySelector("#pcCity").value     || "").trim();
+      const street   = (wrap.querySelector("#pcStreet").value   || "").trim();
+      const house    = (wrap.querySelector("#pcHouse").value    || "").trim();
+      const apt      = (wrap.querySelector("#pcApt").value      || "").trim();
+      const entrance = (wrap.querySelector("#pcEntrance").value || "").trim();
+      const floor    = (wrap.querySelector("#pcFloor").value    || "").trim();
+      state.address = [
+        city, street,
+        house    ? "д. " + house         : "",
+        apt      ? "кв. " + apt          : "",
+        entrance ? "подъезд " + entrance : "",
+        floor    ? "этаж " + floor       : "",
+      ].filter(Boolean).join(", ");
       saveState();
+    }
+
+    function fillAddrFields(address) {
+      const p = _splitAddr(address || "");
+      wrap.querySelector("#pcCity").value     = p.city;
+      wrap.querySelector("#pcStreet").value   = p.street;
+      wrap.querySelector("#pcHouse").value    = p.house;
+      wrap.querySelector("#pcApt").value      = p.apt;
+      wrap.querySelector("#pcEntrance").value = p.entrance;
+      wrap.querySelector("#pcFloor").value    = p.floor;
+      readAndSaveAddr();
+    }
+
+    ["#pcCity","#pcStreet","#pcHouse","#pcApt","#pcEntrance","#pcFloor"].forEach(sel => {
+      wrap.querySelector(sel).addEventListener("input", readAndSaveAddr);
     });
 
     function refresh() {
@@ -407,10 +475,8 @@ const Measurements = (function () {
         `);
         card.querySelector(".picker-change-btn").addEventListener("click", openOverlay);
         choiceRow.appendChild(card);
-        if (!addrInput.value && pickedClient.address) {
-          addrInput.value = pickedClient.address;
-          state.address = pickedClient.address;
-          saveState();
+        if (!state.address && pickedClient.address) {
+          fillAddrFields(pickedClient.address);
         }
       } else {
         const empty = el(`
