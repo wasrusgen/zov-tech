@@ -347,6 +347,95 @@ async def api_photo(measurement_id: str, filename: str):
     return FileResponse(str(p), media_type=media)
 
 
+@app.get("/api/daily_reminders")
+async def api_daily_reminders(request: Request):
+    """Внутренний эндпоинт для бота: клиенты с годовщиной договора сегодня (МСК).
+    Защищён через заголовок Authorization: Bearer <INTERNAL_SECRET>."""
+    cfg = get_config()
+    secret = cfg.internal_secret
+    auth_header = request.headers.get("Authorization", "")
+    if not secret or auth_header != f"Bearer {secret}":
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    return JSONResponse(_handle_daily_reminders())
+
+
+def _handle_daily_reminders() -> dict[str, Any]:
+    """Находит клиентов с годовщиной договора сегодня по МСК.
+    Дедуплицирует: один менеджер + один клиент = одно уведомление,
+    даже если по клиенту несколько строк в Measurements."""
+    from datetime import timedelta
+    moscow_now = datetime.now(timezone.utc) + timedelta(hours=3)
+    today_md = (moscow_now.month, moscow_now.day)
+    current_year = moscow_now.year
+
+    reminders: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()  # (manager_tg_id, client_key)
+
+    try:
+        ws = sheets.sheet("Measurements")
+        rows = ws.get_all_values()
+    except Exception as e:
+        log.exception("daily_reminders: не удалось прочитать Measurements")
+        return {"error": str(e)}
+
+    if not rows or len(rows) < 2:
+        return {"ok": True, "reminders": [], "date": moscow_now.strftime("%d.%m.%Y")}
+
+    headers = rows[0]
+    for r in rows[1:]:
+        row = dict(zip(headers, r + [""] * max(0, len(headers) - len(r))))
+
+        if row.get("archived_at"):
+            continue
+
+        contract_date_raw = (row.get("contract_date") or "").strip()
+        if not contract_date_raw:
+            continue
+
+        manager_tg_id = (row.get("manager_tg_id") or "").strip()
+        if not manager_tg_id:
+            continue
+
+        # Парсим дату договора: ISO YYYY-MM-DD или DD.MM.YYYY
+        cd = None
+        for fmt in ("%Y-%m-%d", "%d.%m.%Y"):
+            try:
+                cd = datetime.strptime(contract_date_raw[:10], fmt)
+                break
+            except ValueError:
+                continue
+        if cd is None:
+            continue
+
+        # Годовщина — месяц и день совпадают с сегодня
+        if (cd.month, cd.day) != today_md:
+            continue
+
+        # Договор должен быть из прошлых лет, не из нынешнего
+        if cd.year >= current_year:
+            continue
+
+        client_tg_id = (row.get("client_tg_id") or "").strip()
+        client_name = (row.get("client_name") or "Без имени").strip()
+        client_key = client_tg_id or client_name.lower()
+
+        dedup_key = (manager_tg_id, client_key)
+        if dedup_key in seen:
+            continue
+        seen.add(dedup_key)
+
+        years = current_year - cd.year
+        reminders.append({
+            "manager_tg_id": manager_tg_id,
+            "client_name": client_name,
+            "contract_date": contract_date_raw,
+            "years": years,
+        })
+
+    log.info("daily_reminders: %d годовщин на %s", len(reminders), moscow_now.strftime("%d.%m.%Y"))
+    return {"ok": True, "reminders": reminders, "date": moscow_now.strftime("%d.%m.%Y")}
+
+
 @app.get("/api/test_ai")
 async def api_test_ai():
     return _handle_test_ai()

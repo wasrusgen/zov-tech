@@ -23,6 +23,9 @@ class Config:
     proxy_static_list: str  # статический список прокси через запятую: "http://user:pass@host:port,..."
     proxy_list_file: str    # путь к файлу со списком прокси в формате "host:port:user:pass" или "http://..."
 
+    # Внутренний секрет для вызовов бота → бэкенда (без initData)
+    internal_secret: str
+
 
 def _required(name: str) -> str:
     val = os.getenv(name)
@@ -46,4 +49,5 @@ def get_config() -> Config:
         proxy6_token=os.getenv("PROXY6_TOKEN", ""),
         proxy_static_list=os.getenv("PROXY_STATIC_LIST", ""),
         proxy_list_file=os.getenv("PROXY_LIST_FILE", ""),
+        internal_secret=os.getenv("INTERNAL_SECRET", ""),
     )

@@ -22,6 +22,11 @@ class Config:
     active_period_days: int
     grace_period_days: int
 
+    # Внутренний токен для вызовов бота → бэкенда
+    internal_secret: str
+    # URL бэкенда (внутри Docker: http://backend:8000)
+    backend_url: str
+
     @property
     def use_webhook(self) -> bool:
         return bool(self.webhook_url)
@@ -50,4 +55,6 @@ def load_config() -> Config:
         webhook_path=os.getenv("WEBHOOK_PATH", "/tg/webhook"),
         active_period_days=int(os.getenv("ACTIVE_PERIOD_DAYS", "90")),
         grace_period_days=int(os.getenv("GRACE_PERIOD_DAYS", "14")),
+        internal_secret=os.getenv("INTERNAL_SECRET", ""),
+        backend_url=os.getenv("BACKEND_URL", "http://backend:8000"),
     )
