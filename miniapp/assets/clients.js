@@ -1373,19 +1373,13 @@ const Clients = (function () {
     const section = el(`
       <section class="block client-note-block">
         <div class="block-head">
-          <span>📝 Примечание</span>
-          <button class="note-edit-toggle" id="noteEditBtn" type="button" title="Редактировать">Изменить</button>
+          <span>📝 Примечания</span>
+          <button class="note-edit-toggle" id="noteAddBtn" type="button">+ Добавить</button>
         </div>
 
-        <!-- Режим просмотра -->
-        <div class="note-view" id="noteView">
-          <p class="note-text" id="noteDisplayText" style="color:var(--muted,#998877);font-style:italic;">Загружаем...</p>
-          <span class="note-meta" id="noteMeta"></span>
-        </div>
-
-        <!-- Режим редактирования (скрыт по умолчанию) -->
+        <!-- Форма добавления новой заметки (скрыта по умолчанию) -->
         <div class="note-editor" id="noteEditor" style="display:none;">
-          <textarea id="noteText" rows="4" placeholder="Заметки по клиенту — характер, предпочтения, договорённости, статус..."></textarea>
+          <textarea id="noteText" rows="3" placeholder="Новая заметка — характер, договорённости, статус..."></textarea>
           <div class="note-actions">
             <button class="btn-mic" id="noteMic" type="button" title="Голосовой ввод">🎤 Диктовать</button>
             <button class="btn-secondary" id="noteCancel" type="button">Отмена</button>
@@ -1393,65 +1387,74 @@ const Clients = (function () {
           </div>
           <div class="note-status" id="noteStatus"></div>
         </div>
+
+        <!-- Лента примечаний -->
+        <div class="note-history" id="noteHistory">
+          <div class="note-loading">Загружаем...</div>
+        </div>
       </section>
     `);
 
-    const view      = section.querySelector("#noteView");
-    const editor    = section.querySelector("#noteEditor");
-    const displayTx = section.querySelector("#noteDisplayText");
-    const textarea  = section.querySelector("#noteText");
-    const meta      = section.querySelector("#noteMeta");
-    const status    = section.querySelector("#noteStatus");
-    const editBtn   = section.querySelector("#noteEditBtn");
-    let savedText   = "";
+    const editor   = section.querySelector("#noteEditor");
+    const history  = section.querySelector("#noteHistory");
+    const textarea = section.querySelector("#noteText");
+    const addBtn   = section.querySelector("#noteAddBtn");
+    const status   = section.querySelector("#noteStatus");
 
-    function showView(text, updatedAt) {
-      savedText = text || "";
-      displayTx.style.fontStyle = text ? "normal" : "italic";
-      displayTx.style.color     = text ? "var(--ink,#1F1A14)" : "var(--muted,#998877)";
-      displayTx.textContent     = text || "Нет примечания";
-      if (updatedAt) meta.textContent = "обновлено " + formatDate(updatedAt);
-      editor.style.display = "none";
-      view.style.display   = "";
-      editBtn.textContent  = "Изменить";
+    function renderFeed(notes) {
+      history.innerHTML = "";
+      if (!notes || !notes.length) {
+        history.innerHTML = `<div class="note-empty">Примечаний пока нет</div>`;
+        return;
+      }
+      notes.forEach(n => {
+        const entry = el(`
+          <div class="note-entry">
+            <p class="note-text">${escHtml(n.note)}</p>
+            ${n.updated_at ? `<span class="note-meta">${escHtml(formatDate(n.updated_at))}</span>` : ""}
+          </div>
+        `);
+        history.appendChild(entry);
+      });
     }
 
-    function showEditor() {
-      textarea.value       = savedText;
-      status.textContent   = "";
-      status.className     = "note-status";
+    function openEditor() {
+      textarea.value = "";
+      status.textContent = "";
+      status.className = "note-status";
       editor.style.display = "";
-      view.style.display   = "none";
-      editBtn.textContent  = "Свернуть";
+      addBtn.textContent = "Свернуть";
       textarea.focus();
     }
 
-    // Загружаем сохранённую заметку
+    function closeEditor() {
+      editor.style.display = "none";
+      addBtn.textContent = "+ Добавить";
+    }
+
+    // Загружаем историю
     fetchClientNote(client)
-      .then(data => showView(data?.note || "", data?.updated_at || ""))
-      .catch(() => showView("", ""));
+      .then(data => renderFeed(data?.notes || []))
+      .catch(() => renderFeed([]));
 
-    // Переключатель просмотр ↔ редактирование
-    editBtn.addEventListener("click", () => {
-      if (editor.style.display === "none") showEditor();
-      else showView(savedText, meta.textContent.replace("обновлено ", ""));
+    addBtn.addEventListener("click", () => {
+      if (editor.style.display === "none") openEditor(); else closeEditor();
     });
 
-    // Отмена — вернуть исходный текст
-    section.querySelector("#noteCancel").addEventListener("click", () => {
-      showView(savedText, meta.textContent.replace("обновлено ", ""));
-    });
+    section.querySelector("#noteCancel").addEventListener("click", closeEditor);
 
-    // Сохранение
     section.querySelector("#noteSave").addEventListener("click", async () => {
+      const txt = (textarea.value || "").trim();
+      if (!txt) { status.textContent = "Напишите заметку"; return; }
       const btn = section.querySelector("#noteSave");
       btn.disabled = true; btn.textContent = "Сохраняем...";
       status.textContent = ""; status.className = "note-status";
       try {
-        const data = await saveClientNote(client, textarea.value);
+        const data = await saveClientNote(client, txt);
         if (data?.ok) {
           haptic && haptic("success");
-          showView(textarea.value, data.updated_at || "");
+          closeEditor();
+          renderFeed(data.notes || []);
         } else {
           status.textContent = "Ошибка: " + (data?.error || "не сохранилось");
           status.className = "note-status err";
@@ -1464,9 +1467,7 @@ const Clients = (function () {
       }
     });
 
-    // Голосовой ввод
     setupVoiceInput(section.querySelector("#noteMic"), textarea, status);
-
     return section;
   }
 

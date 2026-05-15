@@ -2401,11 +2401,11 @@ def _ensure_client_notes_sheet():
 
 
 def _handle_client_note(body: dict[str, Any]) -> dict[str, Any]:
-    """Чтение/запись примечания менеджера по клиенту.
-    body: {initData, client_name, client_phone, note?, read?}
+    """Чтение/запись примечаний менеджера по клиенту (append-only история).
+    body: {initData, client_name, client_phone, note?}
 
-    Если note передано — пишем (upsert). Иначе просто читаем.
-    Возвращает {ok, note, updated_at}."""
+    Если note передано — добавляем новую запись (append).
+    Возвращает {ok, notes: [{note, updated_at}, ...], note, updated_at} (notes = все записи, новые сверху)."""
     cfg = get_config()
     auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
     if not auth or not auth.get("user"):
@@ -2426,7 +2426,16 @@ def _handle_client_note(body: dict[str, Any]) -> dict[str, Any]:
 
     _ensure_client_notes_sheet()
 
-    # Ищем существующую заметку этого менеджера по этому клиенту
+    # Если note передано — пишем новую запись (append-only, история не перезаписывается)
+    if "note" in body and body.get("note") is not None:
+        new_note = str(body.get("note") or "").strip()[:4000]
+        if not new_note:
+            return {"error": "empty_note"}
+        now_iso = _now_iso()
+        sheets.append_row("ClientNotes", [str(tg_id), key, new_note, now_iso])
+        sheets.log_event("client_note_added", tg_id, {"key": key, "len": len(new_note)})
+
+    # Читаем все заметки этого менеджера по этому клиенту
     try:
         ws = sheets.sheet("ClientNotes")
         rows = ws.get_all_values()
@@ -2434,41 +2443,35 @@ def _handle_client_note(body: dict[str, Any]) -> dict[str, Any]:
         log.warning("ClientNotes read failed: %s", e)
         rows = []
 
-    headers = rows[0] if rows else _CLIENT_NOTES_HEADERS
-    found_row_index = None  # 1-based в Sheets
-    current_note = ""
-    current_updated = ""
+    notes: list[dict[str, str]] = []
     if rows and len(rows) >= 2:
+        headers = rows[0]
         try:
-            idx_mgr = headers.index("manager_tg_id")
-            idx_key = headers.index("client_key")
+            idx_mgr  = headers.index("manager_tg_id")
+            idx_key  = headers.index("client_key")
             idx_note = headers.index("note")
-            idx_upd = headers.index("updated_at")
+            idx_upd  = headers.index("updated_at")
         except ValueError:
             idx_mgr = idx_key = idx_note = idx_upd = -1
         if idx_mgr >= 0 and idx_key >= 0:
-            for i, r in enumerate(rows[1:], start=2):
-                row_mgr = r[idx_mgr] if idx_mgr < len(r) else ""
-                row_key = r[idx_key] if idx_key < len(r) else ""
-                if str(row_mgr) == str(tg_id) and row_key == key:
-                    found_row_index = i
-                    current_note = r[idx_note] if idx_note < len(r) else ""
-                    current_updated = r[idx_upd] if idx_upd < len(r) else ""
-                    break
+            for r in rows[1:]:
+                if (r[idx_mgr] if idx_mgr < len(r) else "") == str(tg_id) \
+                        and (r[idx_key] if idx_key < len(r) else "") == key:
+                    note_text = r[idx_note] if idx_note < len(r) else ""
+                    upd = r[idx_upd] if idx_upd < len(r) else ""
+                    if note_text:
+                        notes.append({"note": note_text, "updated_at": upd})
 
-    # Если note передано — пишем (upsert)
-    if "note" in body and body.get("note") is not None:
-        new_note = str(body.get("note") or "").strip()[:4000]
-        now_iso = _now_iso()
-        if found_row_index:
-            ws.update_cell(found_row_index, headers.index("note") + 1, new_note)
-            ws.update_cell(found_row_index, headers.index("updated_at") + 1, now_iso)
-        else:
-            sheets.append_row("ClientNotes", [str(tg_id), key, new_note, now_iso])
-        sheets.log_event("client_note_updated", tg_id, {"key": key, "len": len(new_note)})
-        return {"ok": True, "note": new_note, "updated_at": now_iso, "client_key": key}
-
-    return {"ok": True, "note": current_note, "updated_at": current_updated, "client_key": key}
+    # Новые сверху
+    notes.sort(key=lambda x: x.get("updated_at", ""), reverse=True)
+    latest = notes[0] if notes else {}
+    return {
+        "ok": True,
+        "notes": notes,
+        "note": latest.get("note", ""),
+        "updated_at": latest.get("updated_at", ""),
+        "client_key": key,
+    }
 
 
 def _handle_geocode(body: dict[str, Any]) -> dict[str, Any]:

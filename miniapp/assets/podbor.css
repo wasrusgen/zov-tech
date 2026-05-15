@@ -2360,9 +2360,20 @@
   background: rgba(107, 74, 43, 0.10);
 }
 
-/* Просмотр-режим */
-.note-view {
-  padding: 6px 2px 4px;
+/* Лента примечаний */
+.note-history {
+  margin-top: 6px;
+}
+.note-entry {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(107,74,43,0.08);
+}
+.note-entry:last-child { border-bottom: none; }
+.note-loading, .note-empty {
+  font-size: 13px;
+  color: var(--muted, #998877);
+  font-style: italic;
+  padding: 6px 0;
 }
 .note-text {
   font-size: 14px;
