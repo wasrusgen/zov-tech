@@ -2085,6 +2085,33 @@
   font-family: var(--font-mono, "JetBrains Mono", monospace);
   margin-top: 4px;
 }
+.client-detail-addr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.client-detail-addr .addr-text {
+  flex: 1;
+  min-width: 0;
+}
+.map-link-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 9px;
+  background: rgba(107,74,43,0.08);
+  border: 1px solid rgba(107,74,43,0.20);
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--walnut, #6B4A2B);
+  text-decoration: none;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.map-link-btn:active { background: rgba(107,74,43,0.16); }
 
 /* ===== Опасная зона удаления ===== */
 .danger-zone {

@@ -1069,6 +1069,8 @@ def _handle_clients(body: dict[str, Any]) -> dict[str, Any]:
                 "client_tg_id": ctg_id or None,
                 "client_phone": phone or "",
                 "address": "",
+                "gps_lat": "",
+                "gps_lng": "",
                 "client_no": "",
                 "contract_no": "",
                 "contract_date": "",
@@ -1153,6 +1155,9 @@ def _handle_clients(body: dict[str, Any]) -> dict[str, Any]:
                 if contract_date and not c.get("contract_date"): c["contract_date"] = contract_date
                 if address and not c.get("address"): c["address"] = address
                 if client_phone and not c.get("client_phone"): c["client_phone"] = client_phone
+                gps_lat = (row.get("gps_lat") or "").strip()
+                gps_lng = (row.get("gps_lng") or "").strip()
+                if gps_lat and gps_lng and not c.get("gps_lat"): c["gps_lat"] = gps_lat; c["gps_lng"] = gps_lng
                 c["measurements_count"] = c.get("measurements_count", 0) + 1
                 # Замер не-draft = клиент в работе (requested/scheduled/completed)
                 if m_status and m_status != "draft":

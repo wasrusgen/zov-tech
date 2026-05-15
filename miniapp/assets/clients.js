@@ -510,8 +510,15 @@ const Clients = (function () {
     const contractTag = client.contract_no
       ? `<div class="client-detail-meta">📋 договор ${escHtml(client.contract_no)}${client.contract_date ? ` · ${escHtml(client.contract_date)}` : ""}</div>`
       : "";
+    const mapUrl = (client.gps_lat && client.gps_lng)
+      ? `https://yandex.ru/maps/?ll=${client.gps_lng},${client.gps_lat}&z=17&pt=${client.gps_lng},${client.gps_lat},pm2rdm`
+      : "";
     const addressTag = client.address
-      ? `<div class="client-detail-meta">📍 ${escHtml(client.address)}</div>`
+      ? `<div class="client-detail-meta client-detail-addr">
+           <span class="addr-text">📍 ${escHtml(client.address)}</span>${mapUrl
+             ? `<a class="map-link-btn" href="${escAttr(mapUrl)}" target="_blank" rel="noopener">🗺 Карта</a>`
+             : ""}
+         </div>`
       : "";
     const statusTag = client.in_work
       ? ""
