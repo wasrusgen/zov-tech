@@ -3412,6 +3412,23 @@
 .geo-ok   { color: #27AE60; }
 .geo-warn { color: #C0392B; }
 
+/* ===== Статус замера ===== */
+.mz-status-badge {
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  letter-spacing: 0;
+}
+.mz-status-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 4px 0 12px;
+}
+.mz-status-btn { flex: 1; min-width: 120px; }
+.ct-ok  { color: #27AE60; font-size: 13px; }
+.ct-err { color: #C0392B; font-size: 13px; }
+
 /* ===== Пикер клиента (замер) ===== */
 .client-picker-wrap { margin-bottom: 2px; }
 .picker-open-btn {

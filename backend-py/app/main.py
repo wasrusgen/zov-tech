@@ -120,6 +120,7 @@ async def _dispatch_post(request: Request):
         "client_delete":         _handle_client_delete,
         "measurement_design_upload": _handle_measurement_design_upload,
         "measurement_decision":  _handle_measurement_decision,
+        "measurement_set_status": _handle_measurement_set_status,
         "manager_pending":       _handle_manager_pending,
         "assembly_create":       _handle_assembly_create,
         "assembly_list":         _handle_assembly_list,
@@ -266,6 +267,12 @@ async def api_measurement_design_upload(request: Request):
 async def api_measurement_decision(request: Request):
     body = await _safe_json(request)
     return _handle_measurement_decision(body)
+
+
+@app.post("/api/measurement_set_status")
+async def api_measurement_set_status(request: Request):
+    body = await _safe_json(request)
+    return _handle_measurement_set_status(body)
 
 
 @app.post("/api/manager_pending")
@@ -1746,6 +1753,51 @@ def _handle_measurement_decision(body: dict[str, Any]) -> dict[str, Any]:
 
     sheets.log_event("podbor_decision", tg_id, {"id": measurement_id, "decision": decision})
     return {"ok": True, "id": measurement_id, "decision": decision}
+
+
+def _handle_measurement_set_status(body: dict[str, Any]) -> dict[str, Any]:
+    """Менеджер меняет статус замера из карточки.
+    body: {initData, measurement_id, status}
+    Допустимые целевые статусы: cancelled, completed.
+    Из draft/completed/cancelled — изменения запрещены."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user or not sheets.has_role(user, "manager"):
+        return {"error": "only_manager"}
+
+    measurement_id = (body.get("measurement_id") or "").strip()
+    new_status = (body.get("status") or "").strip()
+
+    if not measurement_id:
+        return {"error": "missing_measurement_id"}
+    if new_status not in ("cancelled", "completed"):
+        return {"error": "bad_status", "msg": "Допустимо: cancelled, completed"}
+
+    row = sheets.find_row("Measurements", "id", measurement_id)
+    if not row:
+        return {"error": "measurement_not_found"}
+
+    # Только владелец-менеджер
+    if str(row.get("manager_tg_id", "")) != str(tg_id):
+        return {"error": "forbidden"}
+
+    current = (row.get("status") or "").strip()
+    if current in ("draft", "completed", "cancelled"):
+        return {"error": "cannot_change", "msg": f"Статус «{current}» нельзя изменить"}
+    # requested / scheduled → cancelled или completed
+    sheets.update_cell_by_key("Measurements", "id", measurement_id, "status", new_status)
+    sheets.log_event("measurement_status_changed", tg_id, {
+        "id": measurement_id, "from": current, "to": new_status,
+    })
+    return {"ok": True, "id": measurement_id, "status": new_status, "prev_status": current}
 
 
 def _handle_manager_pending(body: dict[str, Any]) -> dict[str, Any]:

@@ -1242,18 +1242,55 @@ const Clients = (function () {
 
     const openings = m.openings || {};
 
+    // Статусные метки и цвета
+    const STATUS_LABEL = {
+      draft:     "Карточка",
+      requested: "Заявка",
+      scheduled: "Назначен",
+      completed: "Выполнен",
+      cancelled: "Отменён",
+    };
+    const STATUS_COLOR = {
+      draft:     "var(--muted,#998877)",
+      requested: "#E67E22",
+      scheduled: "#2980B9",
+      completed: "#27AE60",
+      cancelled: "#C0392B",
+    };
+    const statusLabel = STATUS_LABEL[m.status] || m.status || "—";
+    const statusColor = STATUS_COLOR[m.status] || "var(--muted)";
+
     // Шапка + кнопка печати/PDF
     root.appendChild(el(`
       <div class="measurement-detail-head">
-        <div class="kicker">Замер #${(m.id || "").slice(0, 8)}</div>
+        <div class="kicker" style="display:flex;align-items:center;gap:8px;">
+          Замер #${(m.id || "").slice(0, 8)}
+          <span class="mz-status-badge" style="color:${statusColor};">● ${escHtml(statusLabel)}</span>
+        </div>
         <h2 class="display-title">${escHtml(layoutLabel(m.layout))}</h2>
         <div class="measurement-detail-meta">
           <span>📅 ${formatDate(m.created_at)}</span>
+          ${m.scheduled_at ? `<span>🗓 ${formatDate(m.scheduled_at)}</span>` : ""}
           ${m.area_m2 ? `<span>📐 ${escHtml(m.area_m2)} м²</span>` : ""}
           ${m.ceiling_mm ? `<span>📏 потолок ${escHtml(m.ceiling_mm)} мм</span>` : ""}
+          ${m.address ? `<span>📍 ${escHtml(m.address)}</span>` : ""}
         </div>
       </div>
     `));
+
+    // Кнопки смены статуса (только для requested / scheduled)
+    if (m.status === "requested" || m.status === "scheduled") {
+      const statusRow = el(`<div class="mz-status-actions"></div>`);
+      if (m.status === "requested") {
+        const btnDone = el(`<button class="btn-primary mz-status-btn" type="button">✓ Отметить выполненным</button>`);
+        btnDone.addEventListener("click", () => setMeasurementStatus(measurementId, "completed", statusRow));
+        statusRow.appendChild(btnDone);
+      }
+      const btnCancel = el(`<button class="btn-secondary mz-status-btn" type="button">✕ Отменить замер</button>`);
+      btnCancel.addEventListener("click", () => setMeasurementStatus(measurementId, "cancelled", statusRow));
+      statusRow.appendChild(btnCancel);
+      root.appendChild(statusRow);
+    }
 
     const printBtn = el(`<button class="report-print-btn">🖨️ Скачать PDF / Печать</button>`);
     printBtn.addEventListener("click", () => window.print());
@@ -1291,6 +1328,40 @@ const Clients = (function () {
 
     // Чертежи / DWG
     root.appendChild(renderDesignFilesBlock(m));
+  }
+
+  /* ===================== Смена статуса замера ===================== */
+
+  async function setMeasurementStatus(measurementId, newStatus, container) {
+    const confirmed = await confirmDialog(
+      newStatus === "cancelled"
+        ? "Отменить этот замер? Действие необратимо."
+        : "Отметить замер выполненным?"
+    );
+    if (!confirmed) return;
+
+    container.innerHTML = `<span class="muted" style="font-size:13px;">Сохраняем...</span>`;
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/measurement_set_status`, {
+        method: "POST",
+        body: JSON.stringify({
+          initData: tg?.initData || "",
+          initDataUnsafe: tg?.initDataUnsafe || null,
+          measurement_id: measurementId,
+          status: newStatus,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        haptic && haptic("success");
+        container.innerHTML = `<span class="ct-ok">✓ Статус обновлён. Перезагружаем...</span>`;
+        setTimeout(() => window.location.reload(), 900);
+      } else {
+        container.innerHTML = `<span class="ct-err">Ошибка: ${escHtml(data.msg || data.error)}</span>`;
+      }
+    } catch (e) {
+      container.innerHTML = `<span class="ct-err">Сеть: ${escHtml(e.message)}</span>`;
+    }
   }
 
   /* ===================== Чертежи / DWG ===================== */
