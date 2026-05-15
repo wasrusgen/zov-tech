@@ -1326,8 +1326,109 @@ const Clients = (function () {
       root.appendChild(list);
     }
 
+    // Фото: загрузка дополнительных фото
+    root.appendChild(renderPhotoUploadBlock(m));
+
     // Чертежи / DWG
     root.appendChild(renderDesignFilesBlock(m));
+  }
+
+  /* ===================== Загрузка фото замера ===================== */
+
+  function renderPhotoUploadBlock(m) {
+    const section = el(`
+      <section class="block photo-upload-block">
+        <div class="block-head">📷 Фото${m.photos && m.photos.length ? ` · уже ${m.photos.length} шт.` : ""}</div>
+        <div class="photo-preview-grid" id="photoPreviewGrid"></div>
+        <label class="design-upload-label" style="margin-top:8px;">
+          Добавить фото (до/после/общий план)
+        </label>
+        <input type="file" class="design-upload-input" id="photoFileInput"
+               accept="image/jpeg,image/png,image/webp,image/heic,image/*"
+               multiple capture="environment">
+        <div class="photo-upload-actions" id="photoUploadActions" style="display:none;margin-top:10px;">
+          <button class="btn-primary" id="photoUploadBtn" type="button">Загрузить фото</button>
+          <button class="btn-secondary" id="photoClearBtn" type="button">Очистить</button>
+        </div>
+        <div class="design-upload-status" id="photoUploadStatus"></div>
+      </section>
+    `);
+
+    const previewGrid  = section.querySelector("#photoPreviewGrid");
+    const fileInput    = section.querySelector("#photoFileInput");
+    const actionsRow   = section.querySelector("#photoUploadActions");
+    const uploadBtn    = section.querySelector("#photoUploadBtn");
+    const clearBtn     = section.querySelector("#photoClearBtn");
+    const statusEl     = section.querySelector("#photoUploadStatus");
+    let pendingFiles   = [];
+
+    fileInput.addEventListener("change", () => {
+      pendingFiles = Array.from(fileInput.files || []);
+      previewGrid.innerHTML = "";
+      if (!pendingFiles.length) { actionsRow.style.display = "none"; return; }
+      actionsRow.style.display = "";
+      pendingFiles.forEach(f => {
+        const url = URL.createObjectURL(f);
+        const tile = el(`<div class="photo-tile static"><img src="${url}" alt=""></div>`);
+        previewGrid.appendChild(tile);
+      });
+    });
+
+    clearBtn.addEventListener("click", () => {
+      pendingFiles = [];
+      fileInput.value = "";
+      previewGrid.innerHTML = "";
+      actionsRow.style.display = "none";
+      statusEl.textContent = "";
+    });
+
+    uploadBtn.addEventListener("click", async () => {
+      if (!pendingFiles.length) return;
+      uploadBtn.disabled = true; uploadBtn.textContent = `Загружаем (0/${pendingFiles.length})…`;
+      statusEl.textContent = "";
+      const photos = [];
+      for (let i = 0; i < pendingFiles.length; i++) {
+        const f = pendingFiles[i];
+        const dataUrl = await new Promise((res, rej) => {
+          const r = new FileReader();
+          r.onload = () => res(r.result);
+          r.onerror = rej;
+          r.readAsDataURL(f);
+        });
+        photos.push({ data_url: dataUrl, label: "extra" });
+        uploadBtn.textContent = `Загружаем (${i + 1}/${pendingFiles.length})…`;
+      }
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/measurement_add_photos`, {
+          method: "POST",
+          body: JSON.stringify({
+            initData: tg?.initData || "",
+            initDataUnsafe: tg?.initDataUnsafe || null,
+            measurement_id: m.id,
+            photos,
+          }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          haptic && haptic("success");
+          statusEl.innerHTML = `<span class="ct-ok">✓ Загружено ${data.saved.length} фото. Всего: ${data.total}</span>`;
+          pendingFiles = []; fileInput.value = "";
+          previewGrid.innerHTML = "";
+          actionsRow.style.display = "none";
+          uploadBtn.disabled = false; uploadBtn.textContent = "Загрузить фото";
+          // Обновляем заголовок блока
+          section.querySelector(".block-head").textContent = `📷 Фото · всего ${data.total} шт.`;
+        } else {
+          statusEl.innerHTML = `<span class="ct-err">Ошибка: ${escHtml(data.msg || data.error)}</span>`;
+          uploadBtn.disabled = false; uploadBtn.textContent = "Загрузить фото";
+        }
+      } catch (e) {
+        statusEl.innerHTML = `<span class="ct-err">Сеть: ${escHtml(e.message)}</span>`;
+        uploadBtn.disabled = false; uploadBtn.textContent = "Загрузить фото";
+      }
+    });
+
+    return section;
   }
 
   /* ===================== Смена статуса замера ===================== */

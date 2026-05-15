@@ -119,6 +119,7 @@ async def _dispatch_post(request: Request):
         "client_update":         _handle_client_update,
         "client_delete":         _handle_client_delete,
         "measurement_design_upload": _handle_measurement_design_upload,
+        "measurement_add_photos":    _handle_measurement_add_photos,
         "measurement_decision":  _handle_measurement_decision,
         "measurement_set_status": _handle_measurement_set_status,
         "manager_pending":       _handle_manager_pending,
@@ -273,6 +274,12 @@ async def api_measurement_decision(request: Request):
 async def api_measurement_set_status(request: Request):
     body = await _safe_json(request)
     return _handle_measurement_set_status(body)
+
+
+@app.post("/api/measurement_add_photos")
+async def api_measurement_add_photos(request: Request):
+    body = await _safe_json(request)
+    return _handle_measurement_add_photos(body)
 
 
 @app.post("/api/manager_pending")
@@ -1753,6 +1760,63 @@ def _handle_measurement_decision(body: dict[str, Any]) -> dict[str, Any]:
 
     sheets.log_event("podbor_decision", tg_id, {"id": measurement_id, "decision": decision})
     return {"ok": True, "id": measurement_id, "decision": decision}
+
+
+def _handle_measurement_add_photos(body: dict[str, Any]) -> dict[str, Any]:
+    """Дозагрузка фото к существующему замеру.
+    body: {initData, measurement_id, photos: [{data_url, label?}, ...]}
+    label: before | after | general | extra (необязательно)."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+
+    measurement_id = (body.get("measurement_id") or "").strip()
+    if not measurement_id or not _SAFE_ID_RE.match(measurement_id):
+        return {"error": "missing_measurement_id"}
+
+    row = sheets.find_row("Measurements", "id", measurement_id)
+    if not row:
+        return {"error": "measurement_not_found"}
+
+    is_owner = (str(row.get("manager_tg_id")) == str(tg_id)
+                or str(row.get("requested_by_tg_id")) == str(tg_id)
+                or str(row.get("assigned_to_tg_id")) == str(tg_id))
+    if not is_owner and not sheets.has_role(user, "manager"):
+        return {"error": "forbidden"}
+
+    photos_input = body.get("photos") or []
+    if not isinstance(photos_input, list) or not photos_input:
+        return {"error": "no_photos"}
+
+    existing = [p for p in (row.get("photos") or "").split(",") if p]
+    saved: list[str] = []
+    for i, p in enumerate(photos_input[:20]):
+        if not isinstance(p, dict):
+            continue
+        data_url = p.get("data_url") or ""
+        label = (p.get("label") or "extra").strip()
+        if not isinstance(data_url, str) or not data_url.startswith("data:"):
+            continue
+        fn = _save_measurement_photo(measurement_id, len(existing) + i, data_url, kind=label)
+        if fn:
+            saved.append(fn)
+
+    if not saved:
+        return {"error": "no_photos_saved"}
+
+    all_photos = existing + saved
+    sheets.update_cell_by_key("Measurements", "id", measurement_id, "photos", ",".join(all_photos))
+    sheets.log_event("measurement_photos_added", tg_id, {"id": measurement_id, "count": len(saved)})
+    return {"ok": True, "id": measurement_id, "saved": saved, "total": len(all_photos)}
 
 
 def _handle_measurement_set_status(body: dict[str, Any]) -> dict[str, Any]:

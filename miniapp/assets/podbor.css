@@ -3412,6 +3412,21 @@
 .geo-ok   { color: #27AE60; }
 .geo-warn { color: #C0392B; }
 
+/* ===== Загрузка фото замера ===== */
+.photo-upload-block {}
+.photo-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 6px;
+}
+.photo-upload-actions {
+  display: flex;
+  gap: 8px;
+}
+.photo-upload-actions .btn-primary { flex: 2; }
+.photo-upload-actions .btn-secondary { flex: 1; }
+
 /* ===== Статус замера ===== */
 .mz-status-badge {
   font-size: 12px;
