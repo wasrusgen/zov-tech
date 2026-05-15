@@ -408,6 +408,15 @@ const Clients = (function () {
     });
     root.appendChild(addBtn);
 
+    // Поиск (рендерится сразу, до загрузки)
+    const searchWrap = el(`
+      <div class="client-search-wrap">
+        <input class="client-search" type="search" placeholder="🔍 Поиск по имени, телефону, договору…" autocomplete="off">
+      </div>
+    `);
+    root.appendChild(searchWrap);
+    const searchInput = searchWrap.querySelector(".client-search");
+
     const loading = el(`<div class="loader-inline"><div class="spinner"></div></div>`);
     root.appendChild(loading);
 
@@ -434,18 +443,42 @@ const Clients = (function () {
       return;
     }
 
-    const meta = el(`
-      <div class="kicker" style="margin-bottom:8px;">
-        ${data.count} ${pluralize(data.count, "клиент", "клиента", "клиентов")} · ${countLeads(data.clients)} ${pluralize(countLeads(data.clients), "подбор", "подбора", "подборов")}
-      </div>
-    `);
-    root.appendChild(meta);
+    const metaEl = el(`<div class="kicker client-search-meta" style="margin-bottom:8px;"></div>`);
+    root.appendChild(metaEl);
 
     const list = el(`<div class="client-list"></div>`);
-    for (const c of data.clients) {
-      list.appendChild(renderClientCard(c));
-    }
     root.appendChild(list);
+
+    function renderFiltered(q) {
+      q = (q || "").trim().toLowerCase();
+      const qDigits = q.replace(/\D/g, "");
+      const filtered = q
+        ? data.clients.filter(c => {
+            const nameMatch    = (c.client_name  || "").toLowerCase().includes(q);
+            const phoneMatch   = qDigits && (c.client_phone || "").replace(/\D/g, "").includes(qDigits);
+            const contractMatch = (c.contract_no || "").toLowerCase().includes(q);
+            return nameMatch || phoneMatch || contractMatch;
+          })
+        : data.clients;
+
+      const n = filtered.length;
+      const total = data.clients.length;
+      metaEl.textContent = q
+        ? `Найдено: ${n} из ${total}`
+        : `${total} ${pluralize(total, "клиент", "клиента", "клиентов")} · ${countLeads(data.clients)} ${pluralize(countLeads(data.clients), "подбор", "подбора", "подборов")}`;
+
+      list.innerHTML = "";
+      if (!filtered.length) {
+        list.innerHTML = `<div class="picker-empty-state" style="padding:32px 0;text-align:center;color:var(--muted);">Ничего не найдено</div>`;
+        return;
+      }
+      for (const c of filtered) {
+        list.appendChild(renderClientCard(c));
+      }
+    }
+
+    searchInput.addEventListener("input", () => renderFiltered(searchInput.value));
+    renderFiltered("");
   }
 
   function renderClientCard(c) {

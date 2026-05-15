@@ -3358,6 +3358,30 @@
   border-top: 1px dashed var(--line);
 }
 
+/* ===== Поиск по списку клиентов ===== */
+.client-search-wrap {
+  padding: 0 0 10px;
+}
+.client-search {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--paper, #FBF7F0);
+  border: 1.5px solid rgba(107,74,43,0.18);
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--ink, #1F1A14);
+  box-sizing: border-box;
+  -webkit-appearance: none;
+}
+.client-search:focus {
+  outline: none;
+  border-color: var(--walnut, #6B4A2B);
+  background: white;
+}
+.client-search::placeholder { color: var(--muted, #998877); }
+.client-search-meta { transition: color 0.15s; }
+
 /* ===== Поля адреса (addr-grid) ===== */
 .addr-grid {
   display: grid;
