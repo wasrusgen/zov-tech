@@ -3328,8 +3328,10 @@
   margin-top: 6px;
 }
 .addr-grid .field { margin: 0; }
-.addr-house { grid-column: 1; }
-.addr-apt   { grid-column: 2; }
+.addr-house     { grid-column: 1; }
+.addr-apt       { grid-column: 2; }
+.addr-entrance  { grid-column: 1; }
+.addr-floor     { grid-column: 2; }
 .field-sublabel {
   display: block;
   font-size: 11px;

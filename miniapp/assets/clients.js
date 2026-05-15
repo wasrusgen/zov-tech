@@ -76,6 +76,14 @@ const Clients = (function () {
               <span class="field-sublabel">Кв./офис</span>
               <input type="text" id="ad_apt" placeholder="12" inputmode="numeric">
             </label>
+            <label class="field addr-entrance">
+              <span class="field-sublabel">Подъезд</span>
+              <input type="text" id="ad_entrance" placeholder="1" inputmode="numeric">
+            </label>
+            <label class="field addr-floor">
+              <span class="field-sublabel">Этаж</span>
+              <input type="text" id="ad_floor" placeholder="3" inputmode="numeric">
+            </label>
           </div>
           <span class="field-error" id="errAddr"></span>
           <div class="geo-status" id="geoStatus"></div>
@@ -133,17 +141,24 @@ const Clients = (function () {
       });
       const name          = (form.querySelector("#fn").value       || "").trim();
       const phoneRaw      = (form.querySelector("#ph").value       || "").trim();
-      const adCity        = (form.querySelector("#ad_city").value  || "").trim();
-      const adStreet      = (form.querySelector("#ad_street").value|| "").trim();
-      const adHouse       = (form.querySelector("#ad_house").value || "").trim();
-      const adApt         = (form.querySelector("#ad_apt").value   || "").trim();
+      const adCity        = (form.querySelector("#ad_city").value     || "").trim();
+      const adStreet      = (form.querySelector("#ad_street").value  || "").trim();
+      const adHouse       = (form.querySelector("#ad_house").value   || "").trim();
+      const adApt         = (form.querySelector("#ad_apt").value     || "").trim();
+      const adEntrance    = (form.querySelector("#ad_entrance").value|| "").trim();
+      const adFloor       = (form.querySelector("#ad_floor").value   || "").trim();
       const note          = (form.querySelector("#nt").value       || "").trim();
       const contract_no   = (form.querySelector("#cn").value       || "").trim();
       const contract_date = (form.querySelector("#cd").value       || "").trim();
 
       // Собираем адрес из полей
-      const address = [adCity, adStreet, adHouse ? "д. " + adHouse : "", adApt ? "кв. " + adApt : ""]
-        .filter(Boolean).join(", ");
+      const address = [
+        adCity, adStreet,
+        adHouse    ? "д. " + adHouse       : "",
+        adApt      ? "кв. " + adApt        : "",
+        adEntrance ? "подъезд " + adEntrance : "",
+        adFloor    ? "этаж " + adFloor     : "",
+      ].filter(Boolean).join(", ");
 
       // Валидация
       if (!name || name.length < 2) {
@@ -179,9 +194,15 @@ const Clients = (function () {
         });
         const geoData = await geoRes.json();
         if (geoData.ok && geoData.result) {
-          gps_lat = geoData.result.lat;
-          gps_lng = geoData.result.lng;
-          geoEl.innerHTML = `<span class="geo-ok">✓ ${escHtml(geoData.result.formatted || address)}</span>`;
+          const kind = (geoData.result.kind || "").toLowerCase();
+          const precise = ["house", "street", "entrance", "building"].includes(kind);
+          if (precise) {
+            gps_lat = geoData.result.lat;
+            gps_lng = geoData.result.lng;
+            geoEl.innerHTML = `<span class="geo-ok">✓ ${escHtml(geoData.result.formatted || address)}</span>`;
+          } else {
+            geoEl.innerHTML = `<span class="geo-warn">⚠ Улица не найдена — геокодер вернул «${escHtml(geoData.result.formatted || "")}». Проверьте написание улицы. Сохраняем без координат.</span>`;
+          }
         } else {
           geoEl.innerHTML = `<span class="geo-warn">⚠ Адрес не найден в геокодере — проверьте написание. Сохраняем без координат.</span>`;
         }
@@ -240,23 +261,22 @@ const Clients = (function () {
     });
   }
 
-  // Разбирает сохранённый адрес «Город, Улица, д. NN, кв. MM» обратно в поля.
+  // Разбирает сохранённый адрес «Город, Улица, д. NN, кв. MM, подъезд P, этаж F» обратно в поля.
   function splitAddress(combined) {
-    if (!combined) return { city: "Санкт-Петербург", street: "", house: "", apt: "" };
+    if (!combined) return { city: "Санкт-Петербург", street: "", house: "", apt: "", entrance: "", floor: "" };
     let s = combined.trim();
-    let apt = "";
-    const aptMatch = s.match(/,\s*кв\.?\s*([^\s,]+)/i);
-    if (aptMatch) { apt = aptMatch[1]; s = s.replace(aptMatch[0], ""); }
-    let house = "";
-    const houseMatch = s.match(/,\s*д\.?\s*([^\s,]+)/i);
-    if (houseMatch) { house = houseMatch[1]; s = s.replace(houseMatch[0], ""); }
+    const grab = (re) => { const m = s.match(re); if (m) { s = s.replace(m[0], ""); return m[1]; } return ""; };
+    const floor    = grab(/,\s*этаж\s+([^\s,]+)/i);
+    const entrance = grab(/,\s*подъезд\s+([^\s,]+)/i);
+    const apt      = grab(/,\s*кв\.?\s*([^\s,]+)/i);
+    const house    = grab(/,\s*д\.?\s*([^\s,]+)/i);
     s = s.replace(/,$/, "").trim();
     const parts = s.split(",").map(p => p.trim()).filter(Boolean);
     let city = "", street = "";
     if (parts.length >= 2) { city = parts[0]; street = parts.slice(1).join(", "); }
     else if (parts.length === 1) { city = parts[0]; }
     if (!city) city = "Санкт-Петербург";
-    return { city, street, house, apt };
+    return { city, street, house, apt, entrance, floor };
   }
 
   function normalizePhone(raw) {
@@ -751,6 +771,14 @@ const Clients = (function () {
               <span class="field-sublabel">Кв./офис</span>
               <input type="text" id="ed_apt" value="${escAttr(addrParts.apt)}" placeholder="12" inputmode="numeric">
             </label>
+            <label class="field addr-entrance">
+              <span class="field-sublabel">Подъезд</span>
+              <input type="text" id="ed_entrance" value="${escAttr(addrParts.entrance)}" placeholder="1" inputmode="numeric">
+            </label>
+            <label class="field addr-floor">
+              <span class="field-sublabel">Этаж</span>
+              <input type="text" id="ed_floor" value="${escAttr(addrParts.floor)}" placeholder="3" inputmode="numeric">
+            </label>
           </div>
           <span class="field-error" id="ed_errAddr"></span>
           <div class="geo-status" id="ed_geoStatus"></div>
@@ -781,12 +809,14 @@ const Clients = (function () {
     });
 
     form.querySelector("#ed_save").addEventListener("click", async () => {
-      const fn       = form.querySelector("#ed_fn").value.trim();
-      const ph       = form.querySelector("#ed_ph").value.trim();
-      const edCity   = (form.querySelector("#ed_city").value   || "").trim();
-      const edStreet = (form.querySelector("#ed_street").value || "").trim();
-      const edHouse  = (form.querySelector("#ed_house").value  || "").trim();
-      const edApt    = (form.querySelector("#ed_apt").value    || "").trim();
+      const fn         = form.querySelector("#ed_fn").value.trim();
+      const ph         = form.querySelector("#ed_ph").value.trim();
+      const edCity     = (form.querySelector("#ed_city").value     || "").trim();
+      const edStreet   = (form.querySelector("#ed_street").value   || "").trim();
+      const edHouse    = (form.querySelector("#ed_house").value    || "").trim();
+      const edApt      = (form.querySelector("#ed_apt").value      || "").trim();
+      const edEntrance = (form.querySelector("#ed_entrance").value || "").trim();
+      const edFloor    = (form.querySelector("#ed_floor").value    || "").trim();
       const cno      = form.querySelector("#ed_cno").value.trim();
       const cdate    = form.querySelector("#ed_cdate").value.trim();
       const errName  = form.querySelector("#ed_errName");
@@ -809,8 +839,13 @@ const Clients = (function () {
         return;
       }
 
-      const address = [edCity, edStreet, edHouse ? "д. " + edHouse : "", edApt ? "кв. " + edApt : ""]
-        .filter(Boolean).join(", ");
+      const address = [
+        edCity, edStreet,
+        edHouse    ? "д. " + edHouse         : "",
+        edApt      ? "кв. " + edApt          : "",
+        edEntrance ? "подъезд " + edEntrance : "",
+        edFloor    ? "этаж " + edFloor       : "",
+      ].filter(Boolean).join(", ");
 
       const btn = form.querySelector("#ed_save");
       btn.disabled = true; btn.textContent = "Проверяем адрес…";
@@ -830,9 +865,15 @@ const Clients = (function () {
         });
         const geoData = await geoRes.json();
         if (geoData.ok && geoData.result) {
-          gps_lat = geoData.result.lat;
-          gps_lng = geoData.result.lng;
-          geoEl.innerHTML = `<span class="geo-ok">✓ ${escHtml(geoData.result.formatted || address)}</span>`;
+          const kind = (geoData.result.kind || "").toLowerCase();
+          const precise = ["house", "street", "entrance", "building"].includes(kind);
+          if (precise) {
+            gps_lat = geoData.result.lat;
+            gps_lng = geoData.result.lng;
+            geoEl.innerHTML = `<span class="geo-ok">✓ ${escHtml(geoData.result.formatted || address)}</span>`;
+          } else {
+            geoEl.innerHTML = `<span class="geo-warn">⚠ Улица не найдена — геокодер вернул «${escHtml(geoData.result.formatted || "")}». Проверьте написание улицы. Сохраняем без координат.</span>`;
+          }
         } else {
           geoEl.innerHTML = `<span class="geo-warn">⚠ Адрес не найден — сохраняем без координат.</span>`;
         }
