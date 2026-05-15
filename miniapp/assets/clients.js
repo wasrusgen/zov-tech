@@ -396,18 +396,6 @@ const Clients = (function () {
     root.innerHTML = "";
     root.appendChild(headerEl("Клиенты", null));
 
-    // Большая кнопка «Новый клиент»
-    const addBtn = el(`
-      <div class="podbor-cta-row" style="margin:6px 0 14px;">
-        <button class="btn-primary" id="addClientBtn" type="button">＋ Новый клиент</button>
-      </div>
-    `);
-    addBtn.querySelector("#addClientBtn").addEventListener("click", () => {
-      haptic && haptic("impact");
-      location.hash = "#/clients/new";
-    });
-    root.appendChild(addBtn);
-
     // Поиск (рендерится сразу, до загрузки)
     const searchWrap = el(`
       <div class="client-search-wrap">
@@ -416,6 +404,14 @@ const Clients = (function () {
     `);
     root.appendChild(searchWrap);
     const searchInput = searchWrap.querySelector(".client-search");
+
+    // FAB «Новый клиент» — плавающая кнопка, всегда видна поверх списка
+    const fab = el(`<button class="clients-fab" aria-label="Новый клиент" title="Новый клиент">＋</button>`);
+    fab.addEventListener("click", () => {
+      haptic && haptic("impact");
+      location.hash = "#/clients/new";
+    });
+    root.appendChild(fab);
 
     const loading = el(`<div class="loader-inline"><div class="spinner"></div></div>`);
     root.appendChild(loading);
@@ -436,7 +432,7 @@ const Clients = (function () {
         <div class="empty">
           <p class="lede" style="text-align:center;padding:40px 20px;color:var(--muted)">
             Пока нет клиентов.<br>
-            Заведите первого — кнопка выше.
+            Нажмите&nbsp;<strong>＋</strong> чтобы завести первого.
           </p>
         </div>
       `));
