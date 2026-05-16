@@ -208,7 +208,7 @@ const MeasurementRequest = (function () {
       form.querySelector("#newOne")?.addEventListener("click", () => mount(root));
       form.querySelector("#toHome")?.addEventListener("click", () => {
         location.hash = "";
-        location.reload();
+        if (typeof routeByHash === "function") routeByHash();
       });
     } catch (e) {
       result.innerHTML = `<div class="error">Сеть: ${e.message}</div>`;
@@ -227,8 +227,10 @@ const MeasurementRequest = (function () {
     `);
     h.querySelector(".podbor-back").addEventListener("click", () => {
       if (backHref) location.hash = backHref;
-      else location.hash = "";
-      if (!location.hash) location.reload();
+      else {
+        location.hash = "";
+        if (typeof routeByHash === "function") routeByHash();
+      }
     });
     return h;
   }

@@ -1804,8 +1804,9 @@ const Clients = (function () {
       } else if (backHref) {
         location.hash = backHref;
       } else {
+        // Возврат в главное меню — без перезагрузки страницы (иначе сплэш мигает)
         location.hash = "";
-        location.reload();
+        if (typeof routeByHash === "function") routeByHash();
       }
     });
     return h;

@@ -146,7 +146,7 @@ const Measurements = (function () {
     `);
     h.querySelector(".podbor-back").addEventListener("click", () => {
       location.hash = "";
-      location.reload();
+      if (typeof routeByHash === "function") routeByHash();
     });
     h.querySelector("#openChecklist").addEventListener("click", () => {
       location.hash = "#/measure/checklist";
@@ -969,7 +969,7 @@ const Measurements = (function () {
       node.querySelector("#newOne")?.addEventListener("click", () => mount(root));
       node.querySelector("#toHome")?.addEventListener("click", () => {
         location.hash = "";
-        location.reload();
+        if (typeof routeByHash === "function") routeByHash();
       });
     } catch (e) {
       result.innerHTML = `<div class="error">Сеть: ${e.message}</div>`;

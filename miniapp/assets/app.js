@@ -1199,8 +1199,9 @@ async function renderInboxDetail(measurementId) {
     </header>
   `);
   header.querySelector(".podbor-back").addEventListener("click", () => {
+    // Возврат в главное меню без перезагрузки (иначе сплэш мигает)
     location.hash = "";
-    if (!location.hash) location.reload();
+    routeByHash();
   });
   app.appendChild(header);
 

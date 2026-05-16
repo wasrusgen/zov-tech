@@ -226,7 +226,7 @@ const Assembly = (function () {
       btn.style.display = "none";
       result.querySelector("#toHome")?.addEventListener("click", () => {
         location.hash = "";
-        location.reload();
+        if (typeof routeByHash === "function") routeByHash();
       });
       result.querySelector("#toDetail")?.addEventListener("click", () => {
         location.hash = `#/assembly/${data.id}`;

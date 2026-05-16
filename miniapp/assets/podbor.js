@@ -108,9 +108,9 @@ const Podbor = (function () {
     h.querySelector(".podbor-back").addEventListener("click", () => {
       const idx = STEPS.indexOf(currentStep);
       if (idx <= 0) {
-        // Выход из подбора в главный экран кабинета
+        // Выход из подбора в главный экран кабинета — без перезагрузки (иначе сплэш мигает)
         location.hash = "";
-        location.reload();
+        if (typeof routeByHash === "function") routeByHash();
       } else {
         go(STEPS[idx - 1]);
       }
