@@ -2410,8 +2410,8 @@ def _handle_client_create(body: dict[str, Any]) -> dict[str, Any]:
     note = (body.get("note") or "").strip()
     contract_no = (body.get("contract_no") or "").strip()
     contract_date = (body.get("contract_date") or "").strip()
-    gps_lat = body.get("gps_lat")
-    gps_lng = body.get("gps_lng")
+    gps_lat = body.get("gps_lat") or ""
+    gps_lng = body.get("gps_lng") or ""
 
     # Валидация
     if not full_name:

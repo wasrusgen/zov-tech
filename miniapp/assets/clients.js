@@ -473,6 +473,17 @@ const Clients = (function () {
     }
     loading.remove();
 
+    // API вернул ошибку — показываем её явно (вместо пустого списка)
+    if (data.error) {
+      root.appendChild(el(`
+        <div class="error" style="margin:32px 16px;padding:16px;border-radius:12px;background:#fff3f3;">
+          <b>Ошибка загрузки клиентов:</b> ${escHtml(data.error)}
+          ${data.error === "invalid_init_data" ? "<br><small>Попробуйте перезапустить бот или открыть приложение заново.</small>" : ""}
+        </div>
+      `));
+      return;
+    }
+
     if (!data.clients || !data.clients.length) {
       root.appendChild(el(`
         <div class="empty">
@@ -1804,7 +1815,10 @@ const Clients = (function () {
     if (!BACKEND_URL) throw new Error("BACKEND_URL не задан");
     const res = await fetch(`${BACKEND_URL}/api/clients`, {
       method: "POST",
-      body: JSON.stringify({ initData: tg?.initData || "" }),
+      body: JSON.stringify({
+        initData: tg?.initData || "",
+        initDataUnsafe: tg?.initDataUnsafe || null,
+      }),
     });
     return await res.json();
   }
