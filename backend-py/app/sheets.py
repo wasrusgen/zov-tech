@@ -69,7 +69,7 @@ def append_named_row(name: str, data: dict[str, Any]) -> None:
     if not headers:
         raise ValueError(f"Sheet {name!r} has no header row")
     row = [str(data.get(h, "") if data.get(h, "") is not None else "") for h in headers]
-    ws.append_row(row, value_input_option="USER_ENTERED")
+    ws.append_row(row, value_input_option="RAW")
 
 
 def find_row(sheet_name: str, key_col: str, key_val: Any) -> dict[str, Any] | None:

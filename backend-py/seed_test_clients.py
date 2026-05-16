@@ -72,7 +72,7 @@ def main():
     created = []
     for c in cases:
         mid = _short_id()
-        sheets.append_row("Measurements", _row_for_measurement(
+        sheets.append_named_row("Measurements", _row_for_measurement(
             mid, now_iso(),
             manager_tg_id=str(MGR_TG_ID),
             assigned_to_tg_id=str(MGR_TG_ID),  # назначен на себя
