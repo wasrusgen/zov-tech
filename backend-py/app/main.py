@@ -270,19 +270,31 @@ async def api_client_note(request: Request):
 @app.post("/api/client_create")
 async def api_client_create(request: Request):
     body = await _safe_json(request)
-    return _handle_client_create(body)
+    try:
+        return _handle_client_create(body)
+    except Exception as e:
+        log.exception("client_create error")
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @app.post("/api/client_delete")
 async def api_client_delete(request: Request):
     body = await _safe_json(request)
-    return _handle_client_delete(body)
+    try:
+        return _handle_client_delete(body)
+    except Exception as e:
+        log.exception("client_delete error")
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @app.post("/api/client_update")
 async def api_client_update(request: Request):
     body = await _safe_json(request)
-    return _handle_client_update(body)
+    try:
+        return _handle_client_update(body)
+    except Exception as e:
+        log.exception("client_update error")
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @app.post("/api/measurement_design_upload")
