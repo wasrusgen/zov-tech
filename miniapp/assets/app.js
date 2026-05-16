@@ -170,9 +170,13 @@ async function renderManagerHome(me) {
   const projectsContainer = el(`<div id="projectsContainer"></div>`);
   app.appendChild(projectsContainer);
 
-  // Контейнер для отгрузок (под активными проектами)
+  // Контейнер для отгрузок с завода (под активными проектами)
   const shipmentsContainer = el(`<div id="shipmentsContainer"></div>`);
   app.appendChild(shipmentsContainer);
+
+  // Контейнер для поступлений на склад СПб
+  const arrivalsContainer = el(`<div id="arrivalsContainer"></div>`);
+  app.appendChild(arrivalsContainer);
 
   renderBottomNav("home", { unreadChats: 0 });
 
@@ -180,24 +184,25 @@ async function renderManagerHome(me) {
   const pendingContainer = el(`<div id="pendingContainer"></div>`);
   app.insertBefore(pendingContainer, todayContainer);
 
-  // Параллельно грузим реальные данные (измерения + pending + отгрузки)
+  // Параллельно грузим реальные данные (измерения + pending + отгрузки + поступления)
   try {
     const authBody = { initData: tg?.initData || "", initDataUnsafe: tg?.initDataUnsafe || null };
-    const [resM, resP, resS] = await Promise.all([
+    const [resM, resP, resS, resA] = await Promise.all([
       fetch(`${BACKEND_URL}/api/measurements`, { method: "POST", body: JSON.stringify(authBody) }),
       fetch(`${BACKEND_URL}/api/manager_pending`, { method: "POST", body: JSON.stringify(authBody) }),
       fetch(`${BACKEND_URL}/api/shipments`, { method: "POST", body: JSON.stringify(authBody) }),
+      fetch(`${BACKEND_URL}/api/arrivals`, { method: "POST", body: JSON.stringify(authBody) }),
     ]);
-    const data = await resM.json();
+    const data        = await resM.json();
     const pendingData = await resP.json();
     const shipmentsData = await resS.json();
-    const measurements = (data.measurements || []);
-    const pending = (pendingData.pending || []);
+    const arrivalsData  = await resA.json();
 
-    renderManagerPending(pendingContainer, pending);
-    renderManagerToday(todayContainer, measurements, firstName, greetingEl);
-    renderManagerProjects(projectsContainer, measurements);
-    renderManagerShipments(shipmentsContainer, shipmentsData.shipments || []);
+    renderManagerPending(pendingContainer, pendingData.pending || []);
+    renderManagerToday(todayContainer, data.measurements || [], firstName, greetingEl);
+    renderManagerProjects(projectsContainer, data.measurements || []);
+    renderManagerShipments(shipmentsContainer, shipmentsData.shipments || [], "📦 Отгрузки с завода");
+    renderManagerShipments(arrivalsContainer,  arrivalsData.shipments  || [], "📥 Поступление в СПб");
   } catch (e) {
     todayContainer.innerHTML = `<div class="error">Не удалось загрузить данные: ${escHtml(e.message)}</div>`;
   }
@@ -481,8 +486,8 @@ function renderManagerProjects(container, measurements) {
   container.appendChild(list);
 }
 
-/* ----------------- Менеджер: секция отгрузок (ОТГРУЗКИ.xlsx) ----------------- */
-function renderManagerShipments(container, groups) {
+/* ----------------- Менеджер: секция отгрузок / поступлений на склад ----------------- */
+function renderManagerShipments(container, groups, label = "📦 Отгрузки") {
   container.innerHTML = "";
   if (!groups || !groups.length) return;
 
@@ -492,7 +497,7 @@ function renderManagerShipments(container, groups) {
   const totalItems = visible.reduce((s, g) => s + g.count, 0);
   container.appendChild(el(`
     <div class="section-head" style="margin-top:24px;">
-      <span class="label">📦 Отгрузки <span class="count">· ${totalItems} поз.</span></span>
+      <span class="label">${escHtml(label)} <span class="count">· ${totalItems} поз.</span></span>
     </div>
   `));
 

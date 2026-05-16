@@ -367,6 +367,14 @@ async def api_shipments(request: Request):
     return JSONResponse(await asyncio.to_thread(_handle_shipments, body))
 
 
+@app.post("/api/arrivals")
+async def api_arrivals(request: Request):
+    """Поступления на склад СПб из «Поступление заказов на склад СПб.xlsx». Только для менеджера."""
+    body = await _safe_json(request)
+    import asyncio
+    return JSONResponse(await asyncio.to_thread(_handle_arrivals, body))
+
+
 def _handle_daily_reminders() -> dict[str, Any]:
     """Находит клиентов с годовщиной договора сегодня по МСК.
     Дедуплицирует: один менеджер + один клиент = одно уведомление,
@@ -3131,57 +3139,51 @@ def _initial(name: str) -> str:
     return ((name or "").strip()[:1] or "?").upper()
 
 
-def _handle_shipments(body: dict[str, Any]) -> dict[str, Any]:
-    """Читает ОТГРУЗКИ.xlsx из Google Drive и возвращает позиции, сгруппированные по дате отгрузки с завода.
-
-    Листы Excel называются "ЗОВ ДД.ММ.ГГ" — дата отгрузки с завода.
-    Колонки: №, Товар (Заказ/Дозаказ), договор №, Срок, Кол мест,
-             Фурн-ра СПБ, Панели/техника СПБ, (empty), Продавец,
-             Сборщик, Примечание, Дата отгрузки, Кто забрал.
-    """
-    import io
-    try:
-        import openpyxl
-    except ImportError:
-        return {"error": "openpyxl_not_installed"}
-
+def _xlsx_auth_manager(body: dict[str, Any]) -> tuple[Any, dict[str, Any] | None]:
+    """Проверяет initData и возвращает (tg_id, user) для менеджера или (None, error_dict)."""
     cfg = get_config()
-
-    # Auth — только менеджер
     auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
     if not auth or not auth.get("user"):
         unsafe = body.get("initDataUnsafe") or {}
         if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
             auth = {"user": unsafe["user"]}
         else:
-            return {"error": "invalid_init_data"}
+            return None, {"error": "invalid_init_data"}
     tg_id = auth["user"]["id"]
     user = sheets.find_user(tg_id)
     if not user or not sheets.has_role(user, "manager"):
-        return {"error": "only_manager"}
+        return None, {"error": "only_manager"}
+    return tg_id, user
 
-    file_id = cfg.shipments_file_id
-    if not file_id:
-        return {"ok": True, "shipments": [], "note": "file_not_configured"}
 
+def _parse_xlsx_groups(file_bytes: bytes, source_label: str) -> list[dict[str, Any]]:
+    """Общий парсер для ОТГРУЗКИ.xlsx и «Поступление заказов на склад СПб.xlsx».
+
+    Оба файла содержат листы вида «ЗОВ ДД.ММ.ГГ» с одинаковыми столбцами:
+    №, Товар (Заказ/Дозаказ), договор №, Срок, Кол мест, Фурн-ра СПБ,
+    Панели/техника СПБ, (empty), Продавец, Сборщик, Примечание, Дата отгрузки, Кто забрал.
+
+    «Поступление» дополнительно имеет:
+    - 2 строки-шапки перед заголовком (Накладная от…, Поставщик:…)
+    - разделители «Кухни» / «Дозаказы» между блоками данных
+    Функция находит строку заголовков динамически (первая строка с «Товар»).
+    """
+    import io
     try:
-        file_bytes = drive.download_file_bytes(file_id)
-    except Exception as e:
-        log.exception("shipments: не удалось скачать файл drive=%s", file_id)
-        return {"error": f"drive_error: {str(e)}"}
+        import openpyxl
+    except ImportError:
+        raise RuntimeError("openpyxl_not_installed")
 
-    try:
-        wb = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
-    except Exception as e:
-        log.exception("shipments: не удалось распарсить xlsx")
-        return {"error": f"xlsx_parse_error: {str(e)}"}
-
+    wb = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
     groups: list[dict[str, Any]] = []
 
+    # Метки секций, которые нужно пропускать как строки-данные
+    _SECTION_LABELS = {"кухни", "дозаказы", "кухня"}
+
     for sheet_name in wb.sheetnames:
-        if not sheet_name.upper().startswith("ЗОВ "):
+        if not sheet_name.strip().upper().startswith("ЗОВ "):
             continue
-        date_part = sheet_name[4:].strip()
+        date_part = sheet_name.strip()[4:].strip()
         try:
             if len(date_part) == 8:
                 factory_date = datetime.strptime(date_part, "%d.%m.%y").date()
@@ -3197,47 +3199,63 @@ def _handle_shipments(body: dict[str, Any]) -> dict[str, Any]:
         if len(all_rows) < 2:
             continue
 
-        # Заголовки — первая строка
-        raw_headers = all_rows[0]
+        # Динамически находим строку заголовков — первая строка, содержащая «Товар»
+        header_idx = None
+        for i, row in enumerate(all_rows):
+            cells = [str(c).strip().lower() if c is not None else "" for c in row]
+            if "товар" in cells:
+                header_idx = i
+                break
+        if header_idx is None:
+            continue  # нет строки с заголовком
+
+        raw_headers = all_rows[header_idx]
         headers = [str(h).strip() if h is not None else "" for h in raw_headers]
 
+        def _clean(v: Any) -> str:
+            s = str(v or "").strip()
+            return "" if s.lower() in ("none", "") else s
+
         items: list[dict[str, Any]] = []
-        for row in all_rows[1:]:
+        for row in all_rows[header_idx + 1:]:
             # Пропускаем полностью пустые строки
-            if not any(v for v in row if v is not None and str(v).strip()):
+            non_empty = [v for v in row if v is not None and str(v).strip()]
+            if not non_empty:
                 continue
 
+            # Строим словарь
             rd: dict[str, Any] = {}
             for i, val in enumerate(row):
                 key = headers[i] if i < len(headers) else f"_col{i}"
                 rd[key] = val
 
-            tovar = str(rd.get("Товар") or "").strip()
-            if not tovar or tovar.lower() in ("none", "товар", ""):
+            tovar_raw = str(rd.get("Товар") or "").strip()
+            if not tovar_raw or tovar_raw.lower() in ("none", "товар"):
+                continue
+            # Пропускаем разделители-секции («Кухни», «Дозаказы»)
+            if tovar_raw.lower() in _SECTION_LABELS:
+                continue
+            # Пропускаем шаблонные пустые строки — Заказ/Дозаказ без прочих данных
+            if tovar_raw in ("Заказ", "Дозаказ") and len(non_empty) <= 2:
                 continue
 
-            # Договор № — может быть в колонке с пустым заголовком (C) или "договор №"
+            # Договор № — колонка с заголовком «договор», или 3-я колонка (C)
             contract = ""
             for h in headers:
                 if "договор" in h.lower() or "дог" in h.lower():
-                    contract = str(rd.get(h) or "").strip()
+                    contract = _clean(rd.get(h))
                     break
             if not contract and len(headers) > 2:
-                contract = str(rd.get(headers[2]) or "").strip()
-            contract = "" if contract in ("None", "none") else contract
-
-            def _clean(v: Any) -> str:
-                s = str(v or "").strip()
-                return "" if s in ("None", "none") else s
+                contract = _clean(rd.get(headers[2]))
 
             items.append({
-                "num":           _clean(rd.get("№") or rd.get("№")),
-                "tovar":         tovar,          # "Заказ" | "Дозаказ"
+                "num":           _clean(rd.get("№")),
+                "tovar":         tovar_raw,
                 "contract":      contract,
                 "deadline":      _parse_xlsx_date(rd.get("Срок")),
                 "places":        _clean(rd.get("Кол мест") or rd.get("Кол. мест") or rd.get("Кол.мест")),
-                "furn_spb":      _clean(rd.get("Фурн-ра СПБ") or rd.get("Фурн СПБ")),
-                "panels_spb":    _clean(rd.get("Панели/техника СПБ") or rd.get("Панели СПБ")),
+                "furn_spb":      _clean(rd.get("Фурн-ра СПБ") or rd.get("фурн-ра СПБ") or rd.get("Фурн СПБ")),
+                "panels_spb":    _clean(rd.get("Панели/техника СПБ") or rd.get("панели и техника СПБ в заказе") or rd.get("Панели СПБ")),
                 "seller":        _clean(rd.get("Продавец")),
                 "assembler":     _clean(rd.get("Сборщик")),
                 "note":          _clean(rd.get("Примечание")),
@@ -3249,14 +3267,61 @@ def _handle_shipments(body: dict[str, Any]) -> dict[str, Any]:
             groups.append({
                 "factory_date":     factory_date.strftime("%d.%m.%Y"),
                 "factory_date_iso": factory_date.isoformat(),
-                "sheet_name":       sheet_name,
+                "sheet_name":       sheet_name.strip(),
+                "source":           source_label,
                 "count":            len(items),
-                "count_zakazov":    sum(1 for i in items if "Заказ" in i["tovar"] and "Доз" not in i["tovar"]),
+                "count_zakazov":    sum(1 for i in items if "Доз" not in i["tovar"]),
                 "count_dozakazov":  sum(1 for i in items if "Доз" in i["tovar"]),
                 "items":            items,
             })
 
     groups.sort(key=lambda x: x["factory_date_iso"])
+    return groups
+
+
+def _handle_shipments(body: dict[str, Any]) -> dict[str, Any]:
+    """ОТГРУЗКИ.xlsx — отгрузки с завода. Только для менеджера."""
+    tg_id, err = _xlsx_auth_manager(body)
+    if err:
+        return err
+
+    cfg = get_config()
+    file_id = cfg.shipments_file_id
+    if not file_id:
+        return {"ok": True, "shipments": [], "note": "file_not_configured"}
+    try:
+        file_bytes = drive.download_file_bytes(file_id)
+    except Exception as e:
+        log.exception("shipments: не удалось скачать drive=%s", file_id)
+        return {"error": f"drive_error: {str(e)}"}
+    try:
+        groups = _parse_xlsx_groups(file_bytes, "shipments")
+    except Exception as e:
+        log.exception("shipments: ошибка парсинга xlsx")
+        return {"error": f"parse_error: {str(e)}"}
+    return {"ok": True, "shipments": groups}
+
+
+def _handle_arrivals(body: dict[str, Any]) -> dict[str, Any]:
+    """«Поступление заказов на склад СПб.xlsx» — приход на склад. Только для менеджера."""
+    tg_id, err = _xlsx_auth_manager(body)
+    if err:
+        return err
+
+    cfg = get_config()
+    file_id = cfg.arrivals_file_id
+    if not file_id:
+        return {"ok": True, "shipments": [], "note": "file_not_configured"}
+    try:
+        file_bytes = drive.download_file_bytes(file_id)
+    except Exception as e:
+        log.exception("arrivals: не удалось скачать drive=%s", file_id)
+        return {"error": f"drive_error: {str(e)}"}
+    try:
+        groups = _parse_xlsx_groups(file_bytes, "arrivals")
+    except Exception as e:
+        log.exception("arrivals: ошибка парсинга xlsx")
+        return {"error": f"parse_error: {str(e)}"}
     return {"ok": True, "shipments": groups}
 
 
