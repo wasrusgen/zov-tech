@@ -204,7 +204,6 @@ const ZAMER_PICTS = {
   <line x1="267" y1="121" x2="273" y2="121" stroke="#003E7E" stroke-width="0.9"/>
   <text x="267" y="95" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="8" fill="#003E7E" transform="rotate(-90, 267, 95)">H2</text>
 </svg>`.trim(),
-};
 
   // 6. Стена 1 — чистая стена, базовые габариты
   wall1: `
