@@ -48,6 +48,22 @@ app.add_middleware(
 
 
 # =================================================================
+# Startup: канонизация схем таблиц
+# =================================================================
+
+@app.on_event("startup")
+async def _on_startup() -> None:
+    """При запуске бэкенда канонизируем схему Measurements один раз.
+    Это исправляет рассинхронизацию порядка колонок без ручного вмешательства."""
+    import asyncio
+    try:
+        await asyncio.to_thread(_ensure_measurements_sheet)
+        log.info("Startup: Measurements schema OK")
+    except Exception as e:
+        log.warning("Startup: Measurements schema check failed (non-fatal): %s", e)
+
+
+# =================================================================
 # Health & ping
 # =================================================================
 
@@ -906,19 +922,71 @@ def _measurement_columns() -> list[str]:
 
 
 def _ensure_measurements_sheet() -> None:
-    """Один раз догоняет схему Measurements — добавляет недостающие колонки."""
+    """Канонизирует схему Measurements:
+    1. Создаёт лист если отсутствует.
+    2. Добавляет недостающие колонки.
+    3. Если порядок колонок не совпадает с _measurement_columns() —
+       перестраивает лист: читает все данные, переставляет колонки по канону,
+       перезаписывает лист целиком. Данные не теряются.
+    """
+    want = _measurement_columns()
+
+    # --- Создать лист если не существует ---
     try:
         ws = sheets.sheet("Measurements")
         existing = ws.row_values(1)
     except Exception:
-        sheets.ensure_sheet("Measurements", _measurement_columns())
+        sheets.ensure_sheet("Measurements", want)
+        log.info("Measurements: создан с каноническим заголовком")
         return
-    want = _measurement_columns()
+
+    if not existing:
+        ws.update("A1", [want])
+        log.info("Measurements: заголовок установлен (лист был пуст)")
+        return
+
+    # --- Добавить недостающие колонки (без нарушения порядка) ---
     missing = [c for c in want if c not in existing]
     if missing:
-        new_headers = existing + missing
-        ws.update("A1", [new_headers])
-        log.info("Measurements: дополнили колонки: %s", missing)
+        # Дописываем только в конец; данные встают в те позиции,
+        # которые append_named_row() потом найдёт по имени
+        ws.update("A1", [existing + missing])
+        existing = existing + missing
+        log.info("Measurements: добавлены колонки %s", missing)
+
+    # --- Канонизация порядка если он не совпадает ---
+    # Берём только колонки из канона (extra-колонки вне канона сохраняем справа)
+    canon_set = set(want)
+    extra = [c for c in existing if c not in canon_set]
+    canonical_order = want + extra           # канон + внекановые справа
+
+    if existing == canonical_order:
+        return  # уже в правильном порядке — ничего не делаем
+
+    log.info("Measurements: обнаружен неканонический порядок колонок — запускаем миграцию")
+    try:
+        all_rows = ws.get_all_values()
+        if len(all_rows) < 2:
+            # Данных нет — просто переписать заголовок
+            ws.update("A1", [canonical_order])
+            log.info("Measurements: заголовок канонизирован (данных не было)")
+            return
+
+        old_headers = all_rows[0]
+        data_rows   = all_rows[1:]
+
+        # Перестраиваем каждую строку: читаем по имени, пишем в канонический порядок
+        new_rows = []
+        for r in data_rows:
+            old_dict = dict(zip(old_headers, r + [""] * max(0, len(old_headers) - len(r))))
+            new_rows.append([old_dict.get(col, "") for col in canonical_order])
+
+        # Перезаписываем лист целиком
+        ws.clear()
+        ws.update("A1", [canonical_order] + new_rows, value_input_option="USER_ENTERED")
+        log.info("Measurements: миграция завершена, %d строк пересортировано", len(new_rows))
+    except Exception as e:
+        log.error("Measurements: ошибка канонизации (данные не тронуты): %s", e)
 
 
 def _row_for_measurement(measurement_id: str, ts: str, **fields) -> dict[str, str]:
