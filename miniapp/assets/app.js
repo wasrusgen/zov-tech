@@ -683,17 +683,56 @@ function renderRoleChooser() {
       <div class="role-cards">
         <button class="role-card" data-role="manager">
           <div class="role-icon">
-            <svg viewBox="0 0 44 44" width="34" height="34" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <!-- голова -->
-              <circle cx="22" cy="12" r="7" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.7"/>
-              <!-- плечи / торс -->
-              <path d="M10 41 C10 33 15 27 22 27 C29 27 34 33 34 41"
-                    fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.7" stroke-linecap="round"/>
-              <!-- воротник -->
-              <path d="M19.5 20 L22 25 L24.5 20"
-                    stroke="#6B4A2B" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-              <!-- галстук -->
-              <path d="M22 25 L20.5 29 L22 37 L23.5 29 Z" fill="#6B4A2B"/>
+            <svg viewBox="0 0 44 44" width="40" height="40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <defs><filter id="sk-m" x="-6%" y="-6%" width="112%" height="112%">
+                <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" seed="7" result="n"/>
+                <feDisplacementMap in="SourceGraphic" in2="n" scale="1.4" xChannelSelector="R" yChannelSelector="G"/>
+              </filter></defs>
+              <g filter="url(#sk-m)" stroke="#6B4A2B" stroke-linecap="round" stroke-linejoin="round">
+                <!-- голова — вытянутый овал -->
+                <path d="M15 14 Q15 7 22 7 Q29 7 29 14 Q29 20 22 20.5 Q15 20 15 14Z" fill="#FBF7F0" stroke-width="1.5"/>
+                <!-- волосы -->
+                <path d="M15 12 Q16 8 19.5 7.2 Q22 6.5 24.5 7.2 Q28 8 29 12" fill="#5A3D24" stroke="none"/>
+                <!-- ухо -->
+                <path d="M29 14 Q31 13 31 15 Q31 17 29 16.5" fill="none" stroke-width="1.1"/>
+                <!-- глаза + блики -->
+                <ellipse cx="19.5" cy="14" rx="1.4" ry="1.1" fill="#6B4A2B" stroke="none"/>
+                <ellipse cx="24.5" cy="14" rx="1.4" ry="1.1" fill="#6B4A2B" stroke="none"/>
+                <circle cx="20" cy="13.5" r="0.45" fill="#FBF7F0" stroke="none"/>
+                <circle cx="25" cy="13.5" r="0.45" fill="#FBF7F0" stroke="none"/>
+                <!-- нос -->
+                <path d="M22 15 Q21.2 17.2 21.5 17.8 Q22 18.3 22.5 17.8" fill="none" stroke-width="1"/>
+                <!-- рот — лёгкая улыбка -->
+                <path d="M19.8 19 Q22 20.5 24.2 19" fill="none" stroke-width="1.2"/>
+                <!-- шея -->
+                <path d="M20 20.5 L20 23 M24 20.5 L24 23" stroke-width="1.3"/>
+                <!-- штриховка под подбородком -->
+                <path d="M17.5 20 L20 18.5" stroke-width="0.8" opacity="0.45"/>
+                <path d="M18 21.5 L21 19.5" stroke-width="0.8" opacity="0.45"/>
+                <!-- тело пиджака -->
+                <path d="M10 44 Q10 34 14 28 L20.5 23 L22 24 L23.5 23 L30 28 Q34 34 34 44" fill="#FBF7F0" stroke-width="1.7"/>
+                <!-- воротник рубашки -->
+                <path d="M20.5 23 L18 26.5 L22 25.5" fill="none" stroke-width="1.2"/>
+                <path d="M23.5 23 L26 26.5 L22 25.5" fill="none" stroke-width="1.2"/>
+                <!-- галстук: узел + полотно -->
+                <path d="M21 26 L22 24.8 L23 26 L22 27.5Z" fill="#6B4A2B"/>
+                <path d="M21.4 27.5 L20.5 33.5 L22 41 L23.5 33.5 L22.6 27.5Z" fill="#6B4A2B" opacity="0.88"/>
+                <!-- лацканы -->
+                <path d="M20.5 23 L16 28.5" stroke-width="1.3"/>
+                <path d="M23.5 23 L28 28.5" stroke-width="1.3"/>
+                <!-- борт пиджака -->
+                <path d="M19 29 L19 42" stroke-width="1"/>
+                <path d="M25 29 L25 42" stroke-width="1"/>
+                <!-- пуговица -->
+                <circle cx="22" cy="33" r="0.9" fill="none" stroke-width="0.9"/>
+                <!-- нагрудный карман + платочек -->
+                <path d="M13 30.5 L16 30.5 L16.5 34.5 L12.5 34.5Z" fill="none" stroke-width="0.9"/>
+                <path d="M13.5 30.5 L14.2 28.8 L15 30.5" stroke-width="0.85"/>
+                <!-- штриховка тень правый бок -->
+                <path d="M29 30 L31.5 27.5" stroke-width="0.75" opacity="0.35"/>
+                <path d="M29.5 33.5 L32 31" stroke-width="0.75" opacity="0.35"/>
+                <path d="M30 37 L32.5 34.5" stroke-width="0.75" opacity="0.35"/>
+              </g>
             </svg>
           </div>
           <div class="role-text">
@@ -704,21 +743,51 @@ function renderRoleChooser() {
         </button>
         <button class="role-card" data-role="client">
           <div class="role-icon">
-            <svg viewBox="0 0 44 44" width="34" height="34" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <!-- стены дома -->
-              <rect x="8" y="21" width="28" height="18" rx="1.5"
-                    fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.7"/>
-              <!-- крыша -->
-              <path d="M5 22 L22 5 L39 22"
-                    stroke="#6B4A2B" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
-              <!-- дверь -->
-              <path d="M18 39 L18 30 Q18 27 22 27 Q26 27 26 30 L26 39"
-                    fill="#F5EDDC" stroke="#6B4A2B" stroke-width="1.5"/>
-              <!-- окна -->
-              <rect x="10" y="24" width="5" height="5" rx="1" fill="#F5EDDC" stroke="#6B4A2B" stroke-width="1.2"/>
-              <rect x="29" y="24" width="5" height="5" rx="1" fill="#F5EDDC" stroke="#6B4A2B" stroke-width="1.2"/>
-              <!-- ручка двери -->
-              <circle cx="25" cy="33.5" r="1" fill="#6B4A2B"/>
+            <svg viewBox="0 0 44 44" width="40" height="40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <defs><filter id="sk-c" x="-6%" y="-6%" width="112%" height="112%">
+                <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" seed="13" result="n"/>
+                <feDisplacementMap in="SourceGraphic" in2="n" scale="1.4" xChannelSelector="R" yChannelSelector="G"/>
+              </filter></defs>
+              <g filter="url(#sk-c)" stroke="#6B4A2B" stroke-linecap="round" stroke-linejoin="round">
+                <!-- стены дома -->
+                <rect x="5.5" y="22" width="33" height="19.5" fill="#FBF7F0" stroke-width="1.7"/>
+                <!-- крыша -->
+                <path d="M2.5 23 L22 4.5 L41.5 23" fill="#FBF7F0" stroke-width="2" stroke-linejoin="round"/>
+                <!-- карниз крыши -->
+                <path d="M4 23.8 L22 7.5 L40 23.8" fill="none" stroke-width="0.85" opacity="0.4"/>
+                <!-- труба -->
+                <rect x="27" y="10" width="4.5" height="7.5" fill="#FBF7F0" stroke-width="1.4"/>
+                <!-- дымок из трубы -->
+                <path d="M29 10 Q30 8 29 6.5 Q28 5 29.5 3.5" fill="none" stroke-width="1" opacity="0.55"/>
+                <!-- штриховка правый скат крыши (тень) -->
+                <path d="M24 10 L26 8" stroke-width="0.8" opacity="0.4"/>
+                <path d="M27 13 L29.5 11" stroke-width="0.8" opacity="0.4"/>
+                <path d="M30 16.5 L32.5 14.5" stroke-width="0.8" opacity="0.4"/>
+                <path d="M33 20 L35.5 18" stroke-width="0.8" opacity="0.4"/>
+                <!-- сайдинг — намёк -->
+                <path d="M5.5 28 L38.5 28" stroke-width="0.65" opacity="0.3"/>
+                <path d="M5.5 33.5 L38.5 33.5" stroke-width="0.65" opacity="0.3"/>
+                <!-- окно левое: рама + переплёт + подоконник -->
+                <rect x="7" y="24.5" width="7.5" height="7" rx="0.5" fill="#D6EFF5" stroke-width="1.4"/>
+                <line x1="10.75" y1="24.5" x2="10.75" y2="31.5" stroke-width="0.9"/>
+                <line x1="7" y1="28" x2="14.5" y2="28" stroke-width="0.9"/>
+                <line x1="5.5" y1="31.7" x2="16" y2="31.7" stroke-width="1.3"/>
+                <!-- окно правое: рама + переплёт + подоконник -->
+                <rect x="29.5" y="24.5" width="7.5" height="7" rx="0.5" fill="#D6EFF5" stroke-width="1.4"/>
+                <line x1="33.25" y1="24.5" x2="33.25" y2="31.5" stroke-width="0.9"/>
+                <line x1="29.5" y1="28" x2="37" y2="28" stroke-width="0.9"/>
+                <line x1="28" y1="31.7" x2="38.5" y2="31.7" stroke-width="1.3"/>
+                <!-- дверь: полотно + горизонтальная и вертикальная планки -->
+                <path d="M17 41.5 L17 30 Q17 27.5 22 27.5 Q27 27.5 27 30 L27 41.5" fill="#EDE0C8" stroke-width="1.5"/>
+                <line x1="17" y1="34" x2="27" y2="34" stroke-width="1"/>
+                <line x1="22" y1="28" x2="22" y2="34" stroke-width="0.9"/>
+                <!-- ручка двери -->
+                <circle cx="25.5" cy="35.8" r="1.2" fill="#6B4A2B" stroke="none"/>
+                <!-- ступенька -->
+                <path d="M14.5 41.5 L14.5 43 L29.5 43 L29.5 41.5" fill="none" stroke-width="1.3"/>
+                <!-- куст слева у входа -->
+                <path d="M4 41 Q5 39 6 40.5 Q7 39 8 40.5 Q9 39 10 41" fill="none" stroke-width="1.1"/>
+              </g>
             </svg>
           </div>
           <div class="role-text">
@@ -729,22 +798,65 @@ function renderRoleChooser() {
         </button>
         <button class="role-card" data-role="staff">
           <div class="role-icon">
-            <svg viewBox="0 0 44 44" width="34" height="34" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <!-- каска — козырёк -->
-              <line x1="9.5" y1="18" x2="34.5" y2="18"
-                    stroke="#6B4A2B" stroke-width="2.3" stroke-linecap="round"/>
-              <!-- каска — купол -->
-              <path d="M13.5 18 Q14 8 22 8 Q30 8 30.5 18"
-                    fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.7" stroke-linejoin="round"/>
-              <!-- голова -->
-              <circle cx="22" cy="26" r="6" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.7"/>
-              <!-- плечи / торс -->
-              <path d="M10 43 C10 35 15 30 22 30 C29 30 34 35 34 43"
-                    fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.7" stroke-linecap="round"/>
-              <!-- гаечный ключ в руке -->
-              <path d="M30 38 L35.5 32.5"
-                    stroke="#6B4A2B" stroke-width="2" stroke-linecap="round"/>
-              <circle cx="36.5" cy="31.5" r="2.5" fill="none" stroke="#6B4A2B" stroke-width="1.6"/>
+            <svg viewBox="0 0 44 44" width="40" height="40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <defs><filter id="sk-s" x="-6%" y="-6%" width="112%" height="112%">
+                <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" seed="5" result="n"/>
+                <feDisplacementMap in="SourceGraphic" in2="n" scale="1.4" xChannelSelector="R" yChannelSelector="G"/>
+              </filter></defs>
+              <g filter="url(#sk-s)" stroke="#6B4A2B" stroke-linecap="round" stroke-linejoin="round">
+                <!-- каска — купол (тёмный) -->
+                <path d="M10.5 19 Q11 8.5 22 8.5 Q33 8.5 33.5 19" fill="#6B4A2B" stroke-width="1.5"/>
+                <!-- рёбра жёсткости каски -->
+                <path d="M13 16 Q22 13.5 31 16" fill="none" stroke="#FBF7F0" stroke-width="0.9" opacity="0.6"/>
+                <path d="M14 18.5 Q22 16.5 30 18.5" fill="none" stroke="#FBF7F0" stroke-width="0.7" opacity="0.45"/>
+                <!-- козырёк каски -->
+                <path d="M8 20.5 Q8 22.5 10.5 22.5 L33.5 22.5 Q36 22.5 36 20.5 Q36 19 33.5 19.5 L10.5 19.5 Q8 19 8 20.5Z" fill="#5A3D24" stroke-width="1.5"/>
+                <!-- бирка на каске -->
+                <rect x="18.5" y="11.5" width="7" height="4.5" rx="1" fill="none" stroke="#FBF7F0" stroke-width="0.85"/>
+                <!-- штриховка тень купол каски -->
+                <path d="M26 12 L28.5 10" stroke-width="0.75" opacity="0.4"/>
+                <path d="M28.5 15.5 L31 13.5" stroke-width="0.75" opacity="0.4"/>
+                <path d="M31 19 L33 17.5" stroke-width="0.75" opacity="0.4"/>
+                <!-- голова / лицо -->
+                <path d="M15.5 28.5 Q15 22.5 22 22.5 Q29 22.5 28.5 28.5 Q28.5 35 22 35 Q15.5 35 15.5 28.5Z" fill="#FBF7F0" stroke-width="1.5"/>
+                <!-- ухо -->
+                <path d="M15.5 26.5 Q13.5 26 13.5 28 Q13.5 30 15.5 29.5" fill="none" stroke-width="1.1"/>
+                <!-- брови (нахмурены) -->
+                <path d="M18.5 26 Q20 25 21.2 25.7" stroke-width="1.2"/>
+                <path d="M22.8 25.7 Q24 25 25.5 26" stroke-width="1.2"/>
+                <!-- глаза -->
+                <ellipse cx="19.5" cy="27.5" rx="1.4" ry="1.1" fill="#6B4A2B" stroke="none"/>
+                <ellipse cx="24.5" cy="27.5" rx="1.4" ry="1.1" fill="#6B4A2B" stroke="none"/>
+                <!-- нос -->
+                <path d="M21.5 28.5 Q21 30 21.5 30.5 Q22 31 22.5 30.5" fill="none" stroke-width="1"/>
+                <!-- щетина — намёк -->
+                <path d="M19 32.5 L19.3 33 M21.3 32.8 L21.5 33.5 M23.5 32.8 L23.2 33.5" stroke-width="0.7" opacity="0.55"/>
+                <!-- рот -->
+                <path d="M19.5 32.5 Q22 34 24.5 32.5" fill="none" stroke-width="1.1"/>
+                <!-- штриховка тень правая щека -->
+                <path d="M26 26 L28 24.5" stroke-width="0.75" opacity="0.35"/>
+                <path d="M26.5 28.5 L28.5 27" stroke-width="0.75" opacity="0.35"/>
+                <!-- шея -->
+                <line x1="20.5" y1="35" x2="20" y2="37.5" stroke-width="1.3"/>
+                <line x1="23.5" y1="35" x2="24" y2="37.5" stroke-width="1.3"/>
+                <!-- спецовка -->
+                <path d="M8 44 Q8 36 12 30 L19.5 37.5 L22 36.5 L24.5 37.5 L32 30 Q36 36 36 44" fill="#FBF7F0" stroke-width="1.7"/>
+                <!-- воротник спецовки -->
+                <path d="M19.5 37.5 L17.5 40" stroke-width="1.2"/>
+                <path d="M24.5 37.5 L26.5 40" stroke-width="1.2"/>
+                <!-- нагрудный карман -->
+                <rect x="23" y="40.5" width="5.5" height="3.5" rx="0.5" fill="none" stroke-width="1"/>
+                <!-- пуговицы / молния -->
+                <circle cx="22" cy="39" r="0.8" fill="#6B4A2B" stroke="none"/>
+                <circle cx="22" cy="42" r="0.8" fill="#6B4A2B" stroke="none"/>
+                <!-- правая рука — тянется к инструменту -->
+                <path d="M32 30 Q36 32.5 37.5 36.5" fill="none" stroke-width="1.5"/>
+                <!-- гаечный ключ: рукоятка -->
+                <line x1="36" y1="35" x2="41.5" y2="41" stroke-width="2.3" stroke-linecap="round"/>
+                <!-- гаечный ключ: головка -->
+                <circle cx="36" cy="35" r="3" fill="#FBF7F0" stroke-width="1.4"/>
+                <circle cx="36" cy="35" r="1.2" fill="#6B4A2B" stroke="none"/>
+              </g>
             </svg>
           </div>
           <div class="role-text">
