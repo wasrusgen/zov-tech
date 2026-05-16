@@ -26,6 +26,9 @@ class Config:
     # Внутренний секрет для вызовов бота → бэкенда (без initData)
     internal_secret: str
 
+    # Google Drive ID файла ОТГРУЗКИ.xlsx (склад/отгрузки с завода)
+    shipments_file_id: str
+
 
 def _required(name: str) -> str:
     val = os.getenv(name)
@@ -50,4 +53,5 @@ def get_config() -> Config:
         proxy_static_list=os.getenv("PROXY_STATIC_LIST", ""),
         proxy_list_file=os.getenv("PROXY_LIST_FILE", ""),
         internal_secret=os.getenv("INTERNAL_SECRET", ""),
+        shipments_file_id=os.getenv("SHIPMENTS_FILE_ID", "1fER4NmEgSznvPKJWXOqLDDkTxH6wm78E"),
     )

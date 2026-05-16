@@ -16,7 +16,7 @@ from fastapi.responses import FileResponse, JSONResponse
 
 from .config import get_config
 from .auth import verify_init_data
-from . import sheets, ai, telegram as tg, proxy_pool, catalog, geocoder
+from . import sheets, ai, telegram as tg, proxy_pool, catalog, geocoder, drive
 from . import parsers
 from .parsers import dns as parser_dns, wb as parser_wb, ozon as parser_ozon, yamarket as parser_ym, citilink as parser_cl
 
@@ -357,6 +357,14 @@ async def api_daily_reminders(request: Request):
     if not secret or auth_header != f"Bearer {secret}":
         return JSONResponse({"error": "unauthorized"}, status_code=401)
     return JSONResponse(_handle_daily_reminders())
+
+
+@app.post("/api/shipments")
+async def api_shipments(request: Request):
+    """Отгрузки из ОТГРУЗКИ.xlsx (Google Drive). Только для менеджера."""
+    body = await _safe_json(request)
+    import asyncio
+    return JSONResponse(await asyncio.to_thread(_handle_shipments, body))
 
 
 def _handle_daily_reminders() -> dict[str, Any]:
@@ -3121,6 +3129,155 @@ def _format_price(n: int | float) -> str:
 
 def _initial(name: str) -> str:
     return ((name or "").strip()[:1] or "?").upper()
+
+
+def _handle_shipments(body: dict[str, Any]) -> dict[str, Any]:
+    """Читает ОТГРУЗКИ.xlsx из Google Drive и возвращает позиции, сгруппированные по дате отгрузки с завода.
+
+    Листы Excel называются "ЗОВ ДД.ММ.ГГ" — дата отгрузки с завода.
+    Колонки: №, Товар (Заказ/Дозаказ), договор №, Срок, Кол мест,
+             Фурн-ра СПБ, Панели/техника СПБ, (empty), Продавец,
+             Сборщик, Примечание, Дата отгрузки, Кто забрал.
+    """
+    import io
+    try:
+        import openpyxl
+    except ImportError:
+        return {"error": "openpyxl_not_installed"}
+
+    cfg = get_config()
+
+    # Auth — только менеджер
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user or not sheets.has_role(user, "manager"):
+        return {"error": "only_manager"}
+
+    file_id = cfg.shipments_file_id
+    if not file_id:
+        return {"ok": True, "shipments": [], "note": "file_not_configured"}
+
+    try:
+        file_bytes = drive.download_file_bytes(file_id)
+    except Exception as e:
+        log.exception("shipments: не удалось скачать файл drive=%s", file_id)
+        return {"error": f"drive_error: {str(e)}"}
+
+    try:
+        wb = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
+    except Exception as e:
+        log.exception("shipments: не удалось распарсить xlsx")
+        return {"error": f"xlsx_parse_error: {str(e)}"}
+
+    groups: list[dict[str, Any]] = []
+
+    for sheet_name in wb.sheetnames:
+        if not sheet_name.upper().startswith("ЗОВ "):
+            continue
+        date_part = sheet_name[4:].strip()
+        try:
+            if len(date_part) == 8:
+                factory_date = datetime.strptime(date_part, "%d.%m.%y").date()
+            elif len(date_part) == 10:
+                factory_date = datetime.strptime(date_part, "%d.%m.%Y").date()
+            else:
+                continue
+        except ValueError:
+            continue
+
+        ws = wb[sheet_name]
+        all_rows = list(ws.iter_rows(values_only=True))
+        if len(all_rows) < 2:
+            continue
+
+        # Заголовки — первая строка
+        raw_headers = all_rows[0]
+        headers = [str(h).strip() if h is not None else "" for h in raw_headers]
+
+        items: list[dict[str, Any]] = []
+        for row in all_rows[1:]:
+            # Пропускаем полностью пустые строки
+            if not any(v for v in row if v is not None and str(v).strip()):
+                continue
+
+            rd: dict[str, Any] = {}
+            for i, val in enumerate(row):
+                key = headers[i] if i < len(headers) else f"_col{i}"
+                rd[key] = val
+
+            tovar = str(rd.get("Товар") or "").strip()
+            if not tovar or tovar.lower() in ("none", "товар", ""):
+                continue
+
+            # Договор № — может быть в колонке с пустым заголовком (C) или "договор №"
+            contract = ""
+            for h in headers:
+                if "договор" in h.lower() or "дог" in h.lower():
+                    contract = str(rd.get(h) or "").strip()
+                    break
+            if not contract and len(headers) > 2:
+                contract = str(rd.get(headers[2]) or "").strip()
+            contract = "" if contract in ("None", "none") else contract
+
+            def _clean(v: Any) -> str:
+                s = str(v or "").strip()
+                return "" if s in ("None", "none") else s
+
+            items.append({
+                "num":           _clean(rd.get("№") or rd.get("№")),
+                "tovar":         tovar,          # "Заказ" | "Дозаказ"
+                "contract":      contract,
+                "deadline":      _parse_xlsx_date(rd.get("Срок")),
+                "places":        _clean(rd.get("Кол мест") or rd.get("Кол. мест") or rd.get("Кол.мест")),
+                "furn_spb":      _clean(rd.get("Фурн-ра СПБ") or rd.get("Фурн СПБ")),
+                "panels_spb":    _clean(rd.get("Панели/техника СПБ") or rd.get("Панели СПБ")),
+                "seller":        _clean(rd.get("Продавец")),
+                "assembler":     _clean(rd.get("Сборщик")),
+                "note":          _clean(rd.get("Примечание")),
+                "delivery_date": _parse_xlsx_date(rd.get("Дата отгрузки")),
+                "picked_up_by":  _clean(rd.get("Кто забрал")),
+            })
+
+        if items:
+            groups.append({
+                "factory_date":     factory_date.strftime("%d.%m.%Y"),
+                "factory_date_iso": factory_date.isoformat(),
+                "sheet_name":       sheet_name,
+                "count":            len(items),
+                "count_zakazov":    sum(1 for i in items if "Заказ" in i["tovar"] and "Доз" not in i["tovar"]),
+                "count_dozakazov":  sum(1 for i in items if "Доз" in i["tovar"]),
+                "items":            items,
+            })
+
+    groups.sort(key=lambda x: x["factory_date_iso"])
+    return {"ok": True, "shipments": groups}
+
+
+def _parse_xlsx_date(val: Any) -> str:
+    """Парсит дату из ячейки Excel — datetime, date или строка."""
+    if val is None:
+        return ""
+    from datetime import date as date_t
+    if isinstance(val, datetime):
+        return val.strftime("%d.%m.%Y")
+    if isinstance(val, date_t):
+        return val.strftime("%d.%m.%Y")
+    s = str(val).strip()
+    if not s or s.lower() in ("none", ""):
+        return ""
+    for fmt in ("%d.%m.%Y", "%Y-%m-%d", "%d.%m.%y"):
+        try:
+            return datetime.strptime(s, fmt).strftime("%d.%m.%Y")
+        except ValueError:
+            pass
+    return s  # вернём как есть если не распознали
 
 
 def _now_iso() -> str:

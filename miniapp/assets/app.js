@@ -170,32 +170,34 @@ async function renderManagerHome(me) {
   const projectsContainer = el(`<div id="projectsContainer"></div>`);
   app.appendChild(projectsContainer);
 
+  // Контейнер для отгрузок (под активными проектами)
+  const shipmentsContainer = el(`<div id="shipmentsContainer"></div>`);
+  app.appendChild(shipmentsContainer);
+
   renderBottomNav("home", { unreadChats: 0 });
 
   // Контейнер для карточек «Замер готов — что делать с подбором?»
   const pendingContainer = el(`<div id="pendingContainer"></div>`);
   app.insertBefore(pendingContainer, todayContainer);
 
-  // Параллельно грузим реальные данные
+  // Параллельно грузим реальные данные (измерения + pending + отгрузки)
   try {
-    const [resM, resP] = await Promise.all([
-      fetch(`${BACKEND_URL}/api/measurements`, {
-        method: "POST",
-        body: JSON.stringify({ initData: tg?.initData || "", initDataUnsafe: tg?.initDataUnsafe || null }),
-      }),
-      fetch(`${BACKEND_URL}/api/manager_pending`, {
-        method: "POST",
-        body: JSON.stringify({ initData: tg?.initData || "", initDataUnsafe: tg?.initDataUnsafe || null }),
-      }),
+    const authBody = { initData: tg?.initData || "", initDataUnsafe: tg?.initDataUnsafe || null };
+    const [resM, resP, resS] = await Promise.all([
+      fetch(`${BACKEND_URL}/api/measurements`, { method: "POST", body: JSON.stringify(authBody) }),
+      fetch(`${BACKEND_URL}/api/manager_pending`, { method: "POST", body: JSON.stringify(authBody) }),
+      fetch(`${BACKEND_URL}/api/shipments`, { method: "POST", body: JSON.stringify(authBody) }),
     ]);
     const data = await resM.json();
     const pendingData = await resP.json();
+    const shipmentsData = await resS.json();
     const measurements = (data.measurements || []);
     const pending = (pendingData.pending || []);
 
     renderManagerPending(pendingContainer, pending);
     renderManagerToday(todayContainer, measurements, firstName, greetingEl);
     renderManagerProjects(projectsContainer, measurements);
+    renderManagerShipments(shipmentsContainer, shipmentsData.shipments || []);
   } catch (e) {
     todayContainer.innerHTML = `<div class="error">Не удалось загрузить данные: ${escHtml(e.message)}</div>`;
   }
@@ -477,6 +479,71 @@ function renderManagerProjects(container, measurements) {
     list.appendChild(card);
   }
   container.appendChild(list);
+}
+
+/* ----------------- Менеджер: секция отгрузок (ОТГРУЗКИ.xlsx) ----------------- */
+function renderManagerShipments(container, groups) {
+  container.innerHTML = "";
+  if (!groups || !groups.length) return;
+
+  // Показываем последние 3 партии (ближайшие по дате отгрузки с завода)
+  const visible = groups.slice(-3);
+
+  const totalItems = visible.reduce((s, g) => s + g.count, 0);
+  container.appendChild(el(`
+    <div class="section-head" style="margin-top:24px;">
+      <span class="label">📦 Отгрузки <span class="count">· ${totalItems} поз.</span></span>
+    </div>
+  `));
+
+  for (const group of visible) {
+    const zakazBadge = group.count_zakazov
+      ? `<span class="ship-badge order">Заказов&nbsp;${group.count_zakazov}</span>` : "";
+    const dozBadge = group.count_dozakazov
+      ? `<span class="ship-badge resupply">Дозаказов&nbsp;${group.count_dozakazov}</span>` : "";
+
+    const groupEl = el(`
+      <section class="ship-group">
+        <div class="ship-group-head">
+          <span class="ship-factory-date">${escHtml(group.factory_date)}</span>
+          <span class="ship-badges">${zakazBadge}${dozBadge}</span>
+        </div>
+        <div class="ship-rows"></div>
+      </section>
+    `);
+
+    const rowsEl = groupEl.querySelector(".ship-rows");
+    for (const item of group.items) {
+      const typeClass = item.tovar.startsWith("Доз") ? "dozakaz" : "zakaz";
+      const typeMark  = item.tovar.startsWith("Доз") ? "Дозаказ" : "Заказ";
+
+      const delivStr  = item.delivery_date ? `📬&nbsp;${escHtml(item.delivery_date)}` : "";
+      const assembler = item.assembler      ? `🔧&nbsp;${escHtml(item.assembler)}`      : "";
+      const places    = item.places         ? `📦&nbsp;${escHtml(item.places)} м.`       : "";
+      const meta = [delivStr, assembler, places].filter(Boolean).join("&ensp;·&ensp;");
+
+      const furn = item.furn_spb    ? `<span class="ship-check ${item.furn_spb  === "+" ? "yes" : "no"}">Фурн: ${escHtml(item.furn_spb)}</span>`   : "";
+      const pan  = item.panels_spb  ? `<span class="ship-check ${item.panels_spb === "+" ? "yes" : "no"}">Пан: ${escHtml(item.panels_spb)}</span>`   : "";
+
+      const numStr      = item.num      ? `#${escHtml(item.num)}&ensp;` : "";
+      const contractStr = item.contract ? `Дог&nbsp;${escHtml(item.contract)}` : "";
+      const noteStr     = item.note     ? `<div class="ship-note">${escHtml(item.note)}</div>` : "";
+
+      rowsEl.appendChild(el(`
+        <div class="ship-row">
+          <div class="ship-row-top">
+            <span class="ship-type ${typeClass}">${typeMark}</span>
+            <span class="ship-id">${numStr}${contractStr}</span>
+          </div>
+          ${meta ? `<div class="ship-meta">${meta}</div>` : ""}
+          ${furn || pan ? `<div class="ship-supply">${furn}${pan}</div>` : ""}
+          ${noteStr}
+        </div>
+      `));
+    }
+
+    container.appendChild(groupEl);
+  }
 }
 
 function renderBottomNav(active, opts = {}) {
