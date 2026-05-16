@@ -682,7 +682,20 @@ function renderRoleChooser() {
       </div>
       <div class="role-cards">
         <button class="role-card" data-role="manager">
-          <div class="role-icon">👤</div>
+          <div class="role-icon">
+            <svg viewBox="0 0 44 44" width="34" height="34" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- голова -->
+              <circle cx="22" cy="12" r="7" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.7"/>
+              <!-- плечи / торс -->
+              <path d="M10 41 C10 33 15 27 22 27 C29 27 34 33 34 41"
+                    fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.7" stroke-linecap="round"/>
+              <!-- воротник -->
+              <path d="M19.5 20 L22 25 L24.5 20"
+                    stroke="#6B4A2B" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+              <!-- галстук -->
+              <path d="M22 25 L20.5 29 L22 37 L23.5 29 Z" fill="#6B4A2B"/>
+            </svg>
+          </div>
           <div class="role-text">
             <div class="role-title">Я менеджер</div>
             <div class="role-sub">Веду клиентов и заказы</div>
@@ -690,7 +703,24 @@ function renderRoleChooser() {
           <div class="role-arrow">${ICONS.chevron || "›"}</div>
         </button>
         <button class="role-card" data-role="client">
-          <div class="role-icon">🏠</div>
+          <div class="role-icon">
+            <svg viewBox="0 0 44 44" width="34" height="34" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- стены дома -->
+              <rect x="8" y="21" width="28" height="18" rx="1.5"
+                    fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.7"/>
+              <!-- крыша -->
+              <path d="M5 22 L22 5 L39 22"
+                    stroke="#6B4A2B" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+              <!-- дверь -->
+              <path d="M18 39 L18 30 Q18 27 22 27 Q26 27 26 30 L26 39"
+                    fill="#F5EDDC" stroke="#6B4A2B" stroke-width="1.5"/>
+              <!-- окна -->
+              <rect x="10" y="24" width="5" height="5" rx="1" fill="#F5EDDC" stroke="#6B4A2B" stroke-width="1.2"/>
+              <rect x="29" y="24" width="5" height="5" rx="1" fill="#F5EDDC" stroke="#6B4A2B" stroke-width="1.2"/>
+              <!-- ручка двери -->
+              <circle cx="25" cy="33.5" r="1" fill="#6B4A2B"/>
+            </svg>
+          </div>
           <div class="role-text">
             <div class="role-title">Я клиент</div>
             <div class="role-sub">Заказал кухню ЗОВ</div>
@@ -698,7 +728,25 @@ function renderRoleChooser() {
           <div class="role-arrow">${ICONS.chevron || "›"}</div>
         </button>
         <button class="role-card" data-role="staff">
-          <div class="role-icon">🔧</div>
+          <div class="role-icon">
+            <svg viewBox="0 0 44 44" width="34" height="34" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- каска — козырёк -->
+              <line x1="9.5" y1="18" x2="34.5" y2="18"
+                    stroke="#6B4A2B" stroke-width="2.3" stroke-linecap="round"/>
+              <!-- каска — купол -->
+              <path d="M13.5 18 Q14 8 22 8 Q30 8 30.5 18"
+                    fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.7" stroke-linejoin="round"/>
+              <!-- голова -->
+              <circle cx="22" cy="26" r="6" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.7"/>
+              <!-- плечи / торс -->
+              <path d="M10 43 C10 35 15 30 22 30 C29 30 34 35 34 43"
+                    fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.7" stroke-linecap="round"/>
+              <!-- гаечный ключ в руке -->
+              <path d="M30 38 L35.5 32.5"
+                    stroke="#6B4A2B" stroke-width="2" stroke-linecap="round"/>
+              <circle cx="36.5" cy="31.5" r="2.5" fill="none" stroke="#6B4A2B" stroke-width="1.6"/>
+            </svg>
+          </div>
           <div class="role-text">
             <div class="role-title">Я сотрудник</div>
             <div class="role-sub">Замерщик или сборщик ЗОВ</div>
