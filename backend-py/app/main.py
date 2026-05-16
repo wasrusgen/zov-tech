@@ -3140,7 +3140,7 @@ def _initial(name: str) -> str:
 
 
 def _xlsx_auth_manager(body: dict[str, Any]) -> tuple[Any, dict[str, Any] | None]:
-    """Проверяет initData и возвращает (tg_id, user) для менеджера или (None, error_dict)."""
+    """Проверяет initData и возвращает (tg_id, None) для менеджера или (None, error_dict)."""
     cfg = get_config()
     auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
     if not auth or not auth.get("user"):
@@ -3153,7 +3153,7 @@ def _xlsx_auth_manager(body: dict[str, Any]) -> tuple[Any, dict[str, Any] | None
     user = sheets.find_user(tg_id)
     if not user or not sheets.has_role(user, "manager"):
         return None, {"error": "only_manager"}
-    return tg_id, user
+    return tg_id, None  # успешно: вернуть None-ошибку, чтобы caller мог сделать if err:
 
 
 def _parse_xlsx_groups(file_bytes: bytes, source_label: str) -> list[dict[str, Any]]:

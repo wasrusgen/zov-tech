@@ -184,25 +184,30 @@ async function renderManagerHome(me) {
   const pendingContainer = el(`<div id="pendingContainer"></div>`);
   app.insertBefore(pendingContainer, todayContainer);
 
-  // Параллельно грузим реальные данные (измерения + pending + отгрузки + поступления)
+  // Параллельно грузим реальные данные (измерения + pending — критичные)
+  // Складские данные грузим отдельно, чтобы ошибка Drive не ломала весь дашборд
   try {
     const authBody = { initData: tg?.initData || "", initDataUnsafe: tg?.initDataUnsafe || null };
-    const [resM, resP, resS, resA] = await Promise.all([
+    const [resM, resP] = await Promise.all([
       fetch(`${BACKEND_URL}/api/measurements`, { method: "POST", body: JSON.stringify(authBody) }),
       fetch(`${BACKEND_URL}/api/manager_pending`, { method: "POST", body: JSON.stringify(authBody) }),
-      fetch(`${BACKEND_URL}/api/shipments`, { method: "POST", body: JSON.stringify(authBody) }),
-      fetch(`${BACKEND_URL}/api/arrivals`, { method: "POST", body: JSON.stringify(authBody) }),
     ]);
     const data        = await resM.json();
     const pendingData = await resP.json();
-    const shipmentsData = await resS.json();
-    const arrivalsData  = await resA.json();
 
     renderManagerPending(pendingContainer, pendingData.pending || []);
     renderManagerToday(todayContainer, data.measurements || [], firstName, greetingEl);
     renderManagerProjects(projectsContainer, data.measurements || []);
-    renderManagerShipments(shipmentsContainer, shipmentsData.shipments || [], "📦 Отгрузки с завода");
-    renderManagerShipments(arrivalsContainer,  arrivalsData.shipments  || [], "📥 Поступление в СПб");
+
+    // Складские данные — не критичны; грузим после, ошибка не ломает дашборд
+    const authBodyStr = JSON.stringify(authBody);
+    Promise.all([
+      fetch(`${BACKEND_URL}/api/shipments`, { method: "POST", body: authBodyStr }).then(r => r.json()).catch(() => ({})),
+      fetch(`${BACKEND_URL}/api/arrivals`,  { method: "POST", body: authBodyStr }).then(r => r.json()).catch(() => ({})),
+    ]).then(([shipmentsData, arrivalsData]) => {
+      renderManagerShipments(shipmentsContainer, shipmentsData.shipments || [], "📦 Отгрузки с завода");
+      renderManagerShipments(arrivalsContainer,  arrivalsData.shipments  || [], "📥 Поступление в СПб");
+    }).catch(() => { /* тихо — дашборд уже отрисован */ });
   } catch (e) {
     todayContainer.innerHTML = `<div class="error">Не удалось загрузить данные: ${escHtml(e.message)}</div>`;
   }
