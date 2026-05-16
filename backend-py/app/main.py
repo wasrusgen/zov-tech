@@ -18,6 +18,7 @@ from .config import get_config
 from .auth import verify_init_data
 from . import sheets, ai, telegram as tg, proxy_pool, catalog, geocoder, drive
 from . import parsers
+from . import proposals as proposals_mod
 from .parsers import dns as parser_dns, wb as parser_wb, ozon as parser_ozon, yamarket as parser_ym, citilink as parser_cl
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -126,6 +127,15 @@ async def _dispatch_post(request: Request):
         "assembly_create":       _handle_assembly_create,
         "assembly_list":         _handle_assembly_list,
         "assembly_detail":       _handle_assembly_detail,
+        "proposal_brief":        proposals_mod.handle_brief,
+        "proposal_create":       proposals_mod.handle_create,
+        "proposal_upsert_variant": proposals_mod.handle_upsert_variant,
+        "proposal_remove_variant": proposals_mod.handle_remove_variant,
+        "proposal_send":         proposals_mod.handle_send,
+        "proposal_list":         proposals_mod.handle_list,
+        "proposal_detail":       proposals_mod.handle_detail,
+        "proposal_vote":         proposals_mod.handle_vote,
+        "proposal_client_submit": proposals_mod.handle_client_submit,
         "ping":          lambda b: {"pong": True, "time": _now_iso()},
         "seed_admin":    lambda b: _handle_seed_admin(),
         "test_ai":       lambda b: _handle_test_ai(),
@@ -373,6 +383,52 @@ async def api_arrivals(request: Request):
     body = await _safe_json(request)
     import asyncio
     return JSONResponse(await asyncio.to_thread(_handle_arrivals, body))
+
+
+@app.post("/api/proposal_brief")
+async def api_proposal_brief(request: Request):
+    body = await _safe_json(request)
+    return JSONResponse(proposals_mod.handle_brief(body))
+
+@app.post("/api/proposal_create")
+async def api_proposal_create(request: Request):
+    body = await _safe_json(request)
+    return JSONResponse(proposals_mod.handle_create(body))
+
+@app.post("/api/proposal_upsert_variant")
+async def api_proposal_upsert_variant(request: Request):
+    body = await _safe_json(request)
+    return JSONResponse(proposals_mod.handle_upsert_variant(body))
+
+@app.post("/api/proposal_remove_variant")
+async def api_proposal_remove_variant(request: Request):
+    body = await _safe_json(request)
+    return JSONResponse(proposals_mod.handle_remove_variant(body))
+
+@app.post("/api/proposal_send")
+async def api_proposal_send(request: Request):
+    body = await _safe_json(request)
+    return JSONResponse(proposals_mod.handle_send(body))
+
+@app.post("/api/proposal_list")
+async def api_proposal_list(request: Request):
+    body = await _safe_json(request)
+    return JSONResponse(proposals_mod.handle_list(body))
+
+@app.post("/api/proposal_detail")
+async def api_proposal_detail(request: Request):
+    body = await _safe_json(request)
+    return JSONResponse(proposals_mod.handle_detail(body))
+
+@app.post("/api/proposal_vote")
+async def api_proposal_vote(request: Request):
+    body = await _safe_json(request)
+    return JSONResponse(proposals_mod.handle_vote(body))
+
+@app.post("/api/proposal_client_submit")
+async def api_proposal_client_submit(request: Request):
+    body = await _safe_json(request)
+    return JSONResponse(proposals_mod.handle_client_submit(body))
 
 
 def _handle_daily_reminders() -> dict[str, Any]:

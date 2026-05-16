@@ -23,6 +23,10 @@ const Clients = (function () {
     } else if (sub.startsWith("measurement/")) {
       const measurementId = sub.slice(12);
       renderMeasurement(measurementId);
+    } else if (/^client\/[^/]+\/proposals/.test(sub)) {
+      // #/clients/client/{key}/proposals — менеджерский редактор подборки
+      const clientKey = decodeURIComponent(sub.slice(7, sub.indexOf("/proposals")));
+      renderClientProposalsPage(clientKey);
     } else if (sub.startsWith("client/")) {
       const clientKey = decodeURIComponent(sub.slice(7));
       renderClientHistory(clientKey);
@@ -390,6 +394,48 @@ const Clients = (function () {
     _buildVoiceEngine(micBtn, textarea, { statusEl });
   }
 
+  /* ===================== Подборка техники — отдельная страница менеджера ===================== */
+
+  async function renderClientProposalsPage(clientKey) {
+    root.innerHTML = "";
+    const backHref = `#/clients/client/${encodeURIComponent(clientKey)}`;
+    root.appendChild(headerEl("Подбор техники", backHref));
+
+    // Ищем клиента в кеше, чтобы знать client_tg_id
+    let clientTgId = "";
+    let clientName = clientKey;
+    const cached = clientsCache?.clients;
+    if (cached) {
+      const found = cached.find(c =>
+        (c.client_tg_id && c.client_tg_id === clientKey) ||
+        (c.client_name && c.client_name.toLowerCase() === clientKey)
+      );
+      if (found) {
+        clientTgId = found.client_tg_id || "";
+        clientName = found.client_name || clientKey;
+      }
+    }
+
+    root.appendChild(el(`
+      <div class="client-detail-head" style="padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:16px;">
+        <div class="client-avatar lg">${(clientName[0] || "?").toUpperCase()}</div>
+        <div style="flex:1;min-width:0;">
+          <h2 class="client-detail-name">${escHtml(clientName.length > 3 ? clientName : clientKey)}</h2>
+          <div class="client-detail-meta">Подборка техники · редактор</div>
+        </div>
+      </div>
+    `));
+
+    const container = el(`<div class="prop-section"></div>`);
+    root.appendChild(container);
+
+    if (typeof Proposals !== "undefined") {
+      await Proposals.mountManager(container, clientKey, clientTgId);
+    } else {
+      container.innerHTML = `<div class="error">Модуль подбора не загружен</div>`;
+    }
+  }
+
   /* ===================== Список клиентов ===================== */
 
   async function renderList() {
@@ -622,7 +668,8 @@ const Clients = (function () {
         haptic && haptic("impact");
         const act = btn.dataset.act;
         if (act === "podbor") {
-          location.hash = `#/podbor?client_name=${encodeURIComponent(client.client_name || "")}&client_phone=${encodeURIComponent(client.client_phone || "")}`;
+          const propKey = encodeURIComponent(client.client_tg_id || client.client_name.toLowerCase());
+          location.hash = `#/clients/client/${propKey}/proposals`;
         } else if (act === "measure") {
           // Pre-fill request with client info
           sessionStorage.setItem("prefillClient", JSON.stringify({
@@ -654,9 +701,11 @@ const Clients = (function () {
     const timelinePlaceholder = el(`<div id="clTimelinePlaceholder"></div>`);
     const filesPlaceholder = el(`<div id="clFilesPlaceholder"></div>`);
     const detailsPlaceholder = el(`<div id="clDetailsPlaceholder"></div>`);
+    const proposalPlaceholder = el(`<div id="clProposalPlaceholder"></div>`);
     root.appendChild(timelinePlaceholder);
     root.appendChild(filesPlaceholder);
     root.appendChild(detailsPlaceholder);
+    root.appendChild(proposalPlaceholder);
 
     let myMeasurements = [];
     try {
@@ -673,6 +722,28 @@ const Clients = (function () {
     filesPlaceholder.replaceWith(renderClientFiles(client, myMeasurements));
     // Детальные списки внизу (свёрнуты)
     detailsPlaceholder.replaceWith(renderClientDetails(client, myMeasurements));
+
+    // Подбор техники (Proposals) — секция для менеджера
+    if (typeof Proposals !== "undefined") {
+      const clientKey = (client.client_tg_id || client.client_name || "").toLowerCase();
+      const propWrapper = el(`
+        <div class="prop-section">
+          <div class="prop-section-head">
+            🛍 Подбор техники
+            <a class="prop-section-open-link" href="#/clients/client/${encodeURIComponent(clientKey)}/proposals">Открыть →</a>
+          </div>
+          <div id="propInlineContainer"></div>
+        </div>
+      `);
+      proposalPlaceholder.replaceWith(propWrapper);
+      const propContainer = propWrapper.querySelector("#propInlineContainer");
+      Proposals.mountManager(propContainer, clientKey, client.client_tg_id || "")
+        .catch(() => {
+          propContainer.innerHTML = `<div class="prop-muted" style="padding:10px 0;">Не удалось загрузить подборку.</div>`;
+        });
+    } else {
+      proposalPlaceholder.remove();
+    }
 
     // (управление перенесено наверх — сразу под шапку)
   }
