@@ -60,6 +60,18 @@ def append_row(name: str, row: list[Any]) -> None:
     sheet(name).append_row(row, value_input_option="USER_ENTERED")
 
 
+def append_named_row(name: str, data: dict[str, Any]) -> None:
+    """Записывает строку по ИМЕНАМ колонок из реального заголовка листа.
+    Безопасно при любом порядке колонок — значения выставляются по имени,
+    а не по позиции, так что нет расхождения с _measurement_columns()."""
+    ws = sheet(name)
+    headers = ws.row_values(1)
+    if not headers:
+        raise ValueError(f"Sheet {name!r} has no header row")
+    row = [str(data.get(h, "") if data.get(h, "") is not None else "") for h in headers]
+    ws.append_row(row, value_input_option="USER_ENTERED")
+
+
 def find_row(sheet_name: str, key_col: str, key_val: Any) -> dict[str, Any] | None:
     """Линейный поиск по колонке-ключу. Возвращает строку как dict или None."""
     s = sheet(sheet_name)

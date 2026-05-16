@@ -921,10 +921,10 @@ def _ensure_measurements_sheet() -> None:
         log.info("Measurements: дополнили колонки: %s", missing)
 
 
-def _row_for_measurement(measurement_id: str, ts: str, **fields) -> list[str]:
-    """Собирает строку в нужном порядке колонок (для append_row)."""
-    cols = _measurement_columns()
-    base = {
+def _row_for_measurement(measurement_id: str, ts: str, **fields) -> dict[str, str]:
+    """Возвращает словарь колонка→значение для записи в Measurements.
+    Используется с sheets.append_named_row() — безопасно к порядку колонок."""
+    base: dict[str, Any] = {
         "id": measurement_id, "ts": ts,
         "client_tg_id": "", "manager_tg_id": "", "filled_by": "",
         "layout": "", "area_m2": "", "ceiling_mm": "",
@@ -943,7 +943,8 @@ def _row_for_measurement(measurement_id: str, ts: str, **fields) -> list[str]:
         "podbor_decision": "", "podbor_decision_at": "", "podbor_lead_id": "",
     }
     base.update(fields)
-    return [str(base.get(c, "")) for c in cols]
+    # Нормализуем: None → "", всё приводим к str
+    return {k: str(v) if v is not None else "" for k, v in base.items()}
 
 
 def _handle_measurement(body: dict[str, Any]) -> dict[str, Any]:
@@ -1066,7 +1067,7 @@ def _handle_measurement(body: dict[str, Any]) -> dict[str, Any]:
         for col, val in updates.items():
             sheets.update_cell_by_key("Measurements", "id", measurement_id, col, val)
     else:
-        sheets.append_row("Measurements", _row_for_measurement(
+        sheets.append_named_row("Measurements", _row_for_measurement(
             measurement_id, _now_iso(),
             client_tg_id=client_tg_id or "",
             manager_tg_id=manager_tg_id or "",
@@ -1528,7 +1529,7 @@ def _handle_measurement_request(body: dict[str, Any]) -> dict[str, Any]:
             return {"error": "assigned_not_measurer"}
 
     measurement_id = _short_id()
-    sheets.append_row("Measurements", _row_for_measurement(
+    sheets.append_named_row("Measurements", _row_for_measurement(
         measurement_id, _now_iso(),
         manager_tg_id=tg_id,
         filled_by="request",
@@ -2431,7 +2432,7 @@ def _handle_client_create(body: dict[str, Any]) -> dict[str, Any]:
     client_no = _next_client_no(str(tg_id))
 
     # Создаём «карточку клиента» как заявку со статусом draft
-    sheets.append_row("Measurements", _row_for_measurement(
+    sheets.append_named_row("Measurements", _row_for_measurement(
         measurement_id, _now_iso(),
         manager_tg_id=str(tg_id),
         requested_by_tg_id=str(tg_id),
