@@ -5,7 +5,7 @@
 const tg = window.Telegram?.WebApp;
 // Cloudflare Quick Tunnel → VPS FastAPI backend (GigaChat).
 // Временный URL — пока wasrusgen1.pro в verification-hold; затем переключим на https://api.wasrusgen1.pro
-const BACKEND_URL = "https://prepared-alfred-story-dale.trycloudflare.com";
+const BACKEND_URL = "https://api.wasrusgen1.pro";
 
 const app = document.getElementById("app");
 
