@@ -615,7 +615,7 @@ function renderClient(me) {
       items: [
         { icon: "ruler",     color: "blue",  label: "Замер кухни",         href: "#/c/measure"  },
         { icon: "wrench",    color: "green", label: "Подобрать технику",   href: "#/c/proposal" },
-        { icon: "wallet",    color: "gold",  label: "Калькулятор бюджета", soon: true },
+        { icon: "wallet",    color: "gold",  label: "Проверить договор",   href: "#/c/contract" },
       ],
     },
     {
@@ -1621,6 +1621,19 @@ async function init() {
       hideSplash();
       return;
     }
+    if (location.hash.startsWith("#/c/contract")) {
+      app.innerHTML = "";
+      document.body.classList.remove("has-bottom-nav");
+      const oldNavC = document.getElementById("bottom-nav");
+      if (oldNavC) oldNavC.remove();
+      if (typeof Proposals !== "undefined") {
+        Proposals.mountContractReview(app);
+      } else {
+        app.innerHTML = `<div class="error">Модуль не загружен</div>`;
+      }
+      hideSplash();
+      return;
+    }
     if (me.role === "staff") {
       renderStaff(me);
     } else if (me.role === "manager") {
@@ -1658,6 +1671,16 @@ function routeByHash() {
       Proposals.mountClient(app);
     } else {
       app.innerHTML = `<div class="error">Модуль подбора не загружен</div>`;
+    }
+  } else if (location.hash.startsWith("#/c/contract")) {
+    app.innerHTML = "";
+    document.body.classList.remove("has-bottom-nav");
+    const oldNav3 = document.getElementById("bottom-nav");
+    if (oldNav3) oldNav3.remove();
+    if (typeof Proposals !== "undefined") {
+      Proposals.mountContractReview(app);
+    } else {
+      app.innerHTML = `<div class="error">Модуль не загружен</div>`;
     }
   } else {
     // Главный экран по роли

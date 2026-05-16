@@ -136,6 +136,7 @@ async def _dispatch_post(request: Request):
         "proposal_detail":       proposals_mod.handle_detail,
         "proposal_vote":         proposals_mod.handle_vote,
         "proposal_client_submit": proposals_mod.handle_client_submit,
+        "contract_review":        _handle_contract_review,
         "ping":          lambda b: {"pong": True, "time": _now_iso()},
         "seed_admin":    lambda b: _handle_seed_admin(),
         "test_ai":       lambda b: _handle_test_ai(),
@@ -429,6 +430,14 @@ async def api_proposal_vote(request: Request):
 async def api_proposal_client_submit(request: Request):
     body = await _safe_json(request)
     return JSONResponse(proposals_mod.handle_client_submit(body))
+
+
+@app.post("/api/contract_review")
+async def api_contract_review(request: Request):
+    """AI-анализ текста договора. GigaChat → структурированный разбор на русском."""
+    body = await _safe_json(request)
+    import asyncio
+    return JSONResponse(await asyncio.to_thread(_handle_contract_review, body))
 
 
 def _handle_daily_reminders() -> dict[str, Any]:
@@ -3022,6 +3031,83 @@ def _handle_measurements_list(body: dict[str, Any]) -> dict[str, Any]:
     # Сортируем по дате desc
     out.sort(key=lambda x: x.get("created_at", ""), reverse=True)
     return {"ok": True, "count": len(out), "measurements": out}
+
+
+_CONTRACT_SYSTEM = """\
+Ты — помощник клиента мебельной фабрики ЗОВ (Россия). \
+Клиент получил договор на покупку и монтаж кухни и хочет понять его содержание.
+
+Твоя задача — проанализировать текст и дать ответ строго в формате JSON без Markdown-оберток. \
+Структура ответа:
+{
+  "summary": "2-3 предложения — о чём договор",
+  "payment": {
+    "total": "итоговая сумма если есть",
+    "schedule": "схема оплаты (предоплата %, доплата когда)",
+    "prepayment_pct": число_или_null
+  },
+  "deadlines": [
+    {"label": "Изготовление", "value": "дата или срок", "note": "подробности"}
+  ],
+  "risks": [
+    {"level": "high|medium|low", "title": "заголовок", "description": "что именно"}
+  ],
+  "recommendations": ["что уточнить у менеджера или на что обратить внимание"],
+  "missing_clauses": ["важные пункты которых нет в тексте"]
+}
+
+Риски level:
+- high — условие явно невыгодно клиенту или может привести к потере денег
+- medium — спорное, зависит от ситуации
+- low — мелочь, но лучше знать
+
+Если есть конкретный вопрос (поле question) — добавь поле "question_answer": "ответ на вопрос".
+Отвечай на русском. Будь конкретным, избегай юридического жаргона.
+"""
+
+
+def _handle_contract_review(body: dict[str, Any]) -> dict[str, Any]:
+    """Клиент вставляет текст договора — AI анализирует его простым языком.
+    body: { initData, text: str, question?: str }
+    """
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth:
+        unsafe = body.get("initDataUnsafe") or {}
+        if not (isinstance(unsafe, dict) and unsafe.get("user", {}).get("id")):
+            return {"error": "invalid_init_data"}
+
+    text = str(body.get("text") or "").strip()
+    question = str(body.get("question") or "").strip()
+
+    if not text:
+        return {"error": "text_required"}
+    if len(text) > 16_000:
+        text = text[:16_000]
+
+    user_prompt = f"Текст договора:\n\n{text}"
+    if question:
+        user_prompt += f"\n\nВопрос клиента: {question}"
+
+    import asyncio
+    result = ai.call_ai(
+        user_prompt,
+        system_prompt=_CONTRACT_SYSTEM,
+        temperature=0.2,
+        max_tokens=3000,
+    )
+
+    if result.get("error"):
+        return {"error": result.get("text", "AI error")}
+
+    analysis = result.get("json") or {}
+    return {
+        "ok": True,
+        "analysis": analysis,
+        "raw_text": result.get("text", ""),
+        "tokens": result.get("tokens", 0),
+        "model": result.get("model", ""),
+    }
 
 
 def _handle_test_ai() -> dict[str, Any]:

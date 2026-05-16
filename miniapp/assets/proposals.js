@@ -811,9 +811,250 @@ const Proposals = (function () {
   }
 
   // ══════════════════════════════════════════════════════════
+  // CONTRACT REVIEW  (AI-анализ договора для клиента)
+  // ══════════════════════════════════════════════════════════
+
+  // Preset questions that appear as quick-tap chips
+  const CONTRACT_PRESETS = [
+    "Какие условия оплаты?",
+    "Когда доставка и монтаж?",
+    "Что будет если я откажусь?",
+    "Есть ли штрафы?",
+    "На что обратить внимание?",
+  ];
+
+  async function mountContractReview(container) {
+    container.innerHTML = "";
+
+    container.appendChild(el(`
+      <header class="podbor-header">
+        <button class="podbor-back" aria-label="Назад">${(typeof ICONS !== "undefined" && ICONS.arrow_left) || "‹"}</button>
+        <div class="podbor-title">ПРОВЕРКА ДОГОВОРА</div>
+        <div style="width:28px"></div>
+      </header>
+    `));
+    container.querySelector(".podbor-back").addEventListener("click", () => history.back());
+
+    container.appendChild(el(`
+      <section class="podbor-step">
+        <h2 class="display-title">Проверим<br><span class="accent">ваш договор</span></h2>
+        <p class="lede">Вставьте текст договора — AI объяснит условия простым языком, найдёт риски и подскажет, что уточнить.</p>
+
+        <div class="prop-field-group">
+          <div class="prop-field-label">Текст договора *</div>
+          <textarea id="cr_text" class="prop-input cr-textarea"
+            rows="8"
+            placeholder="Вставьте сюда текст договора или его ключевые разделы…&#10;&#10;Например: условия оплаты, сроки, ответственность сторон, гарантия."
+          ></textarea>
+          <div class="cr-chars" id="cr_chars">0 / 16 000 символов</div>
+        </div>
+
+        <div class="prop-field-group">
+          <div class="prop-field-label">Конкретный вопрос (необязательно)</div>
+          <div class="cr-presets" id="cr_presets">
+            ${CONTRACT_PRESETS.map(q =>
+              `<button class="prop-chip cr-preset" type="button">${escHtml(q)}</button>`
+            ).join("")}
+          </div>
+          <input type="text" id="cr_question" class="prop-input" style="margin-top:8px;"
+            placeholder="Или напишите свой вопрос…">
+        </div>
+
+        <div class="podbor-cta-row" style="margin-top:20px;">
+          <button class="btn-primary" id="cr_submit" type="button">
+            🤖 Анализировать
+          </button>
+        </div>
+        <div id="cr_result" class="submit-result"></div>
+      </section>
+    `));
+
+    // Char counter
+    const textarea = container.querySelector("#cr_text");
+    const charEl   = container.querySelector("#cr_chars");
+    textarea.addEventListener("input", () => {
+      const n = textarea.value.length;
+      charEl.textContent = `${n.toLocaleString("ru-RU")} / 16 000 символов`;
+      charEl.style.color = n > 14000 ? "#C0392B" : "var(--muted)";
+    });
+
+    // Preset chips → fill question input
+    container.querySelectorAll(".cr-preset").forEach(btn => {
+      btn.addEventListener("click", () => {
+        container.querySelector("#cr_question").value = btn.textContent.trim();
+        container.querySelectorAll(".cr-preset").forEach(b => b.classList.remove("on"));
+        btn.classList.add("on");
+        haptic && haptic("selection");
+      });
+    });
+
+    // Submit
+    container.querySelector("#cr_submit").addEventListener("click", async () => {
+      const btn      = container.querySelector("#cr_submit");
+      const result   = container.querySelector("#cr_result");
+      const text     = textarea.value.trim();
+      const question = (container.querySelector("#cr_question")?.value || "").trim();
+
+      if (!text) {
+        result.innerHTML = `<div class="error">Вставьте текст договора</div>`;
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = `<span class="spinner-inline"></span>Анализируем…`;
+      result.innerHTML = `
+        <div class="cr-thinking">
+          <div class="cr-thinking-icon">🤔</div>
+          <div class="cr-thinking-text">AI читает договор…<br><span class="cr-thinking-sub">Обычно занимает 10–25 секунд</span></div>
+        </div>`;
+
+      try {
+        const data = await apiFetch("contract_review", { text, question });
+        if (data.error) {
+          result.innerHTML = `<div class="error">Ошибка: ${escHtml(data.error)}</div>`;
+          btn.disabled = false; btn.textContent = "🤖 Анализировать";
+          return;
+        }
+        haptic && haptic("success");
+        result.innerHTML = "";
+        result.appendChild(renderContractAnalysis(data.analysis, data.raw_text, question));
+        btn.disabled = false; btn.textContent = "🤖 Анализировать снова";
+        // Scroll to result
+        result.scrollIntoView({ behavior: "smooth", block: "start" });
+      } catch (e) {
+        result.innerHTML = `<div class="error">Сеть: ${escHtml(e.message)}</div>`;
+        btn.disabled = false; btn.textContent = "🤖 Анализировать";
+      }
+    });
+  }
+
+  function renderContractAnalysis(analysis, rawText, question) {
+    // If AI returned unstructured text (not JSON), show it plain
+    if (!analysis || !Object.keys(analysis).length) {
+      return el(`<div class="cr-raw">${escHtml(rawText || "AI не вернул анализ")}</div>`);
+    }
+
+    const wrap = el(`<div class="cr-analysis"></div>`);
+
+    // Summary
+    if (analysis.summary) {
+      wrap.appendChild(el(`
+        <div class="cr-block cr-summary-block">
+          <div class="cr-block-head">📋 Резюме</div>
+          <div class="cr-summary-text">${escHtml(analysis.summary)}</div>
+        </div>
+      `));
+    }
+
+    // Question answer (if specific question asked)
+    if (question && analysis.question_answer) {
+      wrap.appendChild(el(`
+        <div class="cr-block cr-qa-block">
+          <div class="cr-block-head">💬 ${escHtml(question)}</div>
+          <div class="cr-qa-answer">${escHtml(analysis.question_answer)}</div>
+        </div>
+      `));
+    }
+
+    // Payment
+    const pay = analysis.payment;
+    if (pay && (pay.total || pay.schedule)) {
+      const rows = [];
+      if (pay.total)    rows.push(["Итого", pay.total]);
+      if (pay.schedule) rows.push(["Схема оплаты", pay.schedule]);
+      if (pay.prepayment_pct != null) rows.push(["Предоплата", `${pay.prepayment_pct}%`]);
+      wrap.appendChild(el(`
+        <div class="cr-block">
+          <div class="cr-block-head">💰 Оплата</div>
+          <div class="cr-kv-list">
+            ${rows.map(([k, v]) => `
+              <div class="cr-kv-row">
+                <span class="cr-kv-label">${escHtml(k)}</span>
+                <span class="cr-kv-val">${escHtml(String(v))}</span>
+              </div>`).join("")}
+          </div>
+        </div>
+      `));
+    }
+
+    // Deadlines
+    const deadlines = analysis.deadlines || [];
+    if (deadlines.length) {
+      const rows = deadlines.map(d => `
+        <div class="cr-deadline-row">
+          <span class="cr-deadline-label">${escHtml(d.label || "")}</span>
+          <span class="cr-deadline-val">${escHtml(d.value || "—")}</span>
+          ${d.note ? `<span class="cr-deadline-note">${escHtml(d.note)}</span>` : ""}
+        </div>`).join("");
+      wrap.appendChild(el(`
+        <div class="cr-block">
+          <div class="cr-block-head">⏰ Сроки</div>
+          <div class="cr-deadlines">${rows}</div>
+        </div>
+      `));
+    }
+
+    // Risks
+    const risks = analysis.risks || [];
+    if (risks.length) {
+      const riskItems = risks.map(r => {
+        const cls = r.level === "high" ? "high" : r.level === "medium" ? "medium" : "low";
+        const icon = r.level === "high" ? "🔴" : r.level === "medium" ? "🟡" : "🟢";
+        return `
+          <div class="cr-risk cr-risk-${cls}">
+            <div class="cr-risk-head">${icon} ${escHtml(r.title || "")}</div>
+            <div class="cr-risk-desc">${escHtml(r.description || "")}</div>
+          </div>`;
+      }).join("");
+      wrap.appendChild(el(`
+        <div class="cr-block">
+          <div class="cr-block-head">⚠️ Риски</div>
+          <div class="cr-risks">${riskItems}</div>
+        </div>
+      `));
+    }
+
+    // Recommendations
+    const recs = analysis.recommendations || [];
+    if (recs.length) {
+      wrap.appendChild(el(`
+        <div class="cr-block">
+          <div class="cr-block-head">✅ Рекомендации</div>
+          <ul class="cr-rec-list">
+            ${recs.map(r => `<li>${escHtml(r)}</li>`).join("")}
+          </ul>
+        </div>
+      `));
+    }
+
+    // Missing clauses
+    const missing = analysis.missing_clauses || [];
+    if (missing.length) {
+      wrap.appendChild(el(`
+        <div class="cr-block cr-missing-block">
+          <div class="cr-block-head">❓ Чего нет в договоре</div>
+          <ul class="cr-rec-list cr-missing-list">
+            ${missing.map(m => `<li>${escHtml(m)}</li>`).join("")}
+          </ul>
+        </div>
+      `));
+    }
+
+    // Footer note
+    wrap.appendChild(el(`
+      <div class="cr-footer-note">
+        ⚠ Это автоматический анализ — не юридическая консультация. \
+Уточняйте спорные пункты у менеджера или юриста.
+      </div>
+    `));
+
+    return wrap;
+  }
+
+  // ══════════════════════════════════════════════════════════
   // PUBLIC API
   // ══════════════════════════════════════════════════════════
 
-  return { mountClient, mountManager };
+  return { mountClient, mountManager, mountContractReview };
 
 })();
