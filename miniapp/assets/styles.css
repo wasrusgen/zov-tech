@@ -188,7 +188,7 @@ body {
   font-family: var(--font-ui);
   font-size: 15px;
   font-weight: 400;
-  line-height: 1.45;
+  line-height: var(--lh, 1.45);
   letter-spacing: -0.01em;
   color: var(--ink);
   background: var(--paper);
@@ -1193,4 +1193,171 @@ body.has-bottom-nav #app {
   display: grid;
   place-items: center;
   letter-spacing: 0;
+}
+
+
+/* ============================================================
+   Per-theme personality overrides v5.1
+   Tokens distilled from B/C/D reference dashboards.
+   ============================================================ */
+
+/* -------------------------------------------------------
+   B — Foundry: Archivo 800, sharp corners, dark header
+   Dashboard: font-weight 400/700/800, radius 0px, lh 1.5
+   ------------------------------------------------------- */
+html[data-variant="b"] {
+  --r-card: 0px;
+  --r-btn:  0px;
+  --r-tag:  0px;
+  --lh: 1.5;
+}
+
+/* Dark header extends edge-to-edge — palette switcher + greeting */
+html[data-variant="b"] .palette-switcher,
+html[data-variant="b"] .greeting {
+  margin-inline: calc(-1 * var(--s4));
+  padding-inline: var(--s4);
+  background: var(--ink);
+}
+html[data-variant="b"] .palette-switcher {
+  margin-top:    calc(-1 * var(--s3));
+  padding-top:   var(--s3);
+  padding-bottom: var(--s2);
+}
+html[data-variant="b"] .greeting {
+  padding-bottom: var(--s5);
+  margin-bottom:  var(--s5);
+}
+
+/* Palette switcher on dark bg */
+html[data-variant="b"] .palette-switcher__label     { color: rgba(239,233,216,0.38); }
+html[data-variant="b"] .ps-btn                      { background: rgba(239,233,216,0.06); border-color: rgba(239,233,216,0.12); }
+html[data-variant="b"] .ps-btn.active               { background: rgba(239,233,216,0.15); border-color: rgba(239,233,216,0.55); }
+html[data-variant="b"] .ps-name                     { color: rgba(239,233,216,0.55); }
+html[data-variant="b"] .ps-btn.active .ps-name      { color: #EFE9D8; }
+
+/* Greeting typography — Archivo Heavy */
+html[data-variant="b"] .greeting-kicker             { color: rgba(239,233,216,0.45); }
+html[data-variant="b"] .greeting-headline {
+  font-family: var(--font-ui);
+  font-style:  normal;
+  font-weight: 800;
+  font-size:   34px;
+  letter-spacing: -0.04em;
+  color: #EFE9D8;
+}
+html[data-variant="b"] .greeting-headline .accent   { color: #B68A1A; }
+
+/* Section labels — wider tracking, ink weight */
+html[data-variant="b"] .section-head .label {
+  font-weight:     700;
+  letter-spacing:  0.18em;
+}
+
+/* Cards — flat with visible border */
+html[data-variant="b"] .quick-card,
+html[data-variant="b"] .card,
+html[data-variant="b"] .today-card {
+  border-width: 1.5px;
+}
+
+/* -------------------------------------------------------
+   C — Boardroom: Geist 400, sharp corners, petrol header
+   Dashboard: font-weight 400/500, radius 0/999px, lh 1.12
+   ------------------------------------------------------- */
+html[data-variant="c"] {
+  --r-card: 0px;
+  --r-btn:  0px;
+  --r-tag:  999px;   /* pills stay pill-shaped */
+  --lh: 1.12;
+}
+
+/* Dark petrol header */
+html[data-variant="c"] .palette-switcher,
+html[data-variant="c"] .greeting {
+  margin-inline: calc(-1 * var(--s4));
+  padding-inline: var(--s4);
+  background: var(--ink);
+}
+html[data-variant="c"] .palette-switcher {
+  margin-top:    calc(-1 * var(--s3));
+  padding-top:   var(--s3);
+  padding-bottom: var(--s2);
+}
+html[data-variant="c"] .greeting {
+  padding-bottom: var(--s5);
+  margin-bottom:  var(--s5);
+}
+
+/* Palette switcher on dark bg */
+html[data-variant="c"] .palette-switcher__label     { color: rgba(242,233,214,0.35); }
+html[data-variant="c"] .ps-btn                      { background: rgba(242,233,214,0.06); border-color: rgba(242,233,214,0.12); }
+html[data-variant="c"] .ps-btn.active               { background: rgba(242,233,214,0.14); border-color: rgba(242,233,214,0.50); }
+html[data-variant="c"] .ps-name                     { color: rgba(242,233,214,0.50); }
+html[data-variant="c"] .ps-btn.active .ps-name      { color: #F2E9D6; }
+
+/* Greeting typography — Geist Regular, restrained */
+html[data-variant="c"] .greeting-kicker             { color: rgba(242,233,214,0.40); }
+html[data-variant="c"] .greeting-headline {
+  font-family: var(--font-ui);
+  font-style:  normal;
+  font-weight: 400;
+  font-size:   30px;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  color: #F2E9D6;
+}
+html[data-variant="c"] .greeting-headline .accent   { color: #D08A55; }
+
+/* Section labels — Geist, moderate weight */
+html[data-variant="c"] .section-head .label {
+  font-family:    var(--font-ui);
+  font-weight:    500;
+  letter-spacing: 0.10em;
+}
+
+/* -------------------------------------------------------
+   D — Atelier: Manrope 700, white card header, dove bg
+   Dashboard: font-weight 400/600/700, lh 1.1, white cards
+   ------------------------------------------------------- */
+html[data-variant="d"] {
+  --lh: 1.1;
+}
+
+/* White card header — floats on dove background */
+html[data-variant="d"] .palette-switcher,
+html[data-variant="d"] .greeting {
+  margin-inline: calc(-1 * var(--s4));
+  padding-inline: var(--s4);
+  background: var(--card);
+}
+html[data-variant="d"] .palette-switcher {
+  margin-top:    calc(-1 * var(--s3));
+  padding-top:   var(--s3);
+  padding-bottom: var(--s2);
+}
+html[data-variant="d"] .greeting {
+  padding-bottom: var(--s4);
+  margin-bottom:  0;
+  border-bottom:  1px solid var(--line);
+}
+
+/* Greeting typography — Manrope Bold */
+html[data-variant="d"] .greeting-headline {
+  font-family: var(--font-ui);
+  font-style:  normal;
+  font-weight: 700;
+  font-size:   30px;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+html[data-variant="d"] .greeting-headline .accent   { color: var(--accent-1); }
+
+/* Section labels — prominent uppercase, Manrope semibold */
+html[data-variant="d"] .section-head .label {
+  font-family:    var(--font-ui);
+  font-weight:    700;
+  font-size:      10px;
+  letter-spacing: 0.16em;
+  color: var(--ink-2);
 }

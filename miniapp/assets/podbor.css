@@ -2189,7 +2189,7 @@
   padding: 18px 18px;
   background: var(--card, #fff);
   border: 1px solid var(--line-strong, rgba(15, 15, 14, 0.16));
-  border-radius: 16px;
+  border-radius: var(--r-card, 14px);
   cursor: pointer;
   transition: background 0.15s, transform 0.1s;
   text-align: left;
