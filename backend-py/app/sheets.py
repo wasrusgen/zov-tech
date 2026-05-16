@@ -1,6 +1,7 @@
 """Тонкая обёртка над Google Sheets через gspread + service account."""
 from __future__ import annotations
 import threading
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 import gspread
@@ -12,6 +13,36 @@ _SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 _lock = threading.Lock()
 _client: gspread.Client | None = None
 _book: gspread.Spreadsheet | None = None
+
+# ── In-memory TTL cache для листов ──────────────────────────────────────────
+# Снижает число Read-запросов к Sheets API и предотвращает 429-ошибки.
+# Кэш хранит последний get_all_values() каждого листа с меткой времени.
+# При записи (append / update) кэш листа сбрасывается.
+_CACHE_TTL = 90  # секунд
+_sheet_cache: dict[str, tuple[list[list[str]], float]] = {}
+_cache_lock = threading.Lock()
+
+
+def _cached_get_all_values(ws: gspread.Worksheet) -> list[list[str]]:
+    """Возвращает get_all_values() из кэша или обновляет кэш."""
+    name = ws.title
+    now = time.monotonic()
+    with _cache_lock:
+        if name in _sheet_cache:
+            data, expires_at = _sheet_cache[name]
+            if now < expires_at:
+                return data
+    # Промах или истёк — читаем свежее
+    data = ws.get_all_values()
+    with _cache_lock:
+        _sheet_cache[name] = (data, now + _CACHE_TTL)
+    return data
+
+
+def _invalidate_cache(sheet_name: str) -> None:
+    """Сбрасывает кэш листа после любой записи."""
+    with _cache_lock:
+        _sheet_cache.pop(sheet_name, None)
 
 
 def _client_book() -> tuple[gspread.Client, gspread.Spreadsheet]:
@@ -58,6 +89,7 @@ def ensure_sheet(name: str, headers: list[str]) -> gspread.Worksheet:
 
 def append_row(name: str, row: list[Any]) -> None:
     sheet(name).append_row(row, value_input_option="USER_ENTERED")
+    _invalidate_cache(name)
 
 
 def append_named_row(name: str, data: dict[str, Any]) -> None:
@@ -70,12 +102,13 @@ def append_named_row(name: str, data: dict[str, Any]) -> None:
         raise ValueError(f"Sheet {name!r} has no header row")
     row = [str(data.get(h, "") if data.get(h, "") is not None else "") for h in headers]
     ws.append_row(row, value_input_option="RAW")
+    _invalidate_cache(name)
 
 
 def find_row(sheet_name: str, key_col: str, key_val: Any) -> dict[str, Any] | None:
     """Линейный поиск по колонке-ключу. Возвращает строку как dict или None."""
     s = sheet(sheet_name)
-    rows = s.get_all_values()
+    rows = _cached_get_all_values(s)
     if not rows:
         return None
     headers = rows[0]
@@ -90,7 +123,7 @@ def find_row(sheet_name: str, key_col: str, key_val: Any) -> dict[str, Any] | No
 
 def update_cell_by_key(sheet_name: str, key_col: str, key_val: Any, target_col: str, new_val: Any) -> bool:
     s = sheet(sheet_name)
-    rows = s.get_all_values()
+    rows = _cached_get_all_values(s)
     if not rows:
         return False
     headers = rows[0]
@@ -101,6 +134,7 @@ def update_cell_by_key(sheet_name: str, key_col: str, key_val: Any, target_col: 
     for i, r in enumerate(rows[1:], start=2):
         if len(r) > key_idx and str(r[key_idx]).strip() == str(key_val).strip():
             s.update_cell(i, target_idx + 1, new_val)
+            _invalidate_cache(sheet_name)
             return True
     return False
 
@@ -202,7 +236,7 @@ def revoke_role(tg_id: int, role: str) -> bool:
 def list_users_with_role(role: str) -> list[dict[str, Any]]:
     """Все пользователи, у которых есть указанная роль (для dropdown «выбрать замерщика»)."""
     s = sheet("Users")
-    rows = s.get_all_values()
+    rows = _cached_get_all_values(s)
     if not rows:
         return []
     headers = rows[0]
