@@ -9,12 +9,35 @@ const BACKEND_URL = "https://api.wasrusgen1.pro";
 
 const app = document.getElementById("app");
 
+/* ----------------- Theme / variant helpers ----------------- */
+const THEME_KEY = "zov_variant";
+const THEMES = [
+  { id: "",  name: "ЗОВ",      dotA: "#003E7E", dotB: "#76BD22", outline: false },
+  { id: "b", name: "Foundry",  dotA: "#15140F", dotB: "#B68A1A", outline: false },
+  { id: "c", name: "Boardroom",dotA: "#0E2A2E", dotB: "#D08A55", outline: false },
+  { id: "d", name: "Atelier",  dotA: "#2E5266", dotB: "#E9EBEF", outline: true  },
+];
+
+function applyVariant(id) {
+  const html = document.documentElement;
+  if (id) {
+    html.setAttribute("data-variant", id);
+  } else {
+    html.removeAttribute("data-variant");
+  }
+  try { localStorage.setItem(THEME_KEY, id); } catch(e) {}
+}
+
+function savedVariant() {
+  try { return localStorage.getItem(THEME_KEY) ?? ""; } catch(e) { return ""; }
+}
+
 /* ----------------- Telegram WebApp setup ----------------- */
 function setupTelegram() {
   const scheme = tg?.colorScheme || (window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light");
   document.documentElement.setAttribute("data-theme", scheme);
-  // Зафиксирован вариант A — Editorial Calm
-  document.documentElement.setAttribute("data-variant", "a");
+  // Восстанавливаем тему из localStorage (по умолч. — brand)
+  applyVariant(savedVariant());
 
   if (!tg) return;
   try {
@@ -34,6 +57,38 @@ function haptic(type = "selection") {
     else if (type === "success") tg.HapticFeedback.notificationOccurred("success");
     else tg.HapticFeedback.selectionChanged();
   } catch (e) {}
+}
+
+/* ----------------- Palette switcher UI ----------------- */
+function renderPaletteSwitcher() {
+  const current = savedVariant();
+  const wrap = el(`<div class="palette-switcher"></div>`);
+  // Маленький ярлык слева
+  const lbl = el(`<span class="palette-switcher__label">Тема</span>`);
+  wrap.appendChild(lbl);
+
+  THEMES.forEach(t => {
+    const btn = el(`
+      <button class="ps-btn${current === t.id ? " active" : ""}" title="${t.name}">
+        <span class="ps-swatches">
+          <span class="ps-dot${t.outline ? " ps-dot--outline" : ""}" style="background:${t.dotA}"></span>
+          <span class="ps-dot${t.outline ? " ps-dot--outline" : ""}" style="background:${t.dotB}"></span>
+        </span>
+        <span class="ps-name">${t.name}</span>
+      </button>
+    `);
+    btn.addEventListener("click", () => {
+      haptic();
+      applyVariant(t.id);
+      // Перерисовываем все кнопки
+      wrap.querySelectorAll(".ps-btn").forEach((b, i) => {
+        b.classList.toggle("active", THEMES[i].id === t.id);
+      });
+    });
+    wrap.appendChild(btn);
+  });
+
+  return wrap;
 }
 
 /* ----------------- Data ----------------- */
@@ -121,6 +176,9 @@ async function renderManagerHome(me) {
 
   app.innerHTML = "";
   document.body.classList.add("has-bottom-nav");
+
+  // Palette (theme) switcher — вверху экрана
+  app.appendChild(renderPaletteSwitcher());
 
   // Greeting + bell (placeholder)
   const greetingEl = el(`
@@ -683,7 +741,7 @@ function renderRoleChooser() {
       <div class="role-cards">
         <button class="role-card" data-role="manager">
           <div class="role-icon">
-            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="#6B4A2B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0"/>
               <path d="M6 21v-2a4 4 0 0 1 4 -4h.5"/>
               <path d="M17.8 20.817l-2.172 1.138a.392 .392 0 0 1 -.568 -.41l.415 -2.411l-1.757 -1.707a.389 .389 0 0 1 .217 -.665l2.428 -.352l1.086 -2.193a.392 .392 0 0 1 .702 0l1.086 2.193l2.428 .352a.39 .39 0 0 1 .217 .665l-1.757 1.707l.414 2.41a.39 .39 0 0 1 -.567 .411z"/>
@@ -697,7 +755,7 @@ function renderRoleChooser() {
         </button>
         <button class="role-card" data-role="client">
           <div class="role-icon">
-            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="#6B4A2B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M5 12l-2 0l9 -9l9 9l-2 0"/>
               <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7"/>
               <path d="M10 12h4v4h-4l0 -4"/>
@@ -711,7 +769,7 @@ function renderRoleChooser() {
         </button>
         <button class="role-card" data-role="staff">
           <div class="role-icon">
-            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="#6B4A2B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M3 21h4l13 -13a1.5 1.5 0 0 0 -4 -4l-13 13v4"/>
               <path d="M14.5 5.5l4 4"/>
               <path d="M12 8l-5 -5l-4 4l5 5"/>
@@ -789,6 +847,8 @@ async function renderStaff(me) {
       </div>
     </div>
   `));
+
+  app.appendChild(renderPaletteSwitcher());
 
   // Загружаем заявки и рендерим: week strip + сгруппированный инбокс
   const stripPlaceholder = el(`<div id="weekStrip"></div>`);

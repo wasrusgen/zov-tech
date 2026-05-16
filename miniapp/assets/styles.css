@@ -1,11 +1,22 @@
 /* ============================================================
-   ЗОВ MiniApp — design system v4
-   Три варианта: brand (default) · a (Editorial Calm) · c (Architectural Clean)
-   Переключатель — `<html data-variant="a|c|brand">`, состояние в localStorage.
+   ЗОВ MiniApp — design system v5
+   4 темы: brand (ЗОВ) · b (Foundry) · c (Boardroom) · d (Atelier)
+   Переключатель — `<html data-variant="b|c|d">`, состояние в localStorage.
+   Палитры B/C/D извлечены из дашбордов (Figma → Claude → HTML).
    ============================================================ */
 
 /* ===========================================================
-   1. BRAND (default :root) — мой гибрид с палитрой ЗОВ
+   Общие константы — не зависят от темы
+   =========================================================== */
+:root {
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px;
+  --s5: 20px; --s6: 24px; --s7: 32px; --s8: 40px;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+/* ===========================================================
+   1. BRAND — ЗОВ (default, без data-variant)
+   Синий + зелёный, Inter, мягкие скругления
    =========================================================== */
 :root {
   --paper:        var(--tg-theme-bg-color, #FAFAF7);
@@ -16,7 +27,7 @@
   --muted:        var(--tg-theme-hint-color, #6E6A62);
   --muted-2:      #A09C92;
   --line:         rgba(15, 15, 14, 0.08);
-  --line-strong:  rgba(15, 15, 14, 0.16);
+  --line-strong:  rgba(15, 15, 14, 0.18);
 
   --accent-1:     #003E7E;   /* brand blue */
   --accent-2:     #76BD22;   /* brand green */
@@ -27,22 +38,21 @@
 
   --r-card: 14px;
   --r-btn:  12px;
-  --r-tag:  4px;
+  --r-tag:  6px;
   --r-pill: 999px;
-
-  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px;
-  --s5: 20px; --s6: 24px; --s7: 32px; --s8: 40px;
 
   --font-ui:      "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
   --font-display: "Instrument Serif", Georgia, "Times New Roman", serif;
-  --font-mono:    "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 
   --ribbon: linear-gradient(90deg, var(--accent-1) 0%, var(--accent-2) 100%);
+  --warm:   rgba(0, 62, 126, 0.08);  /* icon bg tint */
+
+  /* palette-switch swatches */
+  --ps-a: #003E7E;
+  --ps-b: #76BD22;
 }
 
-@media (prefers-color-scheme: dark) { :root { color-scheme: dark; } }
-
-html[data-theme="dark"]:not([data-variant="a"]):not([data-variant="c"]) {
+html[data-theme="dark"]:not([data-variant]) {
   --paper:   var(--tg-theme-bg-color, #14130E);
   --paper-2: var(--tg-theme-secondary-bg-color, #1F1D17);
   --card:    var(--tg-theme-section-bg-color, #1C1A14);
@@ -50,77 +60,122 @@ html[data-theme="dark"]:not([data-variant="a"]):not([data-variant="c"]) {
   --ink-2:   #C8C3B5;
   --muted:   var(--tg-theme-hint-color, #A5A299);
   --muted-2: #807D74;
-  --line:    rgba(255, 255, 255, 0.10);
-  --line-strong: rgba(255, 255, 255, 0.20);
+  --line:    rgba(255, 255, 255, 0.09);
+  --line-strong: rgba(255, 255, 255, 0.18);
 }
 
 /* ===========================================================
-   2. VARIANT A — Editorial Calm
-   (палитра/шрифты — дословно из мокапа)
+   2. VARIANT B — Foundry
+   Тёплый крем + горчица. Archivo, острые углы.
+   Палитра: --paper #EFE9D8 · --ink #15140F · --accent #B68A1A
    =========================================================== */
-html[data-variant="a"] {
-  --paper:        #FBF7F0;
-  --paper-2:      #F5EDDC;
-  --card:         #FBF7F0;
-  --ink:          #1F1A14;
-  --ink-2:        #8B8275;
-  --muted:        #8B8275;
-  --muted-2:      #9A9085;
-  --line:         rgba(31, 26, 20, 0.18);
-  --line-strong:  rgba(31, 26, 20, 0.40);
+html[data-variant="b"] {
+  --paper:        #EFE9D8;
+  --paper-2:      #E2DAC1;
+  --card:         #EAE3CC;
+  --ink:          #15140F;
+  --ink-2:        #2A2820;
+  --muted:        #5C5849;
+  --muted-2:      #8C8773;
+  --line:         rgba(21, 20, 15, 0.10);
+  --line-strong:  rgba(21, 20, 15, 0.22);
 
-  --accent-1:     #3C5278;   /* editorial blue */
-  --accent-2:     #6B4A2B;   /* walnut */
-  --accent-3:     #B85A2D;   /* terracotta */
-  /* Active = зелёный сигнал (бренд ЗОВ); lapsed/grace остаются в палитре A */
-  --status-active: #76BD22;
-  --status-lapsed: #B85A2D;
-  --status-grace:  #6B4A2B;
+  --accent-1:     #B68A1A;   /* mustard / горчица */
+  --accent-2:     #4B6B26;   /* тёмно-зелёный */
+  --accent-3:     #8B2B16;   /* бордо */
+  --status-active: #4B6B26;
+  --status-lapsed: #8B2B16;
+  --status-grace:  #B68A1A;
 
-  /* Скругления: editorial был с 0px, но пользователь хочет мягкую форму */
-  --r-card: 16px;
-  --r-btn:  12px;
-  --r-tag:  6px;
-  --r-pill: 100px;
+  --r-card: 4px;
+  --r-btn:  4px;
+  --r-tag:  2px;
+  --r-pill: 999px;
 
-  --font-ui:      "Geist", "Manrope", -apple-system, system-ui, sans-serif;
-  --font-display: "Newsreader", "Cormorant Garamond", Georgia, serif;
-  --font-mono:    "JetBrains Mono", ui-monospace, monospace;
+  --font-ui:      "Archivo", -apple-system, system-ui, sans-serif;
+  --font-display: "Instrument Serif", Georgia, serif;
 
-  --ribbon: linear-gradient(90deg, var(--accent-1) 0%, var(--accent-2) 50%, var(--accent-3) 100%);
+  --ribbon: linear-gradient(90deg, #15140F 0%, #B68A1A 100%);
+  --warm:   rgba(182, 138, 26, 0.10);
+
+  --ps-a: #EFE9D8;
+  --ps-b: #B68A1A;
 }
 
 /* ===========================================================
-   3. VARIANT C — Architectural Clean
+   3. VARIANT C — Boardroom
+   Петроль + медь. Geist, умеренные скругления.
+   Палитра: --paper #F2E9D6 · --ink #0E2A2E · --accent #D08A55
    =========================================================== */
 html[data-variant="c"] {
-  --paper:        #FAFAF7;
-  --paper-2:      #EEEAE0;
-  --card:         #FAFAF7;
-  --ink:          #0F0F0E;
-  --ink-2:        #1F1A14;
-  --muted:        #6E6A62;
-  --muted-2:      #A09C92;
-  --line:         rgba(15, 15, 14, 0.18);
-  --line-strong:  rgba(15, 15, 14, 0.40);
+  --paper:        #F2E9D6;
+  --paper-2:      #D8CFBB;
+  --card:         #EDE5D0;
+  --ink:          #0E2A2E;
+  --ink-2:        #1B3E43;
+  --muted:        #6E7B77;
+  --muted-2:      #9DA8A4;
+  --line:         rgba(14, 42, 46, 0.10);
+  --line-strong:  rgba(14, 42, 46, 0.22);
 
-  --accent-1:     #3A6B44;   /* blueprint green */
-  --accent-2:     #5A3F26;   /* walnut */
-  --accent-3:     #8C3F1E;
-  --status-active: #3A6B44;
-  --status-lapsed: #8C3F1E;
-  --status-grace:  #5A3F26;
+  --accent-1:     #D08A55;   /* copper / медь */
+  --accent-2:     #143438;   /* petrol / петроль */
+  --accent-3:     #8B2B16;
+  --status-active: #7FB58A;
+  --status-lapsed: #E07D6C;
+  --status-grace:  #D08A55;
 
-  --r-card: 0;
-  --r-btn:  0;
-  --r-tag:  4px;
-  --r-pill: 100px;
+  --r-card: 6px;
+  --r-btn:  6px;
+  --r-tag:  3px;
+  --r-pill: 999px;
 
   --font-ui:      "Geist", -apple-system, system-ui, sans-serif;
-  --font-display: "Instrument Serif", "Cormorant Garamond", Georgia, serif;
-  --font-mono:    "JetBrains Mono", ui-monospace, monospace;
+  --font-display: "Newsreader", Georgia, serif;
 
-  --ribbon: linear-gradient(90deg, var(--accent-2) 0%, var(--accent-1) 100%);
+  --ribbon: linear-gradient(90deg, #0E2A2E 0%, #D08A55 100%);
+  --warm:   rgba(208, 138, 85, 0.10);
+
+  --ps-a: #143438;
+  --ps-b: #D08A55;
+}
+
+/* ===========================================================
+   4. VARIANT D — Atelier
+   Серо-голубой голубь + стальной синий. Manrope, мягкие скругления.
+   Палитра: --paper #E9EBEF · --ink #14181F · --accent #2E5266
+   =========================================================== */
+html[data-variant="d"] {
+  --paper:        #E9EBEF;
+  --paper-2:      #DCDFE6;
+  --card:         #FFFFFF;
+  --ink:          #14181F;
+  --ink-2:        #2D3340;
+  --muted:        #5F6573;
+  --muted-2:      #8A8F9C;
+  --line:         rgba(20, 24, 31, 0.09);
+  --line-strong:  rgba(20, 24, 31, 0.20);
+
+  --accent-1:     #2E5266;   /* steel blue / стальной синий */
+  --accent-2:     #2F6B45;   /* зелёный */
+  --accent-3:     #99362E;   /* красный */
+  --status-active: #2F6B45;
+  --status-lapsed: #99362E;
+  --status-grace:  #B07A1A;
+
+  --r-card: 12px;
+  --r-btn:  10px;
+  --r-tag:  6px;
+  --r-pill: 999px;
+
+  --font-ui:      "Manrope", -apple-system, system-ui, sans-serif;
+  --font-display: "Newsreader", Georgia, serif;
+
+  --ribbon: linear-gradient(90deg, #2E5266 0%, #2F6B45 100%);
+  --warm:   rgba(46, 82, 102, 0.10);
+
+  --ps-a: #2E5266;
+  --ps-b: #E9EBEF;
 }
 
 /* ============================================================
@@ -156,8 +211,75 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 
 /* ============================================================
-   Theme switcher (top of page)
+   Palette switcher — 4 кнопки-образца цветов
    ============================================================ */
+.palette-switcher {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: var(--s4);
+  padding: 2px 0;
+}
+
+.palette-switcher__label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  margin-right: 2px;
+  user-select: none;
+}
+
+.ps-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px 5px 7px;
+  border-radius: 20px;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.14s, background 0.14s;
+  background: var(--card);
+}
+
+.ps-btn:active { opacity: 0.7; }
+
+.ps-btn.active {
+  border-color: var(--ink);
+}
+
+.ps-swatches {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.ps-dot {
+  display: block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ps-dot--outline {
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.18);
+}
+
+.ps-name {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.ps-btn.active .ps-name { color: var(--ink); }
+
+/* Legacy .theme-switch — оставлен для совместимости */
 .theme-switch {
   display: flex;
   gap: 0;
@@ -167,7 +289,6 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   overflow: hidden;
   background: var(--card);
 }
-
 .theme-switch button {
   flex: 1;
   padding: 8px 6px;
@@ -180,13 +301,8 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   border-right: 1px solid var(--line-strong);
   transition: all 0.12s;
 }
-
 .theme-switch button:last-child { border-right: none; }
-
-.theme-switch button.active {
-  background: var(--ink);
-  color: var(--paper);
-}
+.theme-switch button.active { background: var(--ink); color: var(--paper); }
 
 /* ============================================================
    Loader (брендированный — логотип ЗОВ + дыхание)

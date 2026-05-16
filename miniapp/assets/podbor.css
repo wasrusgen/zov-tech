@@ -1,5 +1,5 @@
-/* ============================================================
-   Подбор техники — стили (Editorial Calm)
+﻿/* ============================================================
+   РџРѕРґР±РѕСЂ С‚РµС…РЅРёРєРё вЂ” СЃС‚РёР»Рё (Editorial Calm)
    ============================================================ */
 
 /* ----- Header ----- */
@@ -63,7 +63,7 @@
 
 .podbor-progress-meta .num { color: var(--ink); }
 
-/* ----- Лента категорий ----- */
+/* ----- Р›РµРЅС‚Р° РєР°С‚РµРіРѕСЂРёР№ ----- */
 .cat-strip {
   display: flex;
   gap: 6px;
@@ -310,7 +310,7 @@
   min-width: 0;
 }
 .niche-inputs input {
-  min-width: 0;       /* критично — иначе input не даёт колонке сжиматься */
+  min-width: 0;       /* РєСЂРёС‚РёС‡РЅРѕ вЂ” РёРЅР°С‡Рµ input РЅРµ РґР°С‘С‚ РєРѕР»РѕРЅРєРµ СЃР¶РёРјР°С‚СЊСЃСЏ */
   width: 100%;
   font-family: var(--font-mono);
   font-size: 12.5px;
@@ -334,7 +334,7 @@
   text-align: right; color: var(--ink);
 }
 
-/* ----- Price range (от — до по категориям) ----- */
+/* ----- Price range (РѕС‚ вЂ” РґРѕ РїРѕ РєР°С‚РµРіРѕСЂРёСЏРј) ----- */
 .price-list { display: flex; flex-direction: column; gap: var(--s3); }
 
 .price-row {
@@ -425,8 +425,8 @@
 }
 
 /* ----- Brand chips ----- */
-/* Тиры (Premium/Middle/Budget) различаются цветом, без явных текстовых ярлыков.
-   Внутренне храним tier для аналитики «температуры» клиента. */
+/* РўРёСЂС‹ (Premium/Middle/Budget) СЂР°Р·Р»РёС‡Р°СЋС‚СЃСЏ С†РІРµС‚РѕРј, Р±РµР· СЏРІРЅС‹С… С‚РµРєСЃС‚РѕРІС‹С… СЏСЂР»С‹РєРѕРІ.
+   Р’РЅСѓС‚СЂРµРЅРЅРµ С…СЂР°РЅРёРј tier РґР»СЏ Р°РЅР°Р»РёС‚РёРєРё В«С‚РµРјРїРµСЂР°С‚СѓСЂС‹В» РєР»РёРµРЅС‚Р°. */
 
 .brand-chips {
   display: flex;
@@ -453,7 +453,7 @@
   position: relative;
 }
 
-/* Базовый цвет покоя по тирам — без слов, только тёплый/холодный оттенок */
+/* Р‘Р°Р·РѕРІС‹Р№ С†РІРµС‚ РїРѕРєРѕСЏ РїРѕ С‚РёСЂР°Рј вЂ” Р±РµР· СЃР»РѕРІ, С‚РѕР»СЊРєРѕ С‚С‘РїР»С‹Р№/С…РѕР»РѕРґРЅС‹Р№ РѕС‚С‚РµРЅРѕРє */
 .chip.tier-premium {
   background: var(--paper);
   color: var(--accent-2);              /* walnut */
@@ -472,7 +472,7 @@
   border-color: var(--line);
 }
 
-/* Состояние preferred — заливка цветом тира */
+/* РЎРѕСЃС‚РѕСЏРЅРёРµ preferred вЂ” Р·Р°Р»РёРІРєР° С†РІРµС‚РѕРј С‚РёСЂР° */
 .chip.tier-premium.status-preferred {
   background: var(--accent-2);          /* walnut */
   color: var(--paper);
@@ -494,9 +494,9 @@
   font-weight: 600;
 }
 
-.chip.status-preferred::before { content: "★ "; }
+.chip.status-preferred::before { content: "в… "; }
 
-/* Состояние acceptable — обводка цветом тира, прозрачная заливка */
+/* РЎРѕСЃС‚РѕСЏРЅРёРµ acceptable вЂ” РѕР±РІРѕРґРєР° С†РІРµС‚РѕРј С‚РёСЂР°, РїСЂРѕР·СЂР°С‡РЅР°СЏ Р·Р°Р»РёРІРєР° */
 .chip.status-acceptable {
   background: var(--paper-2);
 }
@@ -505,9 +505,9 @@
 .chip.tier-middle.status-acceptable   { border-color: var(--ink); color: var(--ink); }
 .chip.tier-budget.status-acceptable   { border-color: var(--muted); color: var(--ink-2); }
 
-.chip.status-acceptable::before { content: "✓ "; }
+.chip.status-acceptable::before { content: "вњ“ "; }
 
-/* Состояние avoid — приглушённый, перечёркнутый */
+/* РЎРѕСЃС‚РѕСЏРЅРёРµ avoid вЂ” РїСЂРёРіР»СѓС€С‘РЅРЅС‹Р№, РїРµСЂРµС‡С‘СЂРєРЅСѓС‚С‹Р№ */
 .chip.status-avoid {
   background: #F5E1DC;
   border-color: #C7705A;
@@ -515,9 +515,9 @@
   text-decoration: line-through;
   opacity: 0.85;
 }
-.chip.status-avoid::before { content: "✗ "; text-decoration: none; display: inline-block; }
+.chip.status-avoid::before { content: "вњ— "; text-decoration: none; display: inline-block; }
 
-/* Disabled кнопка */
+/* Disabled РєРЅРѕРїРєР° */
 .btn-primary[disabled],
 .btn-secondary[disabled] {
   opacity: 0.4;
@@ -639,7 +639,7 @@
 .empty { text-align: center; color: var(--muted); padding: var(--s7) 0; }
 
 /* ============================================================
-   Detail menu — list of categories with status
+   Detail menu вЂ” list of categories with status
    ============================================================ */
 .detail-list {
   display: flex;
@@ -774,7 +774,7 @@
 }
 
 /* ============================================================
-   Accordion "Подробнее"
+   Accordion "РџРѕРґСЂРѕР±РЅРµРµ"
    ============================================================ */
 .accordion-head {
   display: flex;
@@ -886,7 +886,7 @@
 .feature.on .feature-tick svg { width: 12px; height: 12px; stroke-width: 2.5; }
 
 /* ============================================================
-   Иерархический wizard (новая схема steps[])
+   РРµСЂР°СЂС…РёС‡РµСЃРєРёР№ wizard (РЅРѕРІР°СЏ СЃС…РµРјР° steps[])
    ============================================================ */
 
 .podbor-wizard { gap: var(--s4); }
@@ -933,7 +933,7 @@
 }
 .wiz-cat-icon svg { width: 22px; height: 22px; }
 
-/* Чипы прошлых ответов */
+/* Р§РёРїС‹ РїСЂРѕС€Р»С‹С… РѕС‚РІРµС‚РѕРІ */
 .wiz-chips {
   display: flex;
   flex-wrap: wrap;
@@ -956,7 +956,7 @@
 }
 .wiz-chip:active { background: #EAD9B6; }
 
-/* Заголовок шага */
+/* Р—Р°РіРѕР»РѕРІРѕРє С€Р°РіР° */
 .wiz-title {
   font-family: var(--font-display);
   font-style: italic;
@@ -977,7 +977,7 @@
   color: var(--muted);
 }
 
-/* Сетка карточек (cards-режим — с пиктограммами) */
+/* РЎРµС‚РєР° РєР°СЂС‚РѕС‡РµРє (cards-СЂРµР¶РёРј вЂ” СЃ РїРёРєС‚РѕРіСЂР°РјРјР°РјРё) */
 .wiz-grid { gap: 10px; }
 .wiz-grid--cards {
   display: grid;
@@ -987,7 +987,7 @@
   .wiz-grid--cards { grid-template-columns: repeat(3, 1fr); }
 }
 
-/* Пин-режим (без пиктограмм, компактные таблетки) */
+/* РџРёРЅ-СЂРµР¶РёРј (Р±РµР· РїРёРєС‚РѕРіСЂР°РјРј, РєРѕРјРїР°РєС‚РЅС‹Рµ С‚Р°Р±Р»РµС‚РєРё) */
 .wiz-grid--pins {
   display: flex;
   flex-wrap: wrap;
@@ -1017,7 +1017,7 @@
   box-shadow: 0 0 0 1px var(--accent-2) inset;
 }
 .wiz-card.star::before {
-  content: "⭐";
+  content: "в­ђ";
   position: absolute;
   top: 6px;
   left: 8px;
@@ -1071,7 +1071,7 @@
 }
 .wiz-tick svg { width: 11px; height: 11px; stroke-width: 2.5; }
 
-/* Пин-карточка (компактная таблетка, без пиктограммы) */
+/* РџРёРЅ-РєР°СЂС‚РѕС‡РєР° (РєРѕРјРїР°РєС‚РЅР°СЏ С‚Р°Р±Р»РµС‚РєР°, Р±РµР· РїРёРєС‚РѕРіСЂР°РјРјС‹) */
 .wiz-card--pin {
   display: inline-flex;
   align-items: center;
@@ -1106,7 +1106,7 @@
 .wiz-card--pin.star { padding-left: 26px; }
 .wiz-card--pin.star::before { top: 50%; transform: translateY(-50%); }
 
-/* Review-экран */
+/* Review-СЌРєСЂР°РЅ */
 .rev-list {
   background: #fff;
   border: 1px solid var(--line);
@@ -1148,7 +1148,7 @@
 .rev-val .muted { color: var(--muted); font-weight: 400; }
 
 /* ============================================================
-   Inline-отчёт после отправки подбора
+   Inline-РѕС‚С‡С‘С‚ РїРѕСЃР»Рµ РѕС‚РїСЂР°РІРєРё РїРѕРґР±РѕСЂР°
    ============================================================ */
 
 .report {
@@ -1241,7 +1241,7 @@
   background: repeating-linear-gradient(45deg, var(--warm), var(--warm) 5px, #F0E8D5 5px, #F0E8D5 10px);
 }
 .report-model-img.placeholder::after {
-  content: "📷";
+  content: "рџ“·";
   font-size: 24px;
   opacity: 0.4;
 }
@@ -1315,7 +1315,7 @@
   margin-top: 2px;
 }
 
-/* Блоки плюсов/минусов с маркированными списками */
+/* Р‘Р»РѕРєРё РїР»СЋСЃРѕРІ/РјРёРЅСѓСЃРѕРІ СЃ РјР°СЂРєРёСЂРѕРІР°РЅРЅС‹РјРё СЃРїРёСЃРєР°РјРё */
 .report-pros-block, .report-cons-block {
   margin-top: 8px;
   padding: 8px 10px;
@@ -1359,7 +1359,7 @@
   color: var(--walnut);
 }
 
-/* Технические характеристики */
+/* РўРµС…РЅРёС‡РµСЃРєРёРµ С…Р°СЂР°РєС‚РµСЂРёСЃС‚РёРєРё */
 .report-specs {
   margin-top: 10px;
   background: #FFFCF6;
@@ -1413,7 +1413,7 @@
   color: var(--accent-2);
 }
 
-/* Утилитарные ссылки — инструкция, схема установки */
+/* РЈС‚РёР»РёС‚Р°СЂРЅС‹Рµ СЃСЃС‹Р»РєРё вЂ” РёРЅСЃС‚СЂСѓРєС†РёСЏ, СЃС…РµРјР° СѓСЃС‚Р°РЅРѕРІРєРё */
 .report-util-links {
   display: flex;
   flex-wrap: wrap;
@@ -1470,7 +1470,7 @@
   margin-top: 8px;
 }
 
-/* Цветовая дифференциация бейджей магазинов */
+/* Р¦РІРµС‚РѕРІР°СЏ РґРёС„С„РµСЂРµРЅС†РёР°С†РёСЏ Р±РµР№РґР¶РµР№ РјР°РіР°Р·РёРЅРѕРІ */
 .report-link--ozon     { border-color: #0044CC; color: #0044CC; }
 .report-link--citilink { border-color: #FFBA00; color: #B57E00; }
 .report-link--wb       { border-color: #CB11AB; color: #CB11AB; }
@@ -1499,7 +1499,7 @@
 .report-link:active { background: var(--warm); }
 
 /* ============================================================
-   Матрица цен по магазинам (PRIMARY view категории)
+   РњР°С‚СЂРёС†Р° С†РµРЅ РїРѕ РјР°РіР°Р·РёРЅР°Рј (PRIMARY view РєР°С‚РµРіРѕСЂРёРё)
    ============================================================ */
 
 .report-matrix-wrap {
@@ -1640,7 +1640,7 @@
   border-top: 1px dashed var(--line);
 }
 
-/* Сравнительная таблица — accordion (legacy, оставлен для совместимости) */
+/* РЎСЂР°РІРЅРёС‚РµР»СЊРЅР°СЏ С‚Р°Р±Р»РёС†Р° вЂ” accordion (legacy, РѕСЃС‚Р°РІР»РµРЅ РґР»СЏ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё) */
 .report-compare {
   background: #fff;
   border: 1px solid var(--line);
@@ -1664,7 +1664,7 @@
 }
 .report-compare summary::-webkit-details-marker { display: none; }
 .report-compare summary::after {
-  content: "↓";
+  content: "в†“";
   font-size: 12px;
   color: var(--muted);
   transition: transform 0.2s;
@@ -1694,7 +1694,7 @@
 }
 .report-compare td strong { font-weight: 600; color: var(--ink); }
 
-/* Итого */
+/* РС‚РѕРіРѕ */
 .report-total {
   padding: 14px 16px;
   background: var(--ink);
@@ -1740,7 +1740,7 @@
 }
 .report-warnings > div { margin: 2px 0; }
 
-/* Экспорт отчёта */
+/* Р­РєСЃРїРѕСЂС‚ РѕС‚С‡С‘С‚Р° */
 .report-export {
   margin-top: 16px;
   padding: 16px;
@@ -1791,7 +1791,7 @@
 }
 
 /* ============================================================
-   Клиенты — список + история
+   РљР»РёРµРЅС‚С‹ вЂ” СЃРїРёСЃРѕРє + РёСЃС‚РѕСЂРёСЏ
    ============================================================ */
 
 .client-list {
@@ -1799,11 +1799,11 @@
   flex-direction: column;
   gap: 8px;
   margin-top: 8px;
-  /* отступ чтобы FAB не перекрывал последний элемент */
+  /* РѕС‚СЃС‚СѓРї С‡С‚РѕР±С‹ FAB РЅРµ РїРµСЂРµРєСЂС‹РІР°Р» РїРѕСЃР»РµРґРЅРёР№ СЌР»РµРјРµРЅС‚ */
   padding-bottom: 84px;
 }
 
-/* ── FAB «Новый клиент» ─────────────────────────────── */
+/* в”Ђв”Ђ FAB В«РќРѕРІС‹Р№ РєР»РёРµРЅС‚В» в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ */
 .clients-fab {
   position: fixed;
   bottom: calc(24px + env(safe-area-inset-bottom, 0px));
@@ -1834,7 +1834,7 @@
 }
 
 /* ============================================================
-   Секция отгрузок на главном дашборде менеджера (ОТГРУЗКИ.xlsx)
+   РЎРµРєС†РёСЏ РѕС‚РіСЂСѓР·РѕРє РЅР° РіР»Р°РІРЅРѕРј РґР°С€Р±РѕСЂРґРµ РјРµРЅРµРґР¶РµСЂР° (РћРўР“Р РЈР—РљР.xlsx)
    ============================================================ */
 
 .ship-group {
@@ -2044,7 +2044,7 @@
 }
 .client-footer .muted { color: var(--muted); }
 
-/* Детальный экран клиента */
+/* Р”РµС‚Р°Р»СЊРЅС‹Р№ СЌРєСЂР°РЅ РєР»РёРµРЅС‚Р° */
 .client-detail-head {
   display: flex;
   align-items: center;
@@ -2121,7 +2121,7 @@
   font-size: 18px;
 }
 
-/* Заглушка-loader */
+/* Р—Р°РіР»СѓС€РєР°-loader */
 .loader-inline {
   display: flex;
   justify-content: center;
@@ -2153,7 +2153,7 @@
   overflow-x: auto;
 }
 
-/* ===== Role chooser — первый экран ===== */
+/* ===== Role chooser вЂ” РїРµСЂРІС‹Р№ СЌРєСЂР°РЅ ===== */
 .role-chooser {
   padding: 32px 18px;
   max-width: 480px;
@@ -2209,6 +2209,7 @@
   background: var(--warm, rgba(107, 74, 43, 0.08));
   border-radius: 14px;
   flex-shrink: 0;
+  color: var(--accent-1);
 }
 .role-card .role-text { flex: 1; min-width: 0; }
 .role-card .role-title {
@@ -2230,7 +2231,7 @@
   flex-shrink: 0;
 }
 
-/* ===== Бейдж номера клиента + договор ===== */
+/* ===== Р‘РµР№РґР¶ РЅРѕРјРµСЂР° РєР»РёРµРЅС‚Р° + РґРѕРіРѕРІРѕСЂ ===== */
 .client-no-badge {
   display: inline-block;
   background: var(--warm, rgba(107, 74, 43, 0.10));
@@ -2277,7 +2278,7 @@
 }
 .map-link-btn:active { background: rgba(107,74,43,0.16); }
 
-/* ===== Опасная зона удаления ===== */
+/* ===== РћРїР°СЃРЅР°СЏ Р·РѕРЅР° СѓРґР°Р»РµРЅРёСЏ ===== */
 .danger-zone {
   border: 1px dashed rgba(192, 57, 43, 0.35);
   border-radius: 10px;
@@ -2308,7 +2309,7 @@
 .btn-danger:active { background: #A93226; }
 .btn-danger:disabled { opacity: 0.6; cursor: wait; }
 
-/* ===== Карточка клиента: шапка + действия ===== */
+/* ===== РљР°СЂС‚РѕС‡РєР° РєР»РёРµРЅС‚Р°: С€Р°РїРєР° + РґРµР№СЃС‚РІРёСЏ ===== */
 .client-detail-head { position: relative; display: flex; align-items: center; gap: 14px; }
 .client-call-btn {
   display: grid;
@@ -2325,7 +2326,7 @@
 }
 .client-call-btn:active { transform: scale(0.95); }
 
-/* ===== Быстрые действия — 2×2 объёмные кнопки-карточки ===== */
+/* ===== Р‘С‹СЃС‚СЂС‹Рµ РґРµР№СЃС‚РІРёСЏ вЂ” 2Г—2 РѕР±СЉС‘РјРЅС‹Рµ РєРЅРѕРїРєРё-РєР°СЂС‚РѕС‡РєРё ===== */
 .client-quick-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2364,7 +2365,7 @@
     inset 0 0 0 1px rgba(107, 74, 43, 0.10);
 }
 
-/* Круглый орехово-коричневый чип с иконкой */
+/* РљСЂСѓРіР»С‹Р№ РѕСЂРµС…РѕРІРѕ-РєРѕСЂРёС‡РЅРµРІС‹Р№ С‡РёРї СЃ РёРєРѕРЅРєРѕР№ */
 .qa-icon {
   display: flex;
   align-items: center;
@@ -2385,7 +2386,7 @@
   height: 22px;
 }
 
-/* Подпись под иконкой */
+/* РџРѕРґРїРёСЃСЊ РїРѕРґ РёРєРѕРЅРєРѕР№ */
 .qa-label {
   font-size: 11.5px;
   font-weight: 600;
@@ -2395,7 +2396,7 @@
   letter-spacing: 0.01em;
 }
 
-/* ===== Хронология клиента ===== */
+/* ===== РҐСЂРѕРЅРѕР»РѕРіРёСЏ РєР»РёРµРЅС‚Р° ===== */
 .client-timeline-block .timeline { padding: 10px 4px 4px; position: relative; }
 .client-timeline-block .timeline::before {
   content: "";
@@ -2439,7 +2440,7 @@
 .tl-icon { margin-right: 6px; }
 .tl-sub { font-size: 12px; color: var(--muted, #998877); margin-top: 2px; }
 
-/* ===== Файлы клиента ===== */
+/* ===== Р¤Р°Р№Р»С‹ РєР»РёРµРЅС‚Р° ===== */
 .client-files-block .file-group { padding: 8px 4px 12px; }
 .client-files-block .file-group-head {
   display: flex;
@@ -2474,7 +2475,7 @@
   text-decoration: none;
 }
 
-/* ===== Свёрнутые детали (подборы / замеры) ===== */
+/* ===== РЎРІС‘СЂРЅСѓС‚С‹Рµ РґРµС‚Р°Р»Рё (РїРѕРґР±РѕСЂС‹ / Р·Р°РјРµСЂС‹) ===== */
 .client-details { margin-top: 14px; }
 .client-details-collapse {
   background: var(--card, #fff);
@@ -2496,7 +2497,7 @@
 .client-details-collapse[open] summary { border-bottom: 1px solid rgba(107, 74, 43, 0.10); }
 .client-details-collapse .leads-list { padding: 4px 8px 8px; }
 
-/* ===== Примечание по клиенту ===== */
+/* ===== РџСЂРёРјРµС‡Р°РЅРёРµ РїРѕ РєР»РёРµРЅС‚Сѓ ===== */
 .client-note-block .block-head {
   display: flex;
   align-items: center;
@@ -2506,7 +2507,7 @@
   flex: 1;
 }
 
-/* Кнопка-переключатель Изменить / Свернуть */
+/* РљРЅРѕРїРєР°-РїРµСЂРµРєР»СЋС‡Р°С‚РµР»СЊ РР·РјРµРЅРёС‚СЊ / РЎРІРµСЂРЅСѓС‚СЊ */
 .note-edit-toggle {
   padding: 4px 12px;
   background: transparent;
@@ -2524,7 +2525,7 @@
   background: rgba(107, 74, 43, 0.10);
 }
 
-/* Лента примечаний */
+/* Р›РµРЅС‚Р° РїСЂРёРјРµС‡Р°РЅРёР№ */
 .note-history {
   margin-top: 6px;
 }
@@ -2615,7 +2616,7 @@
 .client-note-block .note-status.ok { color: #27AE60; }
 .client-note-block .note-status.err { color: #C0392B; }
 
-/* ===== Заявка на замер: выбор «когда удобно» ===== */
+/* ===== Р—Р°СЏРІРєР° РЅР° Р·Р°РјРµСЂ: РІС‹Р±РѕСЂ В«РєРѕРіРґР° СѓРґРѕР±РЅРѕВ» ===== */
 .preferred-options {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2652,13 +2653,13 @@
   flex: 1;
 }
 
-/* Блок «когда удобно» в карточке замерщика */
+/* Р‘Р»РѕРє В«РєРѕРіРґР° СѓРґРѕР±РЅРѕВ» РІ РєР°СЂС‚РѕС‡РєРµ Р·Р°РјРµСЂС‰РёРєР° */
 .preferred-block {
   background: var(--warm, rgba(107, 74, 43, 0.08));
   border-left: 3px solid var(--walnut, #6B4A2B);
 }
 
-/* Блок «дата назначена» */
+/* Р‘Р»РѕРє В«РґР°С‚Р° РЅР°Р·РЅР°С‡РµРЅР°В» */
 .date-set-block {
   background: linear-gradient(180deg, rgba(0, 62, 126, 0.04), transparent);
   border-left: 3px solid var(--accent-1, #003E7E);
@@ -2677,7 +2678,7 @@
   margin-top: 12px;
 }
 
-/* ===== Логистика (подъезд, GPS, парковка) ===== */
+/* ===== Р›РѕРіРёСЃС‚РёРєР° (РїРѕРґСЉРµР·Рґ, GPS, РїР°СЂРєРѕРІРєР°) ===== */
 .logistics-block .block-head {
   display: flex;
   align-items: center;
@@ -2714,7 +2715,7 @@
   grid-template-columns: 1fr 1fr;
 }
 
-/* ===== Замер: фото с тегами ===== */
+/* ===== Р—Р°РјРµСЂ: С„РѕС‚Рѕ СЃ С‚РµРіР°РјРё ===== */
 .podbor-header .podbor-help {
   background: transparent;
   border: none;
@@ -2778,7 +2779,7 @@
   font-family: var(--font-ui, "Inter", sans-serif);
 }
 
-/* ===== Чек-лист — страница markdown ===== */
+/* ===== Р§РµРє-Р»РёСЃС‚ вЂ” СЃС‚СЂР°РЅРёС†Р° markdown ===== */
 .checklist-page .checklist-md {
   font-family: var(--font-ui, "Inter", sans-serif);
   font-size: 14px;
@@ -2795,7 +2796,7 @@
 .checklist-md li .cl-check { position: absolute; left: 0; top: 0; font-size: 16px; color: var(--walnut, #6B4A2B); line-height: 1.3; }
 .checklist-md li:has(.cl-check)::before { display: none; }
 
-/* Активный чекбокс — кликабельный с подсветкой */
+/* РђРєС‚РёРІРЅС‹Р№ С‡РµРєР±РѕРєСЃ вЂ” РєР»РёРєР°Р±РµР»СЊРЅС‹Р№ СЃ РїРѕРґСЃРІРµС‚РєРѕР№ */
 .checklist-md .cl-item {
   cursor: pointer;
   user-select: none;
@@ -2812,7 +2813,7 @@
   display: inline-block;
 }
 
-/* Прогресс-бар чек-листа */
+/* РџСЂРѕРіСЂРµСЃСЃ-Р±Р°СЂ С‡РµРє-Р»РёСЃС‚Р° */
 .checklist-progress {
   position: sticky;
   top: 0;
@@ -2843,7 +2844,7 @@
   text-align: right;
 }
 .checklist-md hr { margin: 18px 0; border: none; border-top: 1px dashed rgba(107, 74, 43, 0.25); }
-/* Эскизы-пиктограммы в чек-листе */
+/* Р­СЃРєРёР·С‹-РїРёРєС‚РѕРіСЂР°РјРјС‹ РІ С‡РµРє-Р»РёСЃС‚Рµ */
 .checklist-md .cl-pict {
   margin: 14px auto;
   max-width: 320px;
@@ -2865,7 +2866,7 @@
 .checklist-md .cl-table th, .checklist-md .cl-table td { border: 1px solid rgba(107, 74, 43, 0.18); padding: 4px 8px; text-align: left; }
 .checklist-md .cl-table th { background: rgba(107, 74, 43, 0.08); font-weight: 600; }
 
-/* ===== Главная менеджера: список «На сегодня» ===== */
+/* ===== Р“Р»Р°РІРЅР°СЏ РјРµРЅРµРґР¶РµСЂР°: СЃРїРёСЃРѕРє В«РќР° СЃРµРіРѕРґРЅСЏВ» ===== */
 .today-list { display: flex; flex-direction: column; gap: 6px; }
 .inbox-row.overdue {
   border-color: rgba(192, 57, 43, 0.35);
@@ -2873,9 +2874,9 @@
 }
 .inbox-row.overdue .inbox-time { color: #C0392B; }
 
-/* ===== Кабинет замерщика: week strip + grouped inbox ===== */
+/* ===== РљР°Р±РёРЅРµС‚ Р·Р°РјРµСЂС‰РёРєР°: week strip + grouped inbox ===== */
 
-/* Week strip — загрузка по дням */
+/* Week strip вЂ” Р·Р°РіСЂСѓР·РєР° РїРѕ РґРЅСЏРј */
 .cal-strip-block {
   background: var(--card, #fff);
   border: 1px solid rgba(107, 74, 43, 0.12);
@@ -3040,7 +3041,7 @@
 }
 .inbox-call:active { background: rgba(39, 174, 96, 0.18); }
 
-/* ===== Кабинет сотрудника (замерщик/сборщик) ===== */
+/* ===== РљР°Р±РёРЅРµС‚ СЃРѕС‚СЂСѓРґРЅРёРєР° (Р·Р°РјРµСЂС‰РёРє/СЃР±РѕСЂС‰РёРє) ===== */
 .staff-head {
   display: flex;
   align-items: center;
@@ -3080,7 +3081,7 @@
   font-size: 12px;
 }
 
-/* ===== Фото замера ===== */
+/* ===== Р¤РѕС‚Рѕ Р·Р°РјРµСЂР° ===== */
 .photo-uploader { margin: 12px 0 14px; }
 
 .photo-add-btn {
@@ -3154,7 +3155,7 @@
 .photo-rm:active { background: rgba(0, 0, 0, 0.75); }
 .photo-tile.static { cursor: default; }
 
-/* ===== Карточка замера (детальная страница) ===== */
+/* ===== РљР°СЂС‚РѕС‡РєР° Р·Р°РјРµСЂР° (РґРµС‚Р°Р»СЊРЅР°СЏ СЃС‚СЂР°РЅРёС†Р°) ===== */
 .measurement-detail-head {
   margin-bottom: 18px;
 }
@@ -3183,7 +3184,7 @@
 }
 .measurement-kv-grid .v { color: var(--ink); }
 
-/* ===== Кнопка "Скачать PDF" / "Печать" ===== */
+/* ===== РљРЅРѕРїРєР° "РЎРєР°С‡Р°С‚СЊ PDF" / "РџРµС‡Р°С‚СЊ" ===== */
 .report-print-btn {
   display: inline-flex;
   align-items: center;
@@ -3200,7 +3201,7 @@
 }
 .report-print-btn:active { background: rgba(107, 74, 43, 0.12); }
 
-/* ===== Карточки «Замер готов — что с подбором?» на главной менеджера ===== */
+/* ===== РљР°СЂС‚РѕС‡РєРё В«Р—Р°РјРµСЂ РіРѕС‚РѕРІ вЂ” С‡С‚Рѕ СЃ РїРѕРґР±РѕСЂРѕРј?В» РЅР° РіР»Р°РІРЅРѕР№ РјРµРЅРµРґР¶РµСЂР° ===== */
 .pending-card {
   background: var(--card, #FFFFFF);
   border: 1px solid var(--line, rgba(15,15,14,0.08));
@@ -3267,7 +3268,7 @@
 }
 .pending-result:empty { display: none; }
 
-/* ===== Загрузка DWG/чертежей замера ===== */
+/* ===== Р—Р°РіСЂСѓР·РєР° DWG/С‡РµСЂС‚РµР¶РµР№ Р·Р°РјРµСЂР° ===== */
 .design-upload {
   margin-top: 14px;
   padding: 12px;
@@ -3328,7 +3329,7 @@
   flex-shrink: 0;
 }
 
-/* ===== Тулбар управления карточкой клиента — объёмные кнопки ===== */
+/* ===== РўСѓР»Р±Р°СЂ СѓРїСЂР°РІР»РµРЅРёСЏ РєР°СЂС‚РѕС‡РєРѕР№ РєР»РёРµРЅС‚Р° вЂ” РѕР±СЉС‘РјРЅС‹Рµ РєРЅРѕРїРєРё ===== */
 .client-toolbar {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -3337,7 +3338,7 @@
   align-items: stretch;
 }
 .client-toolbar.is-locked {
-  grid-template-columns: 1fr; /* только «Редактировать», когда в работе */
+  grid-template-columns: 1fr; /* С‚РѕР»СЊРєРѕ В«Р РµРґР°РєС‚РёСЂРѕРІР°С‚СЊВ», РєРѕРіРґР° РІ СЂР°Р±РѕС‚Рµ */
 }
 
 .ct-btn {
@@ -3369,7 +3370,7 @@
   filter: drop-shadow(0 1px 0 rgba(0,0,0,0.18));
 }
 
-/* Edit — глубокий орех */
+/* Edit вЂ” РіР»СѓР±РѕРєРёР№ РѕСЂРµС… */
 .ct-edit {
   background:
     linear-gradient(180deg,
@@ -3393,7 +3394,7 @@
     0 1px 2px rgba(0,0,0,0.10);
 }
 
-/* Delete — благородный кирпично-красный, не «алярм» */
+/* Delete вЂ” Р±Р»Р°РіРѕСЂРѕРґРЅС‹Р№ РєРёСЂРїРёС‡РЅРѕ-РєСЂР°СЃРЅС‹Р№, РЅРµ В«Р°Р»СЏСЂРјВ» */
 .ct-delete {
   background:
     linear-gradient(180deg,
@@ -3438,9 +3439,9 @@
 .ct-ok  { color: #4A8016; font-weight: 500; }
 .ct-err { color: #A6382A; font-weight: 500; }
 
-/* ===== Сворачиваемые блоки (хронология и т.п.) ===== */
+/* ===== РЎРІРѕСЂР°С‡РёРІР°РµРјС‹Рµ Р±Р»РѕРєРё (С…СЂРѕРЅРѕР»РѕРіРёСЏ Рё С‚.Рї.) ===== */
 .client-collapse {
-  /* убираем дефолтный маркер */
+  /* СѓР±РёСЂР°РµРј РґРµС„РѕР»С‚РЅС‹Р№ РјР°СЂРєРµСЂ */
 }
 .client-collapse > summary {
   list-style: none;
@@ -3465,7 +3466,7 @@
 }
 .client-collapse[open] .collapse-chev { transform: rotate(-90deg); }
 
-/* ===== Сборки (Phase 4) ===== */
+/* ===== РЎР±РѕСЂРєРё (Phase 4) ===== */
 .assembly-list {
   display: flex;
   flex-direction: column;
@@ -3522,7 +3523,7 @@
   border-top: 1px dashed var(--line);
 }
 
-/* ===== Поиск по списку клиентов ===== */
+/* ===== РџРѕРёСЃРє РїРѕ СЃРїРёСЃРєСѓ РєР»РёРµРЅС‚РѕРІ ===== */
 .client-search-wrap {
   padding: 0 0 10px;
 }
@@ -3546,7 +3547,7 @@
 .client-search::placeholder { color: var(--muted, #998877); }
 .client-search-meta { transition: color 0.15s; }
 
-/* ===== Поля адреса (addr-grid) ===== */
+/* ===== РџРѕР»СЏ Р°РґСЂРµСЃР° (addr-grid) ===== */
 .addr-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -3576,7 +3577,7 @@
 .geo-ok   { color: #27AE60; }
 .geo-warn { color: #C0392B; }
 
-/* ===== Загрузка фото замера ===== */
+/* ===== Р—Р°РіСЂСѓР·РєР° С„РѕС‚Рѕ Р·Р°РјРµСЂР° ===== */
 .photo-upload-block {}
 .photo-preview-grid {
   display: grid;
@@ -3591,7 +3592,7 @@
 .photo-upload-actions .btn-primary { flex: 2; }
 .photo-upload-actions .btn-secondary { flex: 1; }
 
-/* ===== Статус замера ===== */
+/* ===== РЎС‚Р°С‚СѓСЃ Р·Р°РјРµСЂР° ===== */
 .mz-status-badge {
   font-size: 12px;
   font-weight: 600;
@@ -3608,7 +3609,7 @@
 .ct-ok  { color: #27AE60; font-size: 13px; }
 .ct-err { color: #C0392B; font-size: 13px; }
 
-/* ===== Пикер клиента (замер) ===== */
+/* ===== РџРёРєРµСЂ РєР»РёРµРЅС‚Р° (Р·Р°РјРµСЂ) ===== */
 .client-picker-wrap { margin-bottom: 2px; }
 .picker-open-btn {
   width: 100%;
@@ -3676,7 +3677,7 @@
 }
 .picker-change-btn:active { background: rgba(107,74,43,0.08); }
 
-/* Оверлей пикера */
+/* РћРІРµСЂР»РµР№ РїРёРєРµСЂР° */
 .client-picker-overlay {
   position: fixed;
   inset: 0;
@@ -3764,7 +3765,7 @@
   font-size: 14px;
 }
 
-/* ===== Печать / PDF ===== */
+/* ===== РџРµС‡Р°С‚СЊ / PDF ===== */
 @media print {
   body { background: white !important; color: black !important; }
   body.has-bottom-nav, #bottom-nav,
@@ -3806,12 +3807,12 @@
   .photo-tile { border: 1px solid #ccc; }
   .report-matrix table { font-size: 10pt; }
   a { color: black !important; text-decoration: none !important; }
-  /* Скрываем стрелки и иконки навигации */
+  /* РЎРєСЂС‹РІР°РµРј СЃС‚СЂРµР»РєРё Рё РёРєРѕРЅРєРё РЅР°РІРёРіР°С†РёРё */
   .lead-arrow, .client-arrow { display: none !important; }
 }
 
 /* ============================================================
-   Подбор техники — цикл согласования (Proposals)
+   РџРѕРґР±РѕСЂ С‚РµС…РЅРёРєРё вЂ” С†РёРєР» СЃРѕРіР»Р°СЃРѕРІР°РЅРёСЏ (Proposals)
    ============================================================ */
 
 /* ----- Common helpers ----- */
@@ -4001,7 +4002,7 @@
 .prop-variant-img.placeholder {
   background: repeating-linear-gradient(45deg, var(--warm), var(--warm) 5px, #F0E8D5 5px, #F0E8D5 10px);
 }
-.prop-variant-img.placeholder::after { content: "📷"; font-size: 22px; opacity: 0.35; }
+.prop-variant-img.placeholder::after { content: "рџ“·"; font-size: 22px; opacity: 0.35; }
 
 .prop-variant-body {
   display: flex;
@@ -4202,8 +4203,8 @@
   user-select: none;
 }
 .prop-brief-toggle::-webkit-details-marker { display: none; }
-.prop-brief-toggle::before { content: "▶ "; font-size: 9px; }
-.prop-brief-details[open] .prop-brief-toggle::before { content: "▼ "; }
+.prop-brief-toggle::before { content: "в–¶ "; font-size: 9px; }
+.prop-brief-details[open] .prop-brief-toggle::before { content: "в–ј "; }
 .prop-brief-content { padding: 12px 14px; background: var(--paper); }
 .brief-rows { display: flex; flex-direction: column; gap: 6px; }
 .brief-row {
@@ -4375,7 +4376,7 @@
 .prop-section-open-link:active { opacity: 0.6; }
 
 /* ============================================================
-   AI-проверка договора (Contract Review)
+   AI-РїСЂРѕРІРµСЂРєР° РґРѕРіРѕРІРѕСЂР° (Contract Review)
    ============================================================ */
 
 /* Textarea + char counter */
@@ -4603,4 +4604,5 @@
   padding: 14px 16px;
   margin-top: 12px;
 }
+
 
