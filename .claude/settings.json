@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NonInteractive -File \".claude\\hooks\\syntax_check.ps1\""
+          }
+        ]
+      }
+    ]
+  }
+}
