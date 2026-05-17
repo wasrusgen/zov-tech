@@ -571,19 +571,25 @@ const Clients = (function () {
     if (!clients) {
       try {
         const data = await fetchClients();
-        clients = data.clients;
+        if (data.error) {
+          root.appendChild(el(`<div class="error">Ошибка загрузки клиентов: ${escHtml(data.error)}</div>`));
+          return;
+        }
+        clients = data.clients || [];
         clientsCache = data;
       } catch (e) {
-        root.appendChild(el(`<div class="error">${e.message}</div>`));
+        root.appendChild(el(`<div class="error">Сеть: ${escHtml(e.message)}</div>`));
         return;
       }
     }
+    // Сравниваем как строки — client_tg_id может прийти числом из API
+    const clientKeyStr = String(clientKey);
     const client = clients.find(c =>
-      (c.client_tg_id && c.client_tg_id === clientKey) ||
-      (c.client_name && c.client_name.toLowerCase() === clientKey)
+      (c.client_tg_id && String(c.client_tg_id) === clientKeyStr) ||
+      (c.client_name && c.client_name.toLowerCase() === clientKeyStr)
     );
     if (!client) {
-      root.appendChild(el(`<div class="empty">Клиент не найден</div>`));
+      root.appendChild(el(`<div class="empty" style="padding:24px 16px;color:var(--muted)">Клиент не найден.<br><small>Вернитесь в список и попробуйте ещё раз.</small></div>`));
       return;
     }
 
