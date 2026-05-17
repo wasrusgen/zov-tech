@@ -29,7 +29,13 @@ const Clients = (function () {
       renderClientProposalsPage(clientKey);
     } else if (sub.startsWith("client/")) {
       const clientKey = decodeURIComponent(sub.slice(7));
-      renderClientHistory(clientKey);
+      renderClientHistory(clientKey).catch(e => {
+        if (root) root.appendChild(el(
+          `<div class="error" style="padding:16px;margin:16px;border-radius:10px;background:#fff3f3;">
+            <b>Ошибка карточки:</b> ${escHtml(e.message)}
+           </div>`
+        ));
+      });
     } else {
       renderList();
     }
@@ -565,7 +571,7 @@ const Clients = (function () {
   async function renderClientHistory(clientKey) {
     root.innerHTML = "";
     root.appendChild(headerEl("Карточка клиента", "#/clients"));
-
+    try {
     // Берём из кеша если есть
     let clients = clientsCache?.clients;
     if (!clients) {
@@ -753,6 +759,15 @@ const Clients = (function () {
     proposalPlaceholder.replaceWith(propWrapper);
 
     // (управление перенесено наверх — сразу под шапку)
+    } catch (e) {
+      root.appendChild(el(
+        `<div class="error" style="padding:16px;margin:12px 16px;border-radius:10px;background:#fff3f3;">
+          <b>Ошибка загрузки карточки:</b><br>${escHtml(e.message)}<br>
+          <small style="color:#999">${escHtml(e.stack ? e.stack.split('\n')[1] || '' : '')}</small>
+         </div>`
+      ));
+      throw e;
+    }
   }
 
   /* ===================== Управление карточкой (edit / delete) ===================== */
