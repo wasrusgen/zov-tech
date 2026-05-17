@@ -1422,7 +1422,7 @@ html[data-variant="d"] .section-head .label {
   font-family: var(--font-ui);
   font-size: 13.5px;
   font-weight: 600;
-  color: var(--card);
+  color: transparent;
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
@@ -1434,7 +1434,7 @@ html[data-variant="d"] .section-head .label {
   font-size: 9.5px;
   font-weight: 500;
   letter-spacing: 0.05em;
-  color: var(--card);
+  color: transparent;
   margin-top: 2px;
 }
 
