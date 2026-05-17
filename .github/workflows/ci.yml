@@ -1,0 +1,51 @@
+name: CI — Lint + Smoke Tests
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  lint-css:
+    name: CSS-линтер
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Запуск CSS-линтера
+        run: python tests/lint_css.py
+
+  smoke-api:
+    name: Smoke-тесты API
+    runs-on: ubuntu-latest
+    # Запускаем только на пушах в master (не на PR — там нет деплоя)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    # Ждём деплоя GitHub Pages (если были изменения в miniapp/)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Пауза после деплоя Pages (60s)
+        run: sleep 60
+      - name: Запуск smoke-тестов
+        run: python tests/smoke_api.py --url https://api.wasrusgen1.pro
+
+  report:
+    name: Сводный отчёт
+    runs-on: ubuntu-latest
+    needs: [lint-css, smoke-api]
+    if: always()
+    steps:
+      - name: Итог
+        run: |
+          echo "CSS-линтер: ${{ needs.lint-css.result }}"
+          echo "Smoke API:  ${{ needs.smoke-api.result }}"
+          if [[ "${{ needs.lint-css.result }}" == "failure" || "${{ needs.smoke-api.result }}" == "failure" ]]; then
+            echo "❌ CI упал — есть замечания к устранению"
+            exit 1
+          fi
+          echo "✅ CI прошёл"
