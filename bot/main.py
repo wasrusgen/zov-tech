@@ -119,15 +119,17 @@ async def main() -> None:
         raise NotImplementedError("Webhook mode будет добавлен после MVP")
 
     # Универсальная меню-кнопка — открывает MiniApp одним тапом.
-    # Внутри MiniApp пользователь выбирает роль (менеджер/клиент/сотрудник).
+    # role=manager — пропускает экран выбора роли, сразу кабинет менеджера.
     try:
+        sep = "&" if "?" in config.miniapp_url else "?"
+        menu_url = f"{config.miniapp_url}{sep}role=manager"
         await bot.set_chat_menu_button(
             menu_button=MenuButtonWebApp(
                 text="CRM",
-                web_app=WebAppInfo(url=config.miniapp_url),
+                web_app=WebAppInfo(url=menu_url),
             ),
         )
-        logging.info("Установлена меню-кнопка MiniApp: %s", config.miniapp_url)
+        logging.info("Установлена меню-кнопка MiniApp: %s", menu_url)
     except Exception as e:
         logging.warning("Не удалось установить меню-кнопку: %s", e)
 
