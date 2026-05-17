@@ -1361,3 +1361,120 @@ html[data-variant="d"] .section-head .label {
   letter-spacing: 0.16em;
   color: var(--ink-2);
 }
+
+/* ============================================================
+   Client list cards — все темы
+   Явные стили чтобы текст не сливался с фоном ни в одной теме
+   ============================================================ */
+.client-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.client-card {
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-card);
+  padding: var(--s4);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.client-card:active { background: var(--paper-2); }
+
+.client-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  margin-bottom: 6px;
+}
+
+.client-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-pill);
+  background: var(--warm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-1);
+  flex-shrink: 0;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.client-avatar.lg {
+  width: 48px;
+  height: 48px;
+  font-size: 18px;
+}
+
+.client-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.client-name {
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.client-phone {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.client-arrow {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.client-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.client-detail-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.client-detail-name {
+  font-family: var(--font-ui);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 2px;
+  letter-spacing: -0.01em;
+}
+
+.client-detail-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}

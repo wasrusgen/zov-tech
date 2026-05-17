@@ -199,11 +199,10 @@ async function renderManagerHome(me) {
 
   // Quick actions
   const quickActions = [
-    { icon: "user",    title: "Клиенты",        subtitle: "История + хронология", href: "#/clients" },
-    { icon: "plus",    title: "Новый клиент",   subtitle: "Завести карточку",     href: "#/clients/new" },
-    { icon: "package", title: "Подбор техники", subtitle: "Встройка + AI",        href: "#/podbor" },
-    { icon: "ruler",   title: "Заказать замер", subtitle: "Назначить замерщика",  href: "#/request" },
-    { icon: "wrench",  title: "Сборки",         subtitle: "Заявки на сборку",     href: "#/assembly" },
+    { icon: "user",      title: "Клиенты",        subtitle: "История + хронология", href: "#/clients" },
+    { icon: "clipboard", title: "Заказы",          subtitle: "Сборки + заявки",      href: "#/assembly" },
+    { icon: "package",   title: "Подбор техники", subtitle: "Встройка + AI",        href: "#/podbor" },
+    { icon: "ruler",     title: "Заказать замер", subtitle: "Назначить замерщика",  href: "#/request" },
   ];
   app.appendChild(el(`<div class="section-head"><span class="label">Быстрые действия</span></div>`));
   const grid = el(`<div class="quick-grid"></div>`);
@@ -445,9 +444,9 @@ function renderManagerToday(container, measurements, firstName, greetingEl) {
 
   if (todayEvents.length === 0 && overdueEvents.length === 0 && noDateEvents.length === 0) {
     container.appendChild(el(`
-      <section class="hero" style="background:var(--card,#fff);border:1px dashed rgba(107,74,43,0.25);">
-        <div class="hero-meta"><span class="left">Свободный день</span></div>
-        <div class="hero-address" style="margin-top:8px;">Замеров на сегодня нет.<br>Можно поработать с клиентами или заказать новые замеры.</div>
+      <section class="hero" style="background:var(--card);border:1px dashed var(--line-strong);">
+        <div style="font-family:var(--font-ui);font-size:17.5px;font-weight:600;letter-spacing:-0.01em;color:var(--ink);line-height:1.2;margin-bottom:8px;">Свободный день</div>
+        <div style="font-family:var(--font-mono);font-size:9.5px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);line-height:1.5;">Замеров на сегодня нет · можно поработать с клиентами или заказать новые замеры</div>
       </section>
     `));
   }
@@ -1618,7 +1617,7 @@ function hideSplash() {
   const splash = document.getElementById("splash");
   if (!splash) return;
   const elapsed = Date.now() - _splashStart;
-  const minShow = 1200; // минимум показа, мс — 1.2 сек хватает чтобы рассмотреть лого и не блокировать UI
+  const minShow = 840; // минимум показа, мс — было 1200, сокращено на 30%
   const wait = Math.max(0, minShow - elapsed);
   setTimeout(() => {
     splash.classList.add("hide");
