@@ -55,6 +55,8 @@ def get_config() -> Config:
         proxy_static_list=os.getenv("PROXY_STATIC_LIST", ""),
         proxy_list_file=os.getenv("PROXY_LIST_FILE", ""),
         internal_secret=os.getenv("INTERNAL_SECRET", ""),
-        shipments_file_id=os.getenv("SHIPMENTS_FILE_ID", "1fER4NmEgSznvPKJWXOqLDDkTxH6wm78E"),
-        arrivals_file_id=os.getenv("ARRIVALS_FILE_ID", "1kgrDEIGcVMFnSdZs1Y_QHVhjqsXFQk2h"),
+        # ОТГРУЗКИ — актуальный ID из AI АНАЛИТИКА/_sources_config.json
+        shipments_file_id=os.getenv("SHIPMENTS_FILE_ID", "1KCJUXjhVR2NWEz9bD0kjTaEADsxF8gI5GMzLwJ2bw84"),
+        # Поступление заказов на склад СПб — заполнить в deploy/.env когда найдут файл
+        arrivals_file_id=os.getenv("ARRIVALS_FILE_ID", ""),
     )
