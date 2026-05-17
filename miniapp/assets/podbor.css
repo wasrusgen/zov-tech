@@ -2039,10 +2039,10 @@
   text-transform: uppercase;
 }
 .client-footer .leads-count {
-  color: var(--accent-2);
+  color: #0E1621;
   font-weight: 500;
 }
-.client-footer .muted { color: var(--muted); }
+.client-footer .muted { color: #0E1621; }
 
 /* Р”РµС‚Р°Р»СЊРЅС‹Р№ СЌРєСЂР°РЅ РєР»РёРµРЅС‚Р° */
 .client-detail-head {
@@ -3544,8 +3544,8 @@
   border-color: var(--walnut, #6B4A2B);
   background: white;
 }
-.client-search::placeholder { color: var(--muted, #998877); }
-.client-search-meta { transition: color 0.15s; }
+.client-search::placeholder { color: #0E1621; }
+.client-search-meta { color: #0E1621; transition: color 0.15s; }
 
 /* ===== РџРѕР»СЏ Р°РґСЂРµСЃР° (addr-grid) ===== */
 .addr-grid {
