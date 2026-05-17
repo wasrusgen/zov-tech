@@ -564,7 +564,7 @@ const Clients = (function () {
 
   async function renderClientHistory(clientKey) {
     root.innerHTML = "";
-    root.appendChild(headerEl("История подборов", "#/clients"));
+    root.appendChild(headerEl("Карточка клиента", "#/clients"));
 
     // Берём из кеша если есть
     let clients = clientsCache?.clients;
@@ -734,27 +734,17 @@ const Clients = (function () {
     // Детальные списки внизу (свёрнуты)
     detailsPlaceholder.replaceWith(renderClientDetails(client, myMeasurements));
 
-    // Подбор техники (Proposals) — секция для менеджера
-    if (typeof Proposals !== "undefined") {
-      const clientKey = (client.client_tg_id || client.client_name || "").toLowerCase();
-      const propWrapper = el(`
-        <div class="prop-section">
-          <div class="prop-section-head">
-            🛍 Подбор техники
-            <a class="prop-section-open-link" href="#/clients/client/${encodeURIComponent(clientKey)}/proposals">Открыть →</a>
-          </div>
-          <div id="propInlineContainer"></div>
+    // Подбор техники — только ссылка, без инлайн-загрузки всего списка
+    const clientKeyProp = encodeURIComponent((client.client_tg_id || client.client_name || "").toLowerCase());
+    const propWrapper = el(`
+      <div class="prop-section">
+        <div class="prop-section-head">
+          🛍 Подбор техники
+          <a class="prop-section-open-link" href="#/clients/client/${clientKeyProp}/proposals">Открыть →</a>
         </div>
-      `);
-      proposalPlaceholder.replaceWith(propWrapper);
-      const propContainer = propWrapper.querySelector("#propInlineContainer");
-      Proposals.mountManager(propContainer, clientKey, client.client_tg_id || "")
-        .catch(() => {
-          propContainer.innerHTML = `<div class="prop-muted" style="padding:10px 0;">Не удалось загрузить подборку.</div>`;
-        });
-    } else {
-      proposalPlaceholder.remove();
-    }
+      </div>
+    `);
+    proposalPlaceholder.replaceWith(propWrapper);
 
     // (управление перенесено наверх — сразу под шапку)
   }
