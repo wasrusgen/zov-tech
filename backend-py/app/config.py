@@ -57,6 +57,6 @@ def get_config() -> Config:
         internal_secret=os.getenv("INTERNAL_SECRET", ""),
         # ОТГРУЗКИ — актуальный ID из AI АНАЛИТИКА/_sources_config.json
         shipments_file_id=os.getenv("SHIPMENTS_FILE_ID", "1KCJUXjhVR2NWEz9bD0kjTaEADsxF8gI5GMzLwJ2bw84"),
-        # Поступление заказов на склад СПб — заполнить в deploy/.env когда найдут файл
-        arrivals_file_id=os.getenv("ARRIVALS_FILE_ID", ""),
+        # Поступление заказов на склад СПб — тот же файл что ОТГРУЗКИ
+        arrivals_file_id=os.getenv("ARRIVALS_FILE_ID", "1KCJUXjhVR2NWEz9bD0kjTaEADsxF8gI5GMzLwJ2bw84"),
     )
