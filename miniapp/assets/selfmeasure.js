@@ -20,6 +20,7 @@ const SelfMeasureScreen = (function () {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ initData: tg?.initData || "", initDataUnsafe: tg?.initDataUnsafe || null, ...body }),
       });
+      if (!res.ok) throw new Error(`Ошибка сервера (${res.status})`);
       return await res.json();
     } catch (e) {
       if (e.name === "AbortError") throw new Error("Сервер не отвечает");
