@@ -2315,7 +2315,8 @@ def _handle_assembly_list(body: dict[str, Any]) -> dict[str, Any]:
 
     is_manager = sheets.has_role(user, "manager")
     is_master = sheets.is_master(user)
-    if not is_manager and not is_master:
+    is_client = sheets.has_role(user, "client")
+    if not is_manager and not is_master and not is_client:
         return {"error": "forbidden"}
 
     _ensure_assemblies_sheet()
@@ -2342,6 +2343,8 @@ def _handle_assembly_list(body: dict[str, Any]) -> dict[str, Any]:
                 visible = True
             elif not row.get("assigned_to_tg_id") and row.get("status") in ("created", "scheduled"):
                 visible = True
+        if is_client and str(row.get("client_tg_id")) == str(tg_id):
+            visible = True
         if not visible:
             continue
         out.append({
@@ -2386,9 +2389,10 @@ def _handle_assembly_detail(body: dict[str, Any]) -> dict[str, Any]:
     if not row:
         return {"error": "assembly_not_found"}
 
-    # Право: менеджер-владелец, назначенный мастер, неназначенная сборка (status=created)
+    # Право: менеджер-владелец, назначенный мастер, клиент-владелец, неназначенная сборка
     is_owner = str(row.get("manager_tg_id")) == str(tg_id) or \
-               str(row.get("assigned_to_tg_id")) == str(tg_id)
+               str(row.get("assigned_to_tg_id")) == str(tg_id) or \
+               str(row.get("client_tg_id")) == str(tg_id)
     is_open_slot = (not row.get("assigned_to_tg_id")) and row.get("status") in ("created", "scheduled")
     if not is_owner and not is_open_slot:
         return {"error": "forbidden"}
@@ -2970,11 +2974,11 @@ def _handle_measurement_detail(body: dict[str, Any]) -> dict[str, Any]:
     if not row:
         return {"error": "measurement_not_found"}
 
-    # Доступ: владелец-менеджер, назначенный мастер (замер/сборка), клиент-владелец
+    # Доступ: владелец-менеджер, любой мастер (замерщик или сборщик), клиент-владелец
     is_owner_manager = sheets.has_role(user, "manager") and str(row.get("manager_tg_id", "")) == str(tg_id)
-    is_assigned_master = sheets.is_master(user) and str(row.get("assigned_to_tg_id", "")) == str(tg_id)
+    is_master = sheets.is_master(user)  # measurer или assembler — оба видят фото замера
     is_client = str(row.get("client_tg_id", "")) == str(tg_id)
-    if not (is_owner_manager or is_assigned_master or is_client):
+    if not (is_owner_manager or is_master or is_client):
         return {"error": "forbidden"}
 
     def _safe_json(s: str) -> Any:
