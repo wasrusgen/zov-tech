@@ -1,4 +1,4 @@
-// ЗОВ MiniApp — главный скрипт. v20260518j
+// ЗОВ MiniApp — главный скрипт. v20260518k
 // На входе: подписанный initData от Telegram.
 // Ходим на backend → получаем профиль (роль, статус) → рендерим меню.
 
@@ -1719,6 +1719,9 @@ function routeByHash() {
     } else {
       app.innerHTML = `<div class="error">Модуль не загружен</div>`;
     }
+  } else if (location.hash === "#/c/selfmeasure") {
+    if (typeof SelfMeasureScreen !== "undefined") SelfMeasureScreen.mount(app);
+    else init();
   } else {
     // Главный экран по роли
     const me = window.__zovMe;
