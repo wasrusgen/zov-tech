@@ -1746,6 +1746,9 @@ function routeByHash() {
   } else if (location.hash.startsWith("#/master")) {
     const me = window.__zovMe;
     if (me) renderStaff(me); else init();
+  } else if (location.hash.startsWith("#/me")) {
+    if (typeof MeScreen !== "undefined") MeScreen.mount(app);
+    else init();
   } else if (location.hash.startsWith("#/c/proposal")) {
     app.innerHTML = "";
     document.body.classList.remove("has-bottom-nav");
