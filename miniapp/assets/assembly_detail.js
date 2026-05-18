@@ -107,6 +107,8 @@ const AssemblyDetailScreen = (function () {
         <div style="margin:12px 16px 0;border:1px solid var(--border);border-radius:12px;
                     padding:0 12px;background:var(--surface);">
           ${row("Адрес", data.address)}
+          ${data.kitchen_price ? row("Стоимость кухни", Number(data.kitchen_price).toLocaleString("ru-RU") + " ₽") : ""}
+          ${data.kitchen_price ? row("Стоимость сборки", Number(Math.round(data.kitchen_price * 0.09)).toLocaleString("ru-RU") + " ₽", {color: "var(--accent)"}) : ""}
           ${row("Объём работ", data.scope_of_work)}
           ${row("Дата сборки", fmtDate(data.scheduled_at))}
           ${row("Начало", fmtDate(data.started_at))}

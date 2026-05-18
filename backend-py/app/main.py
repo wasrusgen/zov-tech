@@ -143,6 +143,7 @@ async def _dispatch_post(request: Request):
         "assembly_create":       _handle_assembly_create,
         "assembly_list":         _handle_assembly_list,
         "assembly_detail":       _handle_assembly_detail,
+        "assembly_set_kitchen_price": _handle_assembly_set_kitchen_price,
         "proposal_brief":        proposals_mod.handle_brief,
         "proposal_create":       proposals_mod.handle_create,
         "proposal_upsert_variant": proposals_mod.handle_upsert_variant,
@@ -343,6 +344,12 @@ async def api_assembly_list(request: Request):
 async def api_assembly_detail(request: Request):
     body = await _safe_json(request)
     return _handle_assembly_detail(body)
+
+
+@app.post("/api/assembly_set_kitchen_price")
+async def api_assembly_set_kitchen_price(request: Request):
+    body = await _safe_json(request)
+    return _handle_assembly_set_kitchen_price(body)
 
 
 @app.post("/api/grant_role")
@@ -1569,7 +1576,8 @@ def _handle_staff_list(body: dict[str, Any]) -> dict[str, Any]:
 
 def _handle_measurement_request(body: dict[str, Any]) -> dict[str, Any]:
     """Менеджер создаёт ЗАЯВКУ на замер (без замеров — пустая заготовка).
-    body: {initData, client_name, client_phone, address, assigned_to_tg_id?, notes?}"""
+    body: {initData, client_name, client_phone, address, assigned_to_tg_id?, notes?, urgent?}
+    urgent=True → немедленный push назначенному замерщику (или всем measurer-ам если не назначен)."""
     cfg = get_config()
     auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
     if not auth or not auth.get("user"):
@@ -1585,6 +1593,7 @@ def _handle_measurement_request(body: dict[str, Any]) -> dict[str, Any]:
     address = (body.get("address") or "").strip()
     assigned_to = str(body.get("assigned_to_tg_id") or "").strip()
     notes = (body.get("notes") or "").strip()
+    urgent = bool(body.get("urgent", False))
 
     # Приблизительная дата визита (Commit C2)
     preferred_type = (body.get("preferred_type") or "tbd").strip()
@@ -1640,8 +1649,33 @@ def _handle_measurement_request(body: dict[str, Any]) -> dict[str, Any]:
             f"Откройте кабинет — согласуйте точную дату с клиентом."
         )
 
+    # Срочный замер: push всем замерщикам или конкретному
+    if urgent:
+        scheduled_line = (
+            f"📅 {preferred_date}" if preferred_type == "specific" and preferred_date
+            else "📅 дата уточняется"
+        )
+        urgent_text = (
+            f"⚡ <b>СРОЧНЫЙ ЗАМЕР</b>\n\n"
+            f"📍 Адрес: {address or '—'}\n"
+            f"{scheduled_line}\n"
+            f"👤 {client_name}\n\n"
+            f"Откройте MiniApp → Входящие"
+        )
+        if assigned_to:
+            tg.send_message(int(assigned_to), urgent_text)
+        else:
+            measurers = sheets.find_users_by_role("measurer")
+            for m in measurers:
+                try:
+                    m_tg_id = int(m.get("tg_id", 0))
+                except (TypeError, ValueError):
+                    continue
+                if m_tg_id:
+                    tg.send_message(m_tg_id, urgent_text)
+
     sheets.log_event("measurement_requested", tg_id, {
-        "id": measurement_id, "assigned_to": assigned_to, "client": client_name,
+        "id": measurement_id, "assigned_to": assigned_to, "client": client_name, "urgent": urgent,
     })
     return {"ok": True, "id": measurement_id, "status": "requested", "assigned_to_tg_id": assigned_to}
 
@@ -2361,6 +2395,7 @@ def _handle_assembly_list(body: dict[str, Any]) -> dict[str, Any]:
             "gcal_event_url": row.get("gcal_event_url", ""),
             "measurement_id": row.get("measurement_id", ""),
             "lead_id": row.get("lead_id", ""),
+            "kitchen_price": row.get("kitchen_price", ""),
         })
     out.sort(key=lambda x: x.get("scheduled_at") or x.get("ts", ""), reverse=True)
     return {"ok": True, "count": len(out), "assemblies": out}
@@ -2425,7 +2460,52 @@ def _handle_assembly_detail(body: dict[str, Any]) -> dict[str, Any]:
         "gcal_event_id": row.get("gcal_event_id", ""),
         "gcal_event_url": row.get("gcal_event_url", ""),
         "manager_note": row.get("manager_note", ""),
+        "kitchen_price": row.get("kitchen_price", ""),
     }
+
+
+def _handle_assembly_set_kitchen_price(body: dict[str, Any]) -> dict[str, Any]:
+    """Менеджер устанавливает стоимость кухни для сборки.
+    body: {initData, assembly_id, kitchen_price}"""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user or not sheets.has_role(user, "manager"):
+        return {"error": "only_manager"}
+
+    assembly_id = (body.get("assembly_id") or "").strip()
+    if not assembly_id:
+        return {"error": "missing_assembly_id"}
+
+    try:
+        kitchen_price = float(body.get("kitchen_price") or 0)
+    except (TypeError, ValueError):
+        return {"error": "bad_kitchen_price", "msg": "kitchen_price должен быть числом"}
+    if kitchen_price < 0:
+        return {"error": "bad_kitchen_price", "msg": "kitchen_price не может быть отрицательным"}
+
+    _ensure_assemblies_sheet()
+    row = sheets.find_row("Assemblies", "id", assembly_id)
+    if not row:
+        return {"error": "assembly_not_found"}
+
+    if str(row.get("manager_tg_id")) != str(tg_id):
+        return {"error": "forbidden"}
+
+    sheets.update_cell_by_key("Assemblies", "id", assembly_id, "kitchen_price", str(kitchen_price))
+    sheets.log_event("assembly_kitchen_price_set", tg_id, {
+        "id": assembly_id, "kitchen_price": kitchen_price,
+    })
+
+    assembly_price = round(kitchen_price * 0.09, 2)
+    return {"ok": True, "kitchen_price": kitchen_price, "assembly_price": assembly_price}
 
 
 def _normalize_phone(raw: str) -> tuple[str, bool]:

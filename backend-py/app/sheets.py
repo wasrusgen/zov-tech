@@ -198,6 +198,28 @@ def primary_role(user: dict[str, Any] | None) -> str:
     return roles[0] if roles else ""
 
 
+def find_users_by_role(role: str) -> list[dict[str, Any]]:
+    """Возвращает всех пользователей из листа Users у которых есть указанная роль."""
+    try:
+        s = sheet("Users")
+        rows = _cached_get_all_values(s)
+    except Exception:
+        return []
+    if not rows:
+        return []
+    headers = rows[0]
+    result = []
+    for r in rows[1:]:
+        row_dict = dict(zip(headers, r + [""] * (len(headers) - len(r))))
+        if role in parse_roles(row_dict.get("role", "")):
+            full_name = (
+                f"{row_dict.get('first_name', '')} {row_dict.get('last_name', '')}".strip()
+                or row_dict.get("tg_username", "")
+            )
+            result.append({**row_dict, "full_name": full_name, "roles": parse_roles(row_dict.get("role", ""))})
+    return result
+
+
 def grant_role(tg_id: int, role: str) -> bool:
     """Добавляет роль пользователю (если её ещё нет). Возвращает True если что-то изменилось.
     Замерщик и сборщик объединены в одну роль «мастер» — при выдаче одной автоматически выдаётся вторая."""
