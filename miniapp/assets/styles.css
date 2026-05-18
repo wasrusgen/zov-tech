@@ -1568,4 +1568,69 @@ html[data-variant="d"] .section-head .label {
   font-size: 13px;
   padding: 7px 14px;
 }
+/* ── SignRequest overlay ─────────────────────────────────────── */
+.signreq-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,.55);
+  display: flex; align-items: flex-end;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+.signreq-sheet {
+  width: 100%; max-height: 92dvh; overflow-y: auto;
+  background: var(--surface, #fff);
+  border-radius: 20px 20px 0 0;
+  padding: 0 0 env(safe-area-inset-bottom, 16px);
+}
+.signreq-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 16px 8px;
+  position: sticky; top: 0;
+  background: var(--surface, #fff);
+  border-bottom: 1px solid var(--border, #eee);
+  z-index: 1;
+}
+.signreq-title { font-size: 16px; font-weight: 700; color: var(--ink); }
+.signreq-close {
+  background: none; border: none; cursor: pointer;
+  font-size: 18px; color: var(--muted); padding: 4px 8px;
+}
+.signreq-tabs {
+  display: flex; gap: 4px; padding: 10px 12px 0; flex-wrap: wrap;
+}
+.signreq-tab {
+  background: var(--surface-2, var(--surface));
+  border: 1px solid var(--border); border-radius: 20px;
+  font-size: 12px; font-weight: 600; color: var(--muted);
+  padding: 6px 12px; cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.signreq-tab.active {
+  background: var(--accent, #003E7E); color: #fff; border-color: transparent;
+}
+.signreq-panel { padding: 14px 16px 8px; }
+.signreq-canvas-wrap {
+  position: relative; width: 100%; height: 160px;
+  border: 2px solid var(--border); border-radius: 10px;
+  background: var(--bg, #f9f9f9); overflow: hidden;
+  cursor: crosshair; touch-action: none;
+}
+.signreq-canvas-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.signreq-canvas-hint {
+  position: absolute; inset: 0; display: flex;
+  align-items: center; justify-content: center;
+  font-size: 13px; color: var(--muted); pointer-events: none;
+  opacity: .6;
+}
+.signreq-name-row { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.signreq-cta { margin-top: 12px; }
+.signreq-cta .btn-primary { width: 100%; }
+.signreq-err {
+  color: #C0392B; font-size: 12px; margin-top: 6px; min-height: 16px;
+}
+.signreq-code-info {
+  font-size: 13px; color: var(--ink); margin-bottom: 12px;
+  padding: 10px 12px; background: var(--surface-2, var(--surface));
+  border-radius: 8px; border: 1px solid var(--border);
+}
 /* ─────────────────────────────────────────────────────────────── */

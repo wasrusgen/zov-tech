@@ -141,16 +141,25 @@ const AssemblyDetailScreen = (function () {
         </div>` : "";
 
       // Подпись
+      const VIA_LABELS = {
+        canvas: "✍️ Подпись пальцем",
+        code:   "📱 Код подтверждения",
+        proxy:  "👤 Представитель",
+        absent: "🚫 Без подписи",
+      };
       const signBlock = data.signed_by_name ? `
         <div style="margin:12px 16px 0;padding:10px 12px;background:var(--surface);
-                    border:1px solid var(--border);border-radius:12px;
-                    display:flex;justify-content:space-between;align-items:center;">
-          <div>
-            <div style="font-size:12px;color:var(--muted);">Принято клиентом</div>
-            <div style="font-size:13px;font-weight:600;color:var(--ink);">${escHtml(data.signed_by_name)}</div>
+                    border:1px solid var(--border);border-radius:12px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;
+                      letter-spacing:.06em;color:var(--muted);margin-bottom:6px;">
+            ${escHtml(VIA_LABELS[data.signed_via] || "Принято")}
           </div>
-          <div style="font-size:12px;color:var(--muted);">${escHtml(fmtDate(data.signed_at) || "")}</div>
-        </div>` : "";
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-size:13px;font-weight:600;color:var(--ink);">${escHtml(data.signed_by_name)}</div>
+            <div style="font-size:12px;color:var(--muted);">${escHtml(fmtDate(data.signed_at) || "")}</div>
+          </div>
+          ${data.signed_by_phone ? `<div style="font-size:12px;color:var(--muted);margin-top:2px;">${escHtml(data.signed_by_phone)}</div>` : ""}
+        </div>` : `<div id="sr-sign-btn-wrap" style="margin:12px 16px 0;"></div>`;
 
       // Кнопка Google Calendar
       const calBtn = data.gcal_event_url ? `
@@ -166,6 +175,31 @@ const AssemblyDetailScreen = (function () {
 
       screen.innerHTML = statusBanner + mainBlock + noteBlock + photosBlock + signBlock + calBtn +
         `<div style="height:32px;"></div>`;
+
+      // Кнопка «Подписать акт» — только если ещё не подписано
+      if (!data.signed_by_name) {
+        const btnWrap = screen.querySelector("#sr-sign-btn-wrap");
+        if (btnWrap) {
+          const signBtn = document.createElement("button");
+          signBtn.className = "btn-primary";
+          signBtn.style.cssText = "width:100%;font-size:15px;padding:13px;";
+          signBtn.textContent = "✍️ Подписать акт приёмки";
+          signBtn.addEventListener("click", () => {
+            haptic && haptic("impact");
+            if (typeof SignRequest !== "undefined") {
+              SignRequest.open(data.id, {
+                clientName:  data.client_name || "",
+                clientTgId:  data.client_tg_id || "",
+                onSuccess: () => {
+                  // Перерисовываем экран после подписания
+                  mount(container, assemblyId);
+                },
+              });
+            }
+          });
+          btnWrap.appendChild(signBtn);
+        }
+      }
 
     } catch (e) {
       screen.innerHTML = `<div class="error" style="margin:16px;">Ошибка: ${escHtml(e.message)}</div>`;

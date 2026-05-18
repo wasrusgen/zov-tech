@@ -7,7 +7,8 @@ import os
 import re
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+import secrets
 from pathlib import Path
 from typing import Any
 from fastapi import FastAPI, Request, Response
@@ -144,6 +145,8 @@ async def _dispatch_post(request: Request):
         "assembly_list":         _handle_assembly_list,
         "assembly_detail":       _handle_assembly_detail,
         "assembly_set_kitchen_price": _handle_assembly_set_kitchen_price,
+        "sign_request_create":   _handle_sign_request_create,
+        "sign_request_submit":   _handle_sign_request_submit,
         "proposal_brief":        proposals_mod.handle_brief,
         "proposal_create":       proposals_mod.handle_create,
         "proposal_upsert_variant": proposals_mod.handle_upsert_variant,
@@ -2220,8 +2223,11 @@ def _assembly_columns() -> list[str]:
         "started_at", "completed_at",
         # Фото-отчёт: списки имён файлов через запятую (внутри PHOTOS_DIR/<assembly_id>/)
         "photos_before", "photos_in_progress", "photos_after",
-        # Приёмка ППР: подпись клиента (PNG dataURL → файл) + ФИО/дата
-        "signature_file", "signed_by_name", "signed_at",
+        # Приёмка / подпись (SignRequest)
+        "sign_token", "sign_token_expires_at",
+        "signed_via",          # canvas | code | proxy | absent
+        "signed_by_name", "signed_by_tg_id", "signed_by_phone",
+        "signature_file", "signed_at",
         # Google Calendar
         "gcal_event_id", "gcal_event_url",
         # Прочее
@@ -2455,12 +2461,17 @@ def _handle_assembly_detail(body: dict[str, Any]) -> dict[str, Any]:
         "photos_in_progress": _list(row.get("photos_in_progress", "")),
         "photos_after": _list(row.get("photos_after", "")),
         "signature_file": row.get("signature_file", ""),
+        "signed_via": row.get("signed_via", ""),
         "signed_by_name": row.get("signed_by_name", ""),
+        "signed_by_tg_id": row.get("signed_by_tg_id", ""),
+        "signed_by_phone": row.get("signed_by_phone", ""),
         "signed_at": row.get("signed_at", ""),
+        "sign_token_expires_at": row.get("sign_token_expires_at", ""),
         "gcal_event_id": row.get("gcal_event_id", ""),
         "gcal_event_url": row.get("gcal_event_url", ""),
         "manager_note": row.get("manager_note", ""),
         "kitchen_price": row.get("kitchen_price", ""),
+        "client_tg_id": row.get("client_tg_id", ""),
     }
 
 
@@ -2506,6 +2517,193 @@ def _handle_assembly_set_kitchen_price(body: dict[str, Any]) -> dict[str, Any]:
 
     assembly_price = round(kitchen_price * 0.09, 2)
     return {"ok": True, "kitchen_price": kitchen_price, "assembly_price": assembly_price}
+
+
+# =================================================================
+# SignRequest — цифровая подпись акта сборки (ФЗ-63 ПЭП)
+# =================================================================
+
+def _handle_sign_request_create(body: dict[str, Any]) -> dict[str, Any]:
+    """Менеджер/сборщик инициирует подпись акта.
+    body: {initData, initDataUnsafe, assembly_id, mode: canvas|code|proxy|absent}
+    Для code-режима: генерирует OTP и отправляет клиенту через бот."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = str(auth["user"]["id"])
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+    if not (sheets.has_role(user, "manager") or sheets.has_role(user, "admin")
+            or sheets.has_role(user, "assembler") or sheets.has_role(user, "measurer")):
+        return {"error": "forbidden"}
+
+    assembly_id = (body.get("assembly_id") or "").strip()
+    if not assembly_id:
+        return {"error": "missing_assembly_id"}
+    mode = (body.get("mode") or "canvas").strip()
+    if mode not in ("canvas", "code", "proxy", "absent"):
+        return {"error": "invalid_mode"}
+
+    _ensure_assemblies_sheet()
+    row = sheets.find_row("Assemblies", "id", assembly_id)
+    if not row:
+        return {"error": "assembly_not_found"}
+
+    is_owner = (str(row.get("manager_tg_id")) == tg_id
+                or str(row.get("assigned_to_tg_id")) == tg_id)
+    if not is_owner:
+        return {"error": "forbidden"}
+
+    now = datetime.now(timezone.utc)
+    expires_at = (now + timedelta(hours=72)).isoformat()
+    # 6-значный OTP (надёжнее строковым генератором)
+    otp = str(secrets.randbelow(900000) + 100000)
+
+    sheets.update_cell_by_key("Assemblies", "id", assembly_id, "sign_token", otp)
+    sheets.update_cell_by_key("Assemblies", "id", assembly_id, "sign_token_expires_at", expires_at)
+
+    client_tg_id = row.get("client_tg_id", "")
+    client_sent = False
+    if mode == "code" and client_tg_id:
+        msg = (
+            "🔐 <b>Код подтверждения акта сборки</b>\n\n"
+            f"Адрес: {row.get('address', '—')}\n\n"
+            f"Ваш код: <code>{otp}</code>\n\n"
+            "Сообщите код мастеру или введите в приложении. "
+            "Код действителен 72 часа."
+        )
+        client_sent = tg.send_message(int(client_tg_id), msg)
+
+    sheets.log_event("sign_request_created", tg_id,
+                     {"assembly_id": assembly_id, "mode": mode})
+    return {
+        "ok": True,
+        "sign_token": otp,
+        "expires_at": expires_at,
+        "mode": mode,
+        "client_tg_id": client_tg_id,
+        "client_name": row.get("client_name", ""),
+        "client_sent": client_sent,
+    }
+
+
+def _handle_sign_request_submit(body: dict[str, Any]) -> dict[str, Any]:
+    """Фиксирует подпись. Режимы:
+    canvas  — {initData, assembly_id, mode, signature_data(base64 PNG), signed_by_name, signed_by_phone?}
+    code    — {assembly_id, mode, code, signed_by_name, signed_by_phone?, initData?}
+    proxy   — {initData, assembly_id, mode, signed_by_name, signed_by_phone?}
+    absent  — {initData, assembly_id, mode, absent_reason?}
+    """
+    cfg = get_config()
+    mode = (body.get("mode") or "canvas").strip()
+    if mode not in ("canvas", "code", "proxy", "absent"):
+        return {"error": "invalid_mode"}
+    assembly_id = (body.get("assembly_id") or "").strip()
+    if not assembly_id:
+        return {"error": "missing_assembly_id"}
+
+    _ensure_assemblies_sheet()
+    row = sheets.find_row("Assemblies", "id", assembly_id)
+    if not row:
+        return {"error": "assembly_not_found"}
+
+    now_iso = _now_iso()
+    signed_by_name = (body.get("signed_by_name") or "").strip()
+    signed_by_phone = (body.get("signed_by_phone") or "").strip()
+    signed_by_tg_id = ""
+    signature_file = ""
+
+    if mode == "code":
+        code = (body.get("code") or "").strip()
+        stored = (row.get("sign_token") or "").strip()
+        expires_str = (row.get("sign_token_expires_at") or "").strip()
+        if not stored:
+            return {"error": "no_sign_token"}
+        if not code:
+            return {"error": "missing_code"}
+        if code != stored:
+            return {"error": "invalid_code"}
+        if expires_str:
+            try:
+                # Парсим ISO без dateutil
+                exp = datetime.fromisoformat(expires_str.replace("Z", "+00:00"))
+                if datetime.now(timezone.utc) > exp:
+                    return {"error": "code_expired"}
+            except Exception:
+                pass  # не блокируем если парсинг упал
+        # Берём tg_id из initData если есть (клиент авторизован в боте)
+        auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+        if auth and auth.get("user"):
+            signed_by_tg_id = str(auth["user"]["id"])
+
+    elif mode in ("canvas", "proxy", "absent"):
+        auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+        if not auth or not auth.get("user"):
+            unsafe = body.get("initDataUnsafe") or {}
+            if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+                auth = {"user": unsafe["user"]}
+            else:
+                return {"error": "invalid_init_data"}
+        tg_id = str(auth["user"]["id"])
+        is_owner = (str(row.get("manager_tg_id")) == tg_id
+                    or str(row.get("assigned_to_tg_id")) == tg_id)
+        if not is_owner:
+            return {"error": "forbidden"}
+        signed_by_tg_id = tg_id
+
+        if mode == "canvas":
+            sig_data = (body.get("signature_data") or "").strip()
+            if not sig_data:
+                return {"error": "missing_signature_data"}
+            # data:image/png;base64,<data> → bytes
+            raw = sig_data.split(",", 1)[-1]
+            try:
+                sig_bytes = base64.b64decode(raw)
+            except Exception:
+                return {"error": "invalid_signature_data"}
+            sig_dir = PHOTOS_DIR / assembly_id
+            sig_dir.mkdir(parents=True, exist_ok=True)
+            sig_filename = f"sign_{int(time.time())}.png"
+            (sig_dir / sig_filename).write_bytes(sig_bytes)
+            signature_file = sig_filename
+
+        elif mode == "absent":
+            reason = (body.get("absent_reason") or "Клиент отсутствовал").strip()
+            signed_by_name = reason
+
+    # Пишем все поля за один проход (каждый update_cell — отдельный запрос к Sheets)
+    updates = {
+        "signed_via": mode,
+        "signed_by_name": signed_by_name,
+        "signed_by_phone": signed_by_phone,
+        "signed_by_tg_id": signed_by_tg_id,
+        "signed_at": now_iso,
+        "signature_file": signature_file,
+    }
+    for col, val in updates.items():
+        sheets.update_cell_by_key("Assemblies", "id", assembly_id, col, val)
+
+    sheets.log_event("assembly_signed", signed_by_tg_id or "anon",
+                     {"assembly_id": assembly_id, "mode": mode, "by": signed_by_name})
+    return {"ok": True, "signed_at": now_iso, "mode": mode, "signed_by_name": signed_by_name}
+
+
+@app.post("/api/sign_request_create")
+async def api_sign_request_create(request: Request):
+    body = await _safe_json(request)
+    return JSONResponse(_handle_sign_request_create(body))
+
+
+@app.post("/api/sign_request_submit")
+async def api_sign_request_submit(request: Request):
+    body = await _safe_json(request)
+    return JSONResponse(_handle_sign_request_submit(body))
 
 
 def _normalize_phone(raw: str) -> tuple[str, bool]:
