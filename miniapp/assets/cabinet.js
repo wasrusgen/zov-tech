@@ -76,7 +76,7 @@ const CabinetScreen = (function () {
         <div class="block" style="margin:12px 16px 0;">
           <div class="block-head">Мои подборы</div>
           <div style="padding:12px 0;color:var(--muted);font-size:13px;">Подборов пока нет</div>
-          <button class="btn-primary btn-sm" data-href="#/picker" style="margin-top:4px;">🛒 Запросить подбор</button>
+          <button class="btn-primary btn-sm" data-href="#/c/proposal" style="margin-top:4px;">🛒 Запросить подбор</button>
         </div>`;
     }
     const items = proposals.slice(0, 3).map(p => `
@@ -96,7 +96,7 @@ const CabinetScreen = (function () {
           ${proposals.length > 3 ? `<span style="font-size:12px;color:var(--accent);cursor:pointer;" data-href="#/c/proposal">Все ${proposals.length}</span>` : ""}
         </div>
         <div style="display:flex;flex-direction:column;gap:8px;padding-top:4px;">${items}</div>
-        <button class="btn-secondary btn-sm" data-href="#/picker" style="margin-top:10px;">🛒 Новый подбор</button>
+        <button class="btn-secondary btn-sm" data-href="#/c/proposal" style="margin-top:10px;">🛒 Новый подбор</button>
       </div>`;
   }
 

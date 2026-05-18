@@ -1625,9 +1625,13 @@ function hideSplash() {
   }, wait);
 }
 
+let _hashListenerAdded = false;
 async function init() {
   setupTelegram();
-  window.addEventListener("hashchange", routeByHash);
+  if (!_hashListenerAdded) {
+    window.addEventListener("hashchange", routeByHash);
+    _hashListenerAdded = true;
+  }
 
   const qp = new URLSearchParams(window.location.search);
   // Telegram ставит #tgWebAppData=... в hash при открытии — это НЕ наш роут.
@@ -1658,75 +1662,8 @@ async function init() {
   try {
     const me = await fetchMe();
     window.__zovMe = me; // кешируем профиль для подэкранов
-    if (location.hash.startsWith("#/podbor")) {
-      Podbor.mount(app);
-      hideSplash();
-      return;
-    }
-    if (location.hash.startsWith("#/clients")) {
-      Clients.mount(app);
-      hideSplash();
-      return;
-    }
-    if (location.hash.startsWith("#/measure")) {
-      Measurements.mount(app);
-      hideSplash();
-      return;
-    }
-    if (location.hash.startsWith("#/request")) {
-      MeasurementRequest.mount(app);
-      hideSplash();
-      return;
-    }
-    if (location.hash.startsWith("#/inbox/")) {
-      const id = location.hash.replace("#/inbox/", "");
-      renderInboxDetail(id);
-      hideSplash();
-      return;
-    }
-    if (location.hash === "#/inbox") {
-      if (typeof InboxScreen !== "undefined") InboxScreen.mount(app);
-      hideSplash();
-      return;
-    }
-    if (location.hash.startsWith("#/assembly")) {
-      Assembly.mount(app);
-      hideSplash();
-      return;
-    }
-    if (location.hash.startsWith("#/c/proposal")) {
-      app.innerHTML = "";
-      document.body.classList.remove("has-bottom-nav");
-      const oldNav = document.getElementById("bottom-nav");
-      if (oldNav) oldNav.remove();
-      if (typeof Proposals !== "undefined") {
-        Proposals.mountClient(app);
-      } else {
-        app.innerHTML = `<div class="error">Модуль подбора не загружен</div>`;
-      }
-      hideSplash();
-      return;
-    }
-    if (location.hash.startsWith("#/c/contract")) {
-      app.innerHTML = "";
-      document.body.classList.remove("has-bottom-nav");
-      const oldNavC = document.getElementById("bottom-nav");
-      if (oldNavC) oldNavC.remove();
-      if (typeof Proposals !== "undefined") {
-        Proposals.mountContractReview(app);
-      } else {
-        app.innerHTML = `<div class="error">Модуль не загружен</div>`;
-      }
-      hideSplash();
-      return;
-    }
-    if (me.role === "staff") {
-      renderStaff(me);
-    } else if (me.role === "manager") {
-      renderManager(me);
-    } else {
-      renderClient(me);
-    }
+    // Единая точка роутинга — routeByHash покрывает все маршруты
+    routeByHash();
     hideSplash();
   } catch (e) {
     console.error(e);

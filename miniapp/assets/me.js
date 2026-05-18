@@ -158,7 +158,7 @@ const MeScreen = (function () {
       <div class="block" style="margin:12px 16px 0;">
         <div class="podbor-cta-row" style="flex-wrap:wrap;gap:8px;padding-top:4px;">
           <button class="btn-primary" data-href="#/c/cabinet">🏠 Мой кабинет</button>
-          <button class="btn-secondary" data-href="#/picker">🛒 Подбор</button>
+          <button class="btn-secondary" data-href="#/c/proposal">🛒 Подбор</button>
         </div>
       </div>
     `;
