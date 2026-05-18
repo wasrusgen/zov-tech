@@ -862,13 +862,13 @@ async function renderStaff(me) {
 
   if (caps.measurer) {
     try {
+      const ctrl1 = new AbortController();
+      const t1 = setTimeout(() => ctrl1.abort(), 15000);
       const res = await fetch(`${BACKEND_URL}/api/measurement_inbox`, {
-        method: "POST",
-        body: JSON.stringify({
-          initData: tg?.initData || "",
-          initDataUnsafe: tg?.initDataUnsafe || null,
-        }),
+        method: "POST", signal: ctrl1.signal,
+        body: JSON.stringify({ initData: tg?.initData || "", initDataUnsafe: tg?.initDataUnsafe || null }),
       });
+      clearTimeout(t1);
       const data = await res.json();
       const list = document.getElementById("inboxList");
       if (!list) return;
@@ -922,13 +922,13 @@ async function renderStaff(me) {
 
 async function renderStaffAssemblies(container) {
   try {
+    const ctrl2 = new AbortController();
+    const t2 = setTimeout(() => ctrl2.abort(), 15000);
     const res = await fetch(`${BACKEND_URL}/api/assembly_list`, {
-      method: "POST",
-      body: JSON.stringify({
-        initData: tg?.initData || "",
-        initDataUnsafe: tg?.initDataUnsafe || null,
-      }),
+      method: "POST", signal: ctrl2.signal,
+      body: JSON.stringify({ initData: tg?.initData || "", initDataUnsafe: tg?.initDataUnsafe || null }),
     });
+    clearTimeout(t2);
     const data = await res.json();
     if (data.error) {
       container.innerHTML = `<div class="error">Ошибка: ${escHtml(data.error)}</div>`;
@@ -1743,6 +1743,9 @@ function routeByHash() {
     renderInboxDetail(location.hash.replace("#/inbox/", ""));
   } else if (location.hash.startsWith("#/assembly")) {
     Assembly.mount(app);
+  } else if (location.hash.startsWith("#/master")) {
+    const me = window.__zovMe;
+    if (me) renderStaff(me); else init();
   } else if (location.hash.startsWith("#/c/proposal")) {
     app.innerHTML = "";
     document.body.classList.remove("has-bottom-nav");
