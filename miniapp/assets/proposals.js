@@ -26,6 +26,7 @@ const Proposals = (function () {
       const res = await fetch(`${BACKEND_URL}/api/${path}`, {
         method: "POST",
         signal: ctrl.signal,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...authBody(), ...extra }),
       });
       if (!res.ok) throw new Error("HTTP " + res.status);

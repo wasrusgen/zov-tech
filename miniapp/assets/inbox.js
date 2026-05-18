@@ -24,6 +24,7 @@ const InboxScreen = (function () {
     try {
       const res = await fetch(`${BACKEND_URL}/api/${path}`, {
         method: "POST", signal: ctrl.signal,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ initData: tg?.initData || "", initDataUnsafe: tg?.initDataUnsafe || null, ...body }),
       });
       return await res.json();

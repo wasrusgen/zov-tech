@@ -21,7 +21,7 @@ const Assembly = (function () {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
-      const res = await fetch(url, { method: "POST", signal: ctrl.signal, body: JSON.stringify(body) });
+      const res = await fetch(url, { method: "POST", signal: ctrl.signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       return await res.json();
     } catch (e) {
       if (e.name === "AbortError") throw new Error("Сервер не отвечает — попробуйте ещё раз");

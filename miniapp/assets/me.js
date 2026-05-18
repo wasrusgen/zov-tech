@@ -15,7 +15,7 @@ const MeScreen = (function () {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), ms);
     try {
-      const res = await fetch(url, { method: "POST", signal: ctrl.signal, body: JSON.stringify(body) });
+      const res = await fetch(url, { method: "POST", signal: ctrl.signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       return await res.json();
     } catch (e) {
       if (e.name === "AbortError") throw new Error("Сервер не отвечает");
