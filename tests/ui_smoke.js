@@ -228,7 +228,46 @@ async function run() {
     ? pass("Нет JS-ошибок на экране сборок")
     : fail("JS-ошибки на экране сборок", jsErrAssembly.slice(0, 2).join(" | "));
 
-  // ── 7. Снимок экрана для отчёта ───────────────────────────────────────────
+  // ── 7. Входящие задачи менеджера (#/inbox) ────────────────────────────────
+  section("📥 Входящие менеджера (#/inbox)");
+  await page.evaluate(() => { location.hash = "#/inbox"; });
+  await page.waitForTimeout(3000);
+  const jsErrInbox = errors.flush();
+  jsErrInbox.length === 0
+    ? pass("Нет JS-ошибок на экране #/inbox")
+    : fail("JS-ошибки на экране #/inbox", jsErrInbox.slice(0, 2).join(" | "));
+
+  const inboxRendered = await page.evaluate(() =>
+    document.querySelector(".podbor-header, .empty, .error, .assembly-card") !== null
+  );
+  inboxRendered
+    ? pass("#/inbox отрендерился (заголовок или список)")
+    : fail("#/inbox не отрендерился — нет .podbor-header / .empty / .error");
+
+  const inboxTitle = await page.evaluate(() =>
+    document.querySelector(".podbor-title")?.textContent?.trim() || ""
+  );
+  inboxTitle === "Входящие"
+    ? pass("Заголовок «Входящие» корректен")
+    : fail("Неверный заголовок #/inbox", `получили: "${inboxTitle}"`);
+
+  // ── 8. Профиль (#/me) ─────────────────────────────────────────────────────
+  section("👤 Профиль (#/me)");
+  await page.evaluate(() => { location.hash = "#/me"; });
+  await page.waitForTimeout(3000);
+  const jsErrMe = errors.flush();
+  jsErrMe.length === 0
+    ? pass("Нет JS-ошибок на экране #/me")
+    : fail("JS-ошибки на экране #/me", jsErrMe.slice(0, 2).join(" | "));
+
+  const meRendered = await page.evaluate(() =>
+    document.querySelector(".podbor-header, .error") !== null
+  );
+  meRendered
+    ? pass("#/me отрендерился")
+    : fail("#/me не отрендерился — нет .podbor-header");
+
+  // ── 9. Снимок экрана для отчёта ───────────────────────────────────────────
   await page.evaluate(() => { location.hash = "#/clients"; });
   await page.waitForTimeout(2000);
   await page.screenshot({ path: "tests/ui_last_run.png", fullPage: false });
