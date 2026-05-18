@@ -1,4 +1,4 @@
-// ЗОВ MiniApp — главный скрипт.
+// ЗОВ MiniApp — главный скрипт. v20260518i
 // На входе: подписанный initData от Telegram.
 // Ходим на backend → получаем профиль (роль, статус) → рендерим меню.
 
@@ -1684,6 +1684,11 @@ async function init() {
       hideSplash();
       return;
     }
+    if (location.hash === "#/inbox") {
+      if (typeof InboxScreen !== "undefined") InboxScreen.mount(app);
+      hideSplash();
+      return;
+    }
     if (location.hash.startsWith("#/assembly")) {
       Assembly.mount(app);
       hideSplash();
@@ -1741,6 +1746,9 @@ function routeByHash() {
     MeasurementRequest.mount(app);
   } else if (location.hash.startsWith("#/inbox/")) {
     renderInboxDetail(location.hash.replace("#/inbox/", ""));
+  } else if (location.hash === "#/inbox") {
+    if (typeof InboxScreen !== "undefined") InboxScreen.mount(app);
+    else init();
   } else if (location.hash.startsWith("#/assembly")) {
     Assembly.mount(app);
   } else if (location.hash.startsWith("#/master")) {
