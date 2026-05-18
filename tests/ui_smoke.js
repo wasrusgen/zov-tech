@@ -1,23 +1,66 @@
 /**
  * UI smoke-тест MiniApp через Playwright.
- * Запуск: node tests/ui_smoke.js
+ * Запуск: node tests/ui_smoke.js           — локальный сервер (по умолчанию)
+ *         SMOKE_URL=https://... node tests/ui_smoke.js — произвольный URL
  *
  * Что проверяет:
  *  - Нет JS-ошибок (ReferenceError, TypeError и т.п.) на каждом экране
  *  - Список клиентов загружается
  *  - Карточка клиента открывается без ошибок
  *  - Форма нового клиента открывается без ошибок
- *  - Экраны замеров и сборок открываются без ошибок
+ *  - Экраны замеров, сборок, #/inbox, #/me открываются без ошибок
  */
 
 const { chromium } = require("playwright");
 const crypto = require("crypto");
+const { spawn } = require("child_process");
+const path = require("path");
 
 // ─── Конфигурация ────────────────────────────────────────────────────────────
-const BOT_TOKEN   = "8281503057:AAEXmOepY8quH8E3RqOjFbgn7owV1ngnbGA";
-const ADMIN_TG_ID = 5937498515;
-const MINIAPP_URL = "https://wasrusgen.github.io/zov-tech/";
-const TIMEOUT_MS  = 15000;
+const BOT_TOKEN      = "8281503057:AAEXmOepY8quH8E3RqOjFbgn7owV1ngnbGA";
+const ADMIN_TG_ID    = 5937498515;
+const LOCAL_PORT     = 8787;
+const PROJECT_ROOT   = path.resolve(__dirname, "..");   // без пробелов в аргументах
+const REMOTE_URL     = "https://wasrusgen.github.io/zov-tech/";
+// Если задана переменная окружения — используем её; иначе поднимаем локальный сервер
+const USE_REMOTE     = !!process.env.SMOKE_URL;
+const MINIAPP_URL    = process.env.SMOKE_URL || `http://localhost:${LOCAL_PORT}/`;
+const TIMEOUT_MS     = 15000;
+
+// ─── Локальный сервер ────────────────────────────────────────────────────────
+const http = require("http");
+let _serveProc = null;
+
+function pingServer(port) {
+  return new Promise((resolve) => {
+    const req = http.get(`http://localhost:${port}/`, (res) => { res.resume(); resolve(true); });
+    req.on("error", () => resolve(false));
+    req.setTimeout(500, () => { req.destroy(); resolve(false); });
+  });
+}
+
+function startLocalServer() {
+  return new Promise((resolve, reject) => {
+    if (USE_REMOTE) { resolve(); return; }
+    _serveProc = spawn("npx", ["serve", "miniapp", "-p", String(LOCAL_PORT), "--no-clipboard", "-s"], {
+      stdio: "ignore",
+      shell: true,
+      cwd: PROJECT_ROOT,
+    });
+    _serveProc.on("error", reject);
+
+    // Polling: ждём HTTP-ответа, максимум 15 сек
+    const deadline = Date.now() + 15000;
+    const poll = setInterval(async () => {
+      if (await pingServer(LOCAL_PORT)) { clearInterval(poll); resolve(); return; }
+      if (Date.now() > deadline)        { clearInterval(poll); reject(new Error("Локальный сервер не запустился за 15 сек")); }
+    }, 400);
+  });
+}
+
+function stopLocalServer() {
+  if (_serveProc) { _serveProc.kill(); _serveProc = null; }
+}
 
 // ─── Генерация валидного initData ─────────────────────────────────────────────
 function makeInitData() {
@@ -83,9 +126,11 @@ function makeErrorCollector(page) {
 // ─── Основные тесты ──────────────────────────────────────────────────────────
 
 async function run() {
+  await startLocalServer();
+
   console.log(`\n${"=".repeat(55)}`);
   console.log("  UI SMOKE-ТЕСТ  MiniApp (Playwright)");
-  console.log(`  ${MINIAPP_URL}`);
+  console.log(`  ${MINIAPP_URL}${USE_REMOTE ? "" : "  (локальный сервер)"}`);
   console.log(`${"=".repeat(55)}`);
 
   const browser = await chromium.launch({ headless: true });
@@ -135,6 +180,7 @@ async function run() {
   } catch (e) {
     fail("Ошибка загрузки страницы", e.message);
     await browser.close();
+    stopLocalServer();
     printSummary();
     return;
   }
@@ -274,6 +320,7 @@ async function run() {
   pass("Скриншот сохранён", "tests/ui_last_run.png");
 
   await browser.close();
+  stopLocalServer();
   printSummary();
 }
 
@@ -298,6 +345,7 @@ function printSummary() {
 }
 
 run().catch(e => {
+  stopLocalServer();
   console.error("Критическая ошибка:", e.message);
   process.exit(1);
 });
