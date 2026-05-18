@@ -13,6 +13,7 @@
 
 ### Шаг 1 — Читай статусы всех агентов
 ```
+agents/ROLES.md
 agents/dev-status.md
 agents/devops-status.md
 agents/design-status.md
