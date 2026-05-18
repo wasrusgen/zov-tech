@@ -909,6 +909,22 @@ async function renderStaff(me) {
     app.appendChild(assemblySection);
     renderStaffAssemblies(assemblySection.querySelector("#assemblyList"));
   }
+
+  // Шпаргалки сборщика — прайс, рейки, полкодержатели
+  if (caps.assembler) {
+    const toolsBtn = el(`
+      <div class="podbor-cta-row" style="margin-top:16px;">
+        <button class="btn-secondary" style="gap:8px;">
+          📚 Шпаргалки сборщика
+        </button>
+      </div>
+    `);
+    toolsBtn.querySelector("button").addEventListener("click", () => {
+      haptic && haptic("impact");
+      location.hash = "#/master/tools";
+    });
+    app.appendChild(toolsBtn);
+  }
 }
 
 async function renderStaffAssemblies(container) {
@@ -1679,6 +1695,14 @@ function routeByHash() {
     else init();
   } else if (location.hash.startsWith("#/assembly")) {
     Assembly.mount(app);
+  } else if (location.hash.startsWith("#/master/tools")) {
+    if (typeof MasterTools !== "undefined") {
+      const h = location.hash;
+      if (h === "#/master/tools/rails")   MasterTools.mountRails(app);
+      else if (h === "#/master/tools/shelves") MasterTools.mountShelves(app);
+      else if (h === "#/master/tools/price")   MasterTools.mountPrice(app);
+      else MasterTools.mountMenu(app);
+    } else init();
   } else if (location.hash.startsWith("#/master")) {
     const me = window.__zovMe;
     if (me) renderStaff(me); else init();
