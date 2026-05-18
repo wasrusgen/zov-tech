@@ -1,0 +1,50 @@
+#!/bin/sh
+# pre-push hook — запускает локальные тесты перед каждым git push
+# Устанавливается через: git config core.hooksPath .githooks
+
+ROOT="$(git rev-parse --show-toplevel)"
+FAILED=0
+
+echo ""
+echo "══════════════════════════════════════════"
+echo "  PRE-PUSH: запускаю локальные тесты"
+echo "══════════════════════════════════════════"
+
+# ── 1. CSS-линтер ────────────────────────────────────────────
+echo ""
+echo "  [1/2] CSS-линтер..."
+python -X utf8 "$ROOT/tests/lint_css.py"
+if [ $? -ne 0 ]; then
+  echo "  ❌  CSS-линтер УПАЛ — исправь ошибки CSS перед пушем"
+  FAILED=1
+else
+  echo "  ✅  CSS-линтер OK"
+fi
+
+# ── 2. UI Playwright ─────────────────────────────────────────
+echo ""
+echo "  [2/2] UI Playwright smoke..."
+node "$ROOT/tests/ui_smoke.js"
+if [ $? -ne 0 ]; then
+  echo "  ❌  UI smoke УПАЛ — есть JS-ошибки в интерфейсе"
+  FAILED=1
+else
+  echo "  ✅  UI smoke OK"
+fi
+
+echo ""
+echo "══════════════════════════════════════════"
+
+if [ $FAILED -ne 0 ]; then
+  echo "  ❌  PUSH ЗАБЛОКИРОВАН — исправь ошибки выше"
+  echo "  (чтобы пропустить: git push --no-verify)"
+  echo "══════════════════════════════════════════"
+  echo ""
+  exit 1
+fi
+
+echo "  ✅  Все тесты прошли — пушим"
+echo "  ⚠️   Не забудь прогнать API-тесты: python -X utf8 tests/smoke_api.py"
+echo "══════════════════════════════════════════"
+echo ""
+exit 0
