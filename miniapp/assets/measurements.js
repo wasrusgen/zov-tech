@@ -94,20 +94,30 @@ const Measurements = (function () {
     render();
   }
 
+  async function _fetchWithTimeout(url, body, timeoutMs = 15000) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { method: "POST", signal: ctrl.signal, body: JSON.stringify(body) });
+      return await res.json();
+    } catch (e) {
+      if (e.name === "AbortError") throw new Error("Сервер не отвечает — попробуйте ещё раз");
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async function loadRequestAndStart() {
     root.innerHTML = "";
     root.appendChild(renderHeader("Закрыть заявку"));
     root.appendChild(el(`<div class="loader-inline"><div class="spinner"></div></div>`));
     try {
-      const res = await fetch(`${BACKEND_URL}/api/measurement_detail`, {
-        method: "POST",
-        body: JSON.stringify({
+      const data = await _fetchWithTimeout(`${BACKEND_URL}/api/measurement_detail`, {
           initData: tg?.initData || "",
           initDataUnsafe: tg?.initDataUnsafe || null,
           measurement_id: measurementId,
-        }),
-      });
-      const data = await res.json();
+        });
       if (data.error) {
         root.innerHTML = "";
         root.appendChild(renderHeader("Ошибка"));
@@ -332,14 +342,10 @@ const Measurements = (function () {
 
   async function fetchNextZamerNo(node) {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/measurement_next_no`, {
-        method: "POST",
-        body: JSON.stringify({
+      const data = await _fetchWithTimeout(`${BACKEND_URL}/api/measurement_next_no`, {
           initData: tg?.initData || "",
           initDataUnsafe: tg?.initDataUnsafe || null,
-        }),
-      });
-      const data = await res.json();
+        });
       const hint = node.querySelector("#zamerNoHint");
       const input = node.querySelector("#zamerNoInput");
       if (data.ok && data.next_no && input && !state.zamer_no) {
@@ -529,14 +535,10 @@ const Measurements = (function () {
 
       let clients = [];
       try {
-        const res = await fetch(`${BACKEND_URL}/api/clients`, {
-          method: "POST",
-          body: JSON.stringify({
+        const data = await _fetchWithTimeout(`${BACKEND_URL}/api/clients`, {
             initData: tg?.initData || "",
             initDataUnsafe: tg?.initDataUnsafe || null,
-          }),
-        });
-        const data = await res.json();
+          });
         clients = (data.clients || []).sort((a, b) =>
           (a.client_name || "").localeCompare(b.client_name || "", "ru")
         );
@@ -937,15 +939,11 @@ const Measurements = (function () {
     };
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/measurement`, {
-        method: "POST",
-        body: JSON.stringify({
+      const data = await _fetchWithTimeout(`${BACKEND_URL}/api/measurement`, {
           initData: tg?.initData || "",
           initDataUnsafe: tg?.initDataUnsafe || null,
           measurement,
-        }),
-      });
-      const data = await res.json();
+        });
       if (data.error) {
         result.innerHTML = `<div class="error">Ошибка: ${data.error}</div>`;
         btn.disabled = false; btn.textContent = isUpdate ? "Закрыть заявку" : "Сохранить замер";

@@ -17,6 +17,20 @@ const Assembly = (function () {
     manager_note: "",
   };
 
+  async function _fetchWithTimeout(url, body, timeoutMs = 15000) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { method: "POST", signal: ctrl.signal, body: JSON.stringify(body) });
+      return await res.json();
+    } catch (e) {
+      if (e.name === "AbortError") throw new Error("Сервер не отвечает — попробуйте ещё раз");
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   function mount(container) {
     root = container;
     document.body.classList.remove("has-bottom-nav");
@@ -198,11 +212,7 @@ const Assembly = (function () {
     };
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/assembly_create`, {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
+      const data = await _fetchWithTimeout(`${BACKEND_URL}/api/assembly_create`, body);
       if (data.error) {
         result.innerHTML = `<div class="error">Ошибка: ${escHtml(data.error)}</div>`;
         btn.disabled = false;
@@ -247,14 +257,10 @@ const Assembly = (function () {
     const loading = el(`<div class="loader-inline"><div class="spinner"></div></div>`);
     root.appendChild(loading);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/assembly_list`, {
-        method: "POST",
-        body: JSON.stringify({
+      const data = await _fetchWithTimeout(`${BACKEND_URL}/api/assembly_list`, {
           initData: tg?.initData || "",
           initDataUnsafe: tg?.initDataUnsafe || null,
-        }),
-      });
-      const data = await res.json();
+        });
       loading.remove();
       if (data.error) {
         root.appendChild(el(`<div class="error">${escHtml(data.error)}</div>`));
@@ -309,15 +315,11 @@ const Assembly = (function () {
     root.appendChild(loading);
     let a;
     try {
-      const res = await fetch(`${BACKEND_URL}/api/assembly_detail`, {
-        method: "POST",
-        body: JSON.stringify({
+      a = await _fetchWithTimeout(`${BACKEND_URL}/api/assembly_detail`, {
           initData: tg?.initData || "",
           initDataUnsafe: tg?.initDataUnsafe || null,
           assembly_id: id,
-        }),
-      });
-      a = await res.json();
+        });
     } catch (e) {
       loading.remove();
       root.appendChild(el(`<div class="error">Сеть: ${escHtml(e.message)}</div>`));

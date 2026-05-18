@@ -19,13 +19,23 @@ const Proposals = (function () {
     return { initData: tg?.initData || "", initDataUnsafe: tg?.initDataUnsafe || null };
   }
 
-  async function apiFetch(path, extra = {}) {
-    const res = await fetch(`${BACKEND_URL}/api/${path}`, {
-      method: "POST",
-      body: JSON.stringify({ ...authBody(), ...extra }),
-    });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    return res.json();
+  async function apiFetch(path, extra = {}, timeoutMs = 15000) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/${path}`, {
+        method: "POST",
+        signal: ctrl.signal,
+        body: JSON.stringify({ ...authBody(), ...extra }),
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    } catch (e) {
+      if (e.name === "AbortError") throw new Error("Сервер не отвечает — попробуйте ещё раз");
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   // ── Constants ─────────────────────────────────────────────

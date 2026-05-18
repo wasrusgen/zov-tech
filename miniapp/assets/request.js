@@ -15,6 +15,20 @@ const MeasurementRequest = (function () {
   };
   let measurers = [];
 
+  async function _fetchWithTimeout(url, body, timeoutMs = 15000) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { method: "POST", signal: ctrl.signal, body: JSON.stringify(body) });
+      return await res.json();
+    } catch (e) {
+      if (e.name === "AbortError") throw new Error("Сервер не отвечает — попробуйте ещё раз");
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   function mount(container) {
     root = container;
     document.body.classList.remove("has-bottom-nav");
@@ -116,11 +130,9 @@ const MeasurementRequest = (function () {
 
   async function loadMeasurers() {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/staff_list`, {
-        method: "POST",
-        body: JSON.stringify({ initData: tg?.initData || "", role: "measurer" }),
-      });
-      const data = await res.json();
+      const data = await _fetchWithTimeout(`${BACKEND_URL}/api/staff_list`, {
+          initData: tg?.initData || "", role: "measurer",
+        });
       measurers = data.staff || [];
       const sel = document.getElementById("measurerSelect");
       const hint = document.getElementById("measurerHint");
@@ -163,21 +175,16 @@ const MeasurementRequest = (function () {
     result.innerHTML = "";
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/measurement_request`, {
-        method: "POST",
-        body: JSON.stringify({
+      const data = await _fetchWithTimeout(`${BACKEND_URL}/api/measurement_request`, {
           initData: tg?.initData || "",
           initDataUnsafe: tg?.initDataUnsafe || null,
           client_name: name,
           client_phone: phone,
           address: state.address || "",
           assigned_to_tg_id: state.assigned_to_tg_id || "",
-          // Примечание (рекомендации по дате + особенности) — единое поле
           preferred_note: state.preferred_note || "",
           preferred_type: "tbd",
-        }),
-      });
-      const data = await res.json();
+        });
       if (data.error) {
         result.innerHTML = `<div class="error">Ошибка: ${data.error}</div>`;
         btn.disabled = false;
