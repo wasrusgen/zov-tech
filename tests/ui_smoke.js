@@ -195,6 +195,26 @@ async function run() {
     await page.waitForTimeout(1500);
   } catch { /* ок */ }
 
+  // ── Mock API: подставляем тестового клиента ──────────────────────────────
+  // Mock: список клиентов с тестовой записью
+  await page.route("**/api/clients", route => {
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ok: true,
+        clients: [{
+          client_name:  "Тест Смоук",
+          client_phone: "+70000000000",
+          client_tg_id: "",
+          address:      "ул. Тестовая, 1",
+          leads_count:  0,
+          last_lead_at: "",
+        }],
+      }),
+    });
+  });
+
   // ── 2. Экран клиентов ─────────────────────────────────────────────────────
   section("👥 Список клиентов");
   await page.evaluate(() => { location.hash = "#/clients"; });
@@ -212,7 +232,7 @@ async function run() {
     ? pass("Список клиентов отрендерился")
     : fail("Список клиентов пустой (нет .client-card, .empty, .error)");
 
-  // ── 3. Карточка первого клиента ───────────────────────────────────────────
+  // ── 3. Карточка первого клиента (mock-фикстура) ───────────────────────────
   section("🪪 Карточка клиента");
   const firstCard = await page.$(".client-card");
   if (firstCard) {
@@ -226,7 +246,7 @@ async function run() {
     const headerText = await page.evaluate(() =>
       document.querySelector(".podbor-title")?.textContent?.trim() || ""
     );
-    headerText.toLowerCase().includes("карточка")
+    (headerText || "").toLowerCase().includes("карточка")
       ? pass("Заголовок карточки", headerText)
       : fail("Ожидался заголовок 'Карточка клиента'", `получили: "${headerText}"`);
 
@@ -237,7 +257,7 @@ async function run() {
       ? pass("Содержимое карточки отрендерилось")
       : fail("Карточка пустая (нет .client-detail-head)");
   } else {
-    pass("Карточка клиента — пропущено (нет клиентов в списке)", "добавьте клиента для теста");
+    fail("Карточка клиента — .client-card не найден после mock-фикстуры");
   }
 
   // ── 4. Форма нового клиента ───────────────────────────────────────────────
