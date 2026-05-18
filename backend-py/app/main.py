@@ -147,6 +147,7 @@ async def _dispatch_post(request: Request):
         "assembly_set_kitchen_price": _handle_assembly_set_kitchen_price,
         "sign_request_create":   _handle_sign_request_create,
         "sign_request_submit":   _handle_sign_request_submit,
+        "managers_list":         _handle_managers_list,
         "proposal_brief":        proposals_mod.handle_brief,
         "proposal_create":       proposals_mod.handle_create,
         "proposal_upsert_variant": proposals_mod.handle_upsert_variant,
@@ -1577,6 +1578,26 @@ def _handle_staff_list(body: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True, "role": role, "staff": sheets.list_users_with_role(role)}
 
 
+def _handle_managers_list(body: dict[str, Any]) -> dict[str, Any]:
+    """Список всех менеджеров — для dropdown «передать менеджеру»."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user or not sheets.has_role(user, "manager"):
+        return {"error": "only_manager"}
+    managers = sheets.list_users_with_role("manager")
+    # Исключаем самого себя (нет смысла передавать себе)
+    managers = [m for m in managers if str(m.get("tg_id", "")) != str(tg_id)]
+    return {"ok": True, "managers": managers}
+
+
 def _handle_measurement_request(body: dict[str, Any]) -> dict[str, Any]:
     """Менеджер создаёт ЗАЯВКУ на замер (без замеров — пустая заготовка).
     body: {initData, client_name, client_phone, address, assigned_to_tg_id?, notes?, urgent?}
@@ -1620,10 +1641,22 @@ def _handle_measurement_request(body: dict[str, Any]) -> dict[str, Any]:
         if not assigned_user or not sheets.has_role(assigned_user, "measurer"):
             return {"error": "assigned_not_measurer"}
 
+    # Передать другому менеджеру (любой менеджер может переслать заявку коллеге)
+    target_manager_id = str(body.get("target_manager_tg_id") or "").strip()
+    effective_manager_tg_id = tg_id  # по умолчанию — текущий
+    if target_manager_id and target_manager_id != str(tg_id):
+        try:
+            target_mgr_user = sheets.find_user(int(target_manager_id))
+        except (TypeError, ValueError):
+            target_mgr_user = None
+        if target_mgr_user and sheets.has_role(target_mgr_user, "manager"):
+            effective_manager_tg_id = target_manager_id
+        # Если целевой пользователь не найден или не менеджер — молча игнорируем
+
     measurement_id = _short_id()
     sheets.append_named_row("Measurements", _row_for_measurement(
         measurement_id, _now_iso(),
-        manager_tg_id=tg_id,
+        manager_tg_id=effective_manager_tg_id,
         filled_by="request",
         status="requested",
         assigned_to_tg_id=assigned_to,
@@ -1637,6 +1670,18 @@ def _handle_measurement_request(body: dict[str, Any]) -> dict[str, Any]:
         preferred_time_of_day=preferred_time_of_day,
         preferred_note=preferred_note,
     ))
+
+    # Уведомляем целевого менеджера если передали ему
+    if effective_manager_tg_id != str(tg_id):
+        tg.send_message(
+            int(effective_manager_tg_id),
+            f"📋 <b>Вам передана заявка на замер</b>\n\n"
+            f"Клиент: <b>{client_name}</b>\n"
+            f"Телефон: <code>{client_phone}</code>\n"
+            f"Адрес: {address or '—'}\n"
+            f"От: {user.get('full_name') or tg_id}\n\n"
+            f"Откройте кабинет — заявка уже в вашем списке."
+        )
 
     # Уведомление назначенному замерщику
     if assigned_to:
