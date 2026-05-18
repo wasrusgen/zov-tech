@@ -1,0 +1,24 @@
+# Staging backend — добавить в основной Caddyfile.
+# После добавления: sudo systemctl reload caddy
+#
+# Убедиться что DNS: staging.api.wasrusgen1.pro → IP этого VPS
+
+staging.api.wasrusgen1.pro {
+    reverse_proxy localhost:8001
+
+    encode zstd gzip
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+        # Помечаем staging-ответы
+        X-Environment "staging"
+    }
+    log {
+        output file /data/zov-staging-access.log {
+            roll_size 5mb
+            roll_keep 3
+        }
+    }
+}

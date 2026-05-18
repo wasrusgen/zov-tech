@@ -1,0 +1,41 @@
+# Staging-окружение — только backend, без бота и тоннеля.
+# Использует отдельный .env.staging с тестовым SHEET_ID.
+#
+# Запуск:
+#   docker compose -f docker-compose.staging.yml --env-file .env.staging up -d --build
+# Остановка:
+#   docker compose -f docker-compose.staging.yml down
+
+services:
+  backend-staging:
+    build:
+      context: ../backend-py
+      dockerfile: Dockerfile
+    image: zov-tech-backend:staging
+    container_name: zov-backend-staging
+    restart: unless-stopped
+    env_file:
+      - .env.staging
+    environment:
+      - STAGING=true
+    volumes:
+      - ./credentials.json:/app/credentials.json:ro
+      - ./photos-staging:/app/photos
+    networks:
+      - web
+      - internal-staging
+    ports:
+      - "127.0.0.1:8001:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; r=urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3); sys.exit(0 if r.status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+networks:
+  web:
+    name: deploy_web
+    external: true
+  internal-staging:
+    driver: bridge
