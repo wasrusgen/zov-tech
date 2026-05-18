@@ -70,11 +70,20 @@ if (prefill) { /* применить */ sessionStorage.removeItem("prefillClient
 - Применить минимальный патч
 - Не ломать существующий функционал
 
+### Шаг 0 — Контекст
+**Прочитать `agents/feature-status.md` и `ROADMAP.md`** — понять что реализовано, что нет, приоритеты.
+
 ### Шаг 3 — Проверка
 ```bash
 python -X utf8 tests/test_manager.py   # полный тест менеджера
 python -X utf8 tests/smoke_api.py      # smoke
+node tests/ui_smoke.js                 # UI Playwright
 ```
+
+### Шаг 4 — Обновление статуса
+После реализации **обновить `agents/feature-status.md`** и **`ROADMAP.md`**:
+- Переместить функцию из «Бэклог» в «✅ Реализовано»
+- Обновить «Следующий шаг»
 
 ## API эндпоинты (существующие)
 | Эндпоинт | Описание |
