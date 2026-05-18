@@ -184,7 +184,8 @@ const CabinetScreen = (function () {
         ${renderManagerBlock(me.manager)}
         ${renderProposalsBlock(proposalsData.proposals || [])}
         ${renderAssembliesBlock(assembliesData.assemblies || [])}
-        <div class="block" style="margin:12px 16px 0;">
+        <div class="block" style="margin:12px 16px 0;display:flex;flex-direction:column;gap:8px;">
+          <button class="btn-secondary" data-href="#/c/orders" style="width:100%;">📋 История заказов</button>
           <button class="btn-secondary" data-href="#/c/selfmeasure" style="width:100%;">📐 Самозамер кухни</button>
         </div>
         <div style="height:32px;"></div>

@@ -1478,3 +1478,94 @@ html[data-variant="d"] .section-head .label {
   text-transform: uppercase;
   color: var(--muted);
 }
+
+/* ── История заказов — таймлайн ─────────────────────────────── */
+.orders-timeline {
+  padding: 8px 0 0;
+}
+.orders-item {
+  display: flex;
+  gap: 0;
+  padding: 0 16px 0 12px;
+}
+.orders-item--link {
+  cursor: pointer;
+}
+.orders-item--link:active {
+  opacity: 0.7;
+}
+.orders-item-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 36px;
+  flex-shrink: 0;
+}
+.orders-item-icon {
+  font-size: 20px;
+  line-height: 1;
+  padding: 4px 0;
+  z-index: 1;
+  background: transparent;
+}
+.orders-item-line {
+  width: 2px;
+  flex: 1;
+  min-height: 16px;
+  background: var(--border, #e8e8e8);
+  margin: 2px 0;
+}
+.orders-item:last-child .orders-item-line {
+  display: none;
+}
+.orders-item-body {
+  flex: 1;
+  padding: 4px 0 20px 4px;
+}
+.orders-item-type {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+.orders-item-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 2px 0;
+}
+.orders-item-subtitle {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+/* cabinet / orders shared blocks */
+.block {
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: 12px;
+  padding: 14px 14px 10px;
+}
+.block-head {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.assembly-card {
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--surface, #fff);
+}
+.btn-sm {
+  font-size: 13px;
+  padding: 7px 14px;
+}
+/* ─────────────────────────────────────────────────────────────── */
