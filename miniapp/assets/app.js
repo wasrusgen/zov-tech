@@ -1,8 +1,7 @@
-// ЗОВ MiniApp — главный скрипт. v20260518l
+// ЗОВ MiniApp — главный скрипт. v20260518n
 // На входе: подписанный initData от Telegram.
 // Ходим на backend → получаем профиль (роль, статус) → рендерим меню.
-
-const tg = window.Telegram?.WebApp;
+// tg и Platform определены в platform.js (загружается первым).
 // Cloudflare Quick Tunnel → VPS FastAPI backend (GigaChat).
 // Временный URL — пока wasrusgen1.pro в verification-hold; затем переключим на https://api.wasrusgen1.pro
 // Позволяет переключить бэкенд через ?backend=https://staging.api.wasrusgen1.pro
@@ -34,31 +33,21 @@ function savedVariant() {
   try { return localStorage.getItem(THEME_KEY) ?? ""; } catch(e) { return ""; }
 }
 
-/* ----------------- Telegram WebApp setup ----------------- */
+/* ----------------- Platform setup ----------------- */
 function setupTelegram() {
-  const scheme = tg?.colorScheme || (window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-  document.documentElement.setAttribute("data-theme", scheme);
-  // Восстанавливаем тему из localStorage (по умолч. — brand)
+  document.documentElement.setAttribute("data-theme", Platform.colorScheme);
   applyVariant(savedVariant());
 
-  if (!tg) return;
-  try {
-    tg.ready();
-    tg.expand();
-    if (tg.onEvent) tg.onEvent("themeChanged", () => {
-      document.documentElement.setAttribute("data-theme", tg.colorScheme || "light");
-    });
-    if (tg.enableClosingConfirmation) tg.enableClosingConfirmation();
-  } catch (e) { console.warn(e); }
+  Platform.ready();
+  Platform.expand();
+  Platform.onThemeChange(() => {
+    document.documentElement.setAttribute("data-theme", Platform.colorScheme);
+  });
+  Platform.enableClosingConfirmation();
 }
 
 function haptic(type = "selection") {
-  try {
-    if (!tg?.HapticFeedback) return;
-    if (type === "impact") tg.HapticFeedback.impactOccurred("light");
-    else if (type === "success") tg.HapticFeedback.notificationOccurred("success");
-    else tg.HapticFeedback.selectionChanged();
-  } catch (e) {}
+  Platform.haptic(type);
 }
 
 /* ----------------- Palette switcher UI ----------------- */
@@ -119,11 +108,11 @@ async function fetchMe() {
   const res = await fetch(`${BACKEND_URL}/api/me`, {
     method: "POST",
     body: JSON.stringify({
-      initData: tg?.initData || "",
+      initData: Platform.initData,
       // Fallback для Telegram Desktop side-panel где initData может приходить пустым.
       // Backend проверит подпись initData первым; если её нет — упадёт сюда. UNSAFE!
-      initDataUnsafe: tg?.initDataUnsafe || null,
-      startParam: tg?.initDataUnsafe?.start_param || null,
+      initDataUnsafe: Platform.initDataUnsafe,
+      startParam: Platform.startParam,
       role: explicitRole,
     }),
   });
@@ -219,7 +208,7 @@ async function renderManagerHome(me) {
     card.addEventListener("click", () => {
       haptic("impact");
       if (qa.href) location.hash = qa.href;
-      else tg?.showAlert?.(`«${qa.title}» — скоро`);
+      else Platform.showAlert(`«${qa.title}» — скоро`);
     });
     grid.appendChild(card);
   });
@@ -246,7 +235,7 @@ async function renderManagerHome(me) {
   // Параллельно грузим реальные данные (измерения + pending — критичные)
   // Складские данные грузим отдельно, чтобы ошибка Drive не ломала весь дашборд
   try {
-    const authBody = { initData: tg?.initData || "", initDataUnsafe: tg?.initDataUnsafe || null };
+    const authBody = { initData: Platform.initData, initDataUnsafe: Platform.initDataUnsafe };
     const [resM, resP] = await Promise.all([
       fetch(`${BACKEND_URL}/api/measurements`, { method: "POST", body: JSON.stringify(authBody) }),
       fetch(`${BACKEND_URL}/api/manager_pending`, { method: "POST", body: JSON.stringify(authBody) }),
@@ -319,8 +308,8 @@ async function handlePodborDecision(item, act, card) {
     const res = await fetch(`${BACKEND_URL}/api/measurement_decision`, {
       method: "POST",
       body: JSON.stringify({
-        initData: tg?.initData || "",
-        initDataUnsafe: tg?.initDataUnsafe || null,
+        initData: Platform.initData,
+        initDataUnsafe: Platform.initDataUnsafe,
         measurement_id: item.id,
         decision,
       }),
@@ -639,7 +628,7 @@ function renderBottomNav(active, opts = {}) {
     `);
     btn.addEventListener("click", () => {
       haptic("impact");
-      if (t.key !== active) tg?.showAlert?.(`«${t.label || "Новое"}» — скоро`);
+      if (t.key !== active) Platform.showAlert(`«${t.label || "Новое"}» — скоро`);
     });
     nav.appendChild(btn);
   });
@@ -868,7 +857,7 @@ async function renderStaff(me) {
       const t1 = setTimeout(() => ctrl1.abort(), 15000);
       const res = await fetch(`${BACKEND_URL}/api/measurement_inbox`, {
         method: "POST", signal: ctrl1.signal,
-        body: JSON.stringify({ initData: tg?.initData || "", initDataUnsafe: tg?.initDataUnsafe || null }),
+        body: JSON.stringify({ initData: Platform.initData, initDataUnsafe: Platform.initDataUnsafe }),
       });
       clearTimeout(t1);
       const data = await res.json();
@@ -928,7 +917,7 @@ async function renderStaffAssemblies(container) {
     const t2 = setTimeout(() => ctrl2.abort(), 15000);
     const res = await fetch(`${BACKEND_URL}/api/assembly_list`, {
       method: "POST", signal: ctrl2.signal,
-      body: JSON.stringify({ initData: tg?.initData || "", initDataUnsafe: tg?.initDataUnsafe || null }),
+      body: JSON.stringify({ initData: Platform.initData, initDataUnsafe: Platform.initDataUnsafe }),
     });
     clearTimeout(t2);
     const data = await res.json();
@@ -1213,7 +1202,7 @@ async function renderInboxDetail(measurementId) {
   try {
     const res = await fetch(`${BACKEND_URL}/api/measurement_detail`, {
       method: "POST",
-      body: JSON.stringify({ initData: tg?.initData || "", measurement_id: measurementId }),
+      body: JSON.stringify({ initData: Platform.initData, measurement_id: measurementId }),
     });
     m = await res.json();
   } catch (e) {
@@ -1343,8 +1332,8 @@ async function saveScheduleDate(measurementId, section) {
     const res = await fetch(`${BACKEND_URL}/api/measurement_schedule`, {
       method: "POST",
       body: JSON.stringify({
-        initData: tg?.initData || "",
-        initDataUnsafe: tg?.initDataUnsafe || null,
+        initData: Platform.initData,
+        initDataUnsafe: Platform.initDataUnsafe,
         measurement_id: measurementId,
         scheduled_at: iso,
       }),
@@ -1355,7 +1344,7 @@ async function saveScheduleDate(measurementId, section) {
       return;
     }
     haptic && haptic("success");
-    tg?.showAlert?.("Дата сохранена — менеджер уведомлён.");
+    Platform.showAlert("Дата сохранена — менеджер уведомлён.");
     renderInboxDetail(measurementId); // перерисовать с новым статусом
   } catch (e) {
     if (errorEl) errorEl.textContent = "Сеть: " + e.message;
@@ -1513,8 +1502,8 @@ function renderLogisticsBlock(m) {
       const res = await fetch(`${BACKEND_URL}/api/geocode`, {
         method: "POST",
         body: JSON.stringify({
-          initData: tg?.initData || "",
-          initDataUnsafe: tg?.initDataUnsafe || null,
+          initData: Platform.initData,
+          initDataUnsafe: Platform.initDataUnsafe,
           address: addr,
         }),
       });
@@ -1549,8 +1538,8 @@ function renderLogisticsBlock(m) {
     }
     const parkType = (section.querySelector('input[name="parkType"]:checked') || {}).value || "";
     const payload = {
-      initData: tg?.initData || "",
-      initDataUnsafe: tg?.initDataUnsafe || null,
+      initData: Platform.initData,
+      initDataUnsafe: Platform.initDataUnsafe,
       measurement_id: m.id,
       entrance:       section.querySelector("#logEntrance").value,
       floor:          section.querySelector("#logFloor").value,
