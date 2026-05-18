@@ -2751,6 +2751,12 @@ async def api_sign_request_submit(request: Request):
     return JSONResponse(_handle_sign_request_submit(body))
 
 
+@app.post("/api/managers_list")
+async def api_managers_list(request: Request):
+    body = await _safe_json(request)
+    return JSONResponse(_handle_managers_list(body))
+
+
 def _normalize_phone(raw: str) -> tuple[str, bool]:
     """Нормализует RU-телефон в формат +7XXXXXXXXXX.
     Возвращает (нормализованный, валиден ли)."""
