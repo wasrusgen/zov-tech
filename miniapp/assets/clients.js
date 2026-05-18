@@ -1765,31 +1765,41 @@ const Clients = (function () {
     return section;
   }
 
+  async function _fetchWithTimeout(url, body, timeoutMs = 15000) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        signal: ctrl.signal,
+        body: JSON.stringify(body),
+      });
+      return await res.json();
+    } catch (e) {
+      if (e.name === "AbortError") throw new Error("Сервер не отвечает — попробуйте ещё раз");
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async function fetchClientNote(client) {
-    const res = await fetch(`${BACKEND_URL}/api/client_note`, {
-      method: "POST",
-      body: JSON.stringify({
-        initData: tg?.initData || "",
-        initDataUnsafe: tg?.initDataUnsafe || null,
-        client_name: client.client_name || "",
-        client_phone: client.client_phone || "",
-      }),
+    return _fetchWithTimeout(`${BACKEND_URL}/api/client_note`, {
+      initData: tg?.initData || "",
+      initDataUnsafe: tg?.initDataUnsafe || null,
+      client_name: client.client_name || "",
+      client_phone: client.client_phone || "",
     });
-    return await res.json();
   }
 
   async function saveClientNote(client, note) {
-    const res = await fetch(`${BACKEND_URL}/api/client_note`, {
-      method: "POST",
-      body: JSON.stringify({
-        initData: tg?.initData || "",
-        initDataUnsafe: tg?.initDataUnsafe || null,
-        client_name: client.client_name || "",
-        client_phone: client.client_phone || "",
-        note: note || "",
-      }),
+    return _fetchWithTimeout(`${BACKEND_URL}/api/client_note`, {
+      initData: tg?.initData || "",
+      initDataUnsafe: tg?.initDataUnsafe || null,
+      client_name: client.client_name || "",
+      client_phone: client.client_phone || "",
+      note: note || "",
     });
-    return await res.json();
   }
 
   function setupVoiceInput(micBtn, textarea, status) {
@@ -1825,14 +1835,10 @@ const Clients = (function () {
 
   async function fetchClients() {
     if (!BACKEND_URL) throw new Error("BACKEND_URL не задан");
-    const res = await fetch(`${BACKEND_URL}/api/clients`, {
-      method: "POST",
-      body: JSON.stringify({
-        initData: tg?.initData || "",
-        initDataUnsafe: tg?.initDataUnsafe || null,
-      }),
+    return _fetchWithTimeout(`${BACKEND_URL}/api/clients`, {
+      initData: tg?.initData || "",
+      initDataUnsafe: tg?.initDataUnsafe || null,
     });
-    return await res.json();
   }
 
   async function fetchLead(leadId) {
@@ -1846,11 +1852,10 @@ const Clients = (function () {
 
   async function fetchMeasurements(filters = {}) {
     if (!BACKEND_URL) throw new Error("BACKEND_URL не задан");
-    const res = await fetch(`${BACKEND_URL}/api/measurements`, {
-      method: "POST",
-      body: JSON.stringify({ initData: tg?.initData || "", ...filters }),
+    return _fetchWithTimeout(`${BACKEND_URL}/api/measurements`, {
+      initData: tg?.initData || "",
+      ...filters,
     });
-    return await res.json();
   }
 
   function initial(name) {
