@@ -134,11 +134,23 @@ const SelfMeasureScreen = (function () {
     return ["А"];
   }
 
+  /* ---- Price info block ---- */
+  const PRICE_INFO_HTML = `
+    <div style="margin:12px 16px 0;padding:12px 14px;border-radius:10px;
+                background:#FFF8E7;border:1px solid #F5A623;">
+      <div style="font-size:12px;font-weight:700;color:#B7770A;margin-bottom:4px;">💰 Стоимость выезда специалиста</div>
+      <div style="font-size:13px;color:#5C4800;line-height:1.5;">
+        В черте КАД Санкт-Петербурга — <strong>2 500 ₽</strong><br>
+        За пределами КАД — <strong>2 500 ₽ + 40 ₽/км</strong> от кольцевой до адреса
+      </div>
+    </div>`;
+
   /* ---- Step 1: Kitchen type ---- */
   function renderStep1(state) {
     const wrap = document.createElement("div");
     wrap.innerHTML = `
-      <div class="block" style="margin:16px 16px 0;">
+      ${PRICE_INFO_HTML}
+      <div class="block" style="margin:12px 16px 0;">
         <div class="block-head">Выберите тип кухни</div>
       </div>
     `;
@@ -526,7 +538,8 @@ const SelfMeasureScreen = (function () {
     const wrap = document.createElement("div");
 
     wrap.innerHTML = `
-      <div class="block" style="margin:16px 16px 0;">
+      ${PRICE_INFO_HTML}
+      <div class="block" style="margin:12px 16px 0;">
         <div class="block-head">Контактные данные</div>
         <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px;">
           <div>

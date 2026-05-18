@@ -119,7 +119,7 @@ const OrdersScreen = (function () {
       subtitle: a.scope_of_work || null,
       statusText: sl.text,
       statusColor: sl.color,
-      href: null,
+      href: a.id ? `#/c/assembly/${encodeURIComponent(a.id)}` : null,
       calUrl: a.gcal_event_url || null,
     };
   }

@@ -1722,6 +1722,10 @@ function routeByHash() {
   } else if (location.hash === "#/c/orders") {
     if (typeof OrdersScreen !== "undefined") OrdersScreen.mount(app);
     else init();
+  } else if (location.hash.startsWith("#/c/assembly/")) {
+    const assemblyId = decodeURIComponent(location.hash.replace("#/c/assembly/", ""));
+    if (typeof AssemblyDetailScreen !== "undefined") AssemblyDetailScreen.mount(app, assemblyId);
+    else init();
   } else if (location.hash === "#/c/selfmeasure") {
     if (typeof SelfMeasureScreen !== "undefined") SelfMeasureScreen.mount(app);
     else init();

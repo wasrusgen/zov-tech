@@ -187,6 +187,10 @@ const CabinetScreen = (function () {
         <div class="block" style="margin:12px 16px 0;display:flex;flex-direction:column;gap:8px;">
           <button class="btn-secondary" data-href="#/c/orders" style="width:100%;">📋 История заказов</button>
           <button class="btn-secondary" data-href="#/c/selfmeasure" style="width:100%;">📐 Самозамер кухни</button>
+          <div style="font-size:12px;color:var(--muted);text-align:center;line-height:1.4;">
+            Выезд специалиста: <strong style="color:var(--ink);">2 500 ₽</strong>
+            · за КАД СПб +40 ₽/км
+          </div>
         </div>
         <div style="height:32px;"></div>
       `;
