@@ -97,23 +97,30 @@ const Podbor = (function () {
 
   /* ===================== Header & progress ===================== */
 
+  function _goHome() {
+    location.hash = "";
+    if (typeof routeByHash === "function") routeByHash();
+  }
+
   function renderHeader() {
     const h = el(`
       <header class="podbor-header">
         <button class="podbor-back" aria-label="Назад">${ICONS.arrow_left}</button>
         <div class="podbor-title">Подбор техники</div>
-        <div style="width:28px"></div>
+        <button class="podbor-home" aria-label="Главное меню" title="Главное меню">${ICONS.home || "🏠"}</button>
       </header>
     `);
     h.querySelector(".podbor-back").addEventListener("click", () => {
       const idx = STEPS.indexOf(currentStep);
       if (idx <= 0) {
-        // Выход из подбора в главный экран кабинета — без перезагрузки (иначе сплэш мигает)
-        location.hash = "";
-        if (typeof routeByHash === "function") routeByHash();
+        _goHome();
       } else {
         go(STEPS[idx - 1]);
       }
+    });
+    h.querySelector(".podbor-home").addEventListener("click", () => {
+      haptic && haptic("impact");
+      _goHome();
     });
     return h;
   }
@@ -1277,6 +1284,17 @@ const Podbor = (function () {
           </div>
         `;
         result.innerHTML = headSuccess;
+        // Кнопка "Вернуться в главное" сразу после успеха
+        const homeBtn = el(`
+          <div style="margin:12px 0;">
+            <button class="btn-secondary" style="width:100%;">← Вернуться в главное меню</button>
+          </div>
+        `);
+        homeBtn.querySelector("button").addEventListener("click", () => {
+          haptic && haptic("impact");
+          _goHome();
+        });
+        result.appendChild(homeBtn);
         // Рендер отчёта (если AI вернул by_category)
         if (data.ai) {
           const reportNode = renderReport(data.ai, data.id || "");
@@ -1305,12 +1323,14 @@ const Podbor = (function () {
     const wrap = el(`<section class="report"></section>`);
 
     // Шапка
-    wrap.appendChild(el(`
-      <div class="report-head">
-        <div class="kicker">Отчёт · ${leadId.slice(0, 8)}</div>
-        ${summary ? `<p class="report-summary">${_esc(summary)}</p>` : ""}
-      </div>
-    `));
+    const headNode = el(`<div class="report-head"><div class="kicker">Отчёт · ${leadId.slice(0, 8)}</div></div>`);
+    if (summary) {
+      const sumP = document.createElement("p");
+      sumP.className = "report-summary";
+      sumP.innerHTML = _ai(summary);
+      headNode.appendChild(sumP);
+    }
+    wrap.appendChild(headNode);
 
     // Категории
     for (const [catKey, catData] of Object.entries(byCat)) {
@@ -1327,9 +1347,12 @@ const Podbor = (function () {
             <span class="report-cat-icon">${(catIcon && ICONS[catIcon]) || ""}</span>
             ${_esc(catLabel)}
           </h3>
-          ${catAnalysis ? `<div class="report-cat-analysis">${_esc(catAnalysis)}</div>` : ""}
+          ${catAnalysis ? `<div class="report-cat-analysis"></div>` : ""}
         </div>
       `);
+      if (catAnalysis) {
+        catNode.querySelector(".report-cat-analysis").innerHTML = _ai(catAnalysis);
+      }
 
       // Сравнение цен — основной блок, всегда вверху
       const matrixNode = _renderPriceMatrix(models);
@@ -1513,25 +1536,25 @@ ${reportEl.outerHTML}
           <div class="report-model-name">${_esc(m.model || "")}</div>
           ${metaParts.length ? `<div class="report-model-meta">${metaParts.join(" · ")}</div>` : ""}
           <div class="report-model-price">${priceHtml}</div>
-          ${(m.highlights || []).length ? `<div class="report-highlights">✓ ${m.highlights.map(_esc).join(" · ")}</div>` : ""}
+          ${(m.highlights || []).length ? `<div class="report-highlights">✓ ${m.highlights.map(_ai).join(" · ")}</div>` : ""}
 
           ${(m.pros || []).length ? `
             <div class="report-pros-block">
               <div class="pc-head">Плюсы</div>
-              <ul class="pc-list">${m.pros.slice(0, 4).map(p => `<li>${_esc(p)}</li>`).join("")}</ul>
+              <ul class="pc-list">${m.pros.slice(0, 4).map(p => `<li>${_ai(p)}</li>`).join("")}</ul>
             </div>
           ` : ""}
 
           ${(m.cons || []).length ? `
             <div class="report-cons-block">
               <div class="pc-head">Минусы</div>
-              <ul class="pc-list">${m.cons.slice(0, 3).map(c => `<li>${_esc(c)}</li>`).join("")}</ul>
+              <ul class="pc-list">${m.cons.slice(0, 3).map(c => `<li>${_ai(c)}</li>`).join("")}</ul>
             </div>
           ` : ""}
 
           ${_renderSpecsBlock(m.specs || {})}
 
-          ${m.reasoning ? `<div class="report-reasoning">💡 ${_esc(m.reasoning)}</div>` : ""}
+          ${m.reasoning ? `<div class="report-reasoning">💡 ${_ai(m.reasoning)}</div>` : ""}
 
           ${_renderUtilityLinks(m)}
 
@@ -1723,6 +1746,15 @@ ${reportEl.outerHTML}
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
+  }
+
+  /* AI-generated text — trusted backend output, render as HTML.
+     Strip script/on* to be safe, but allow <b><em><ul><li><br>. */
+  function _ai(s) {
+    if (s == null) return "";
+    return String(s)
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/\son\w+\s*=/gi, " data-stripped=");
   }
 
   /* ===================== Helpers ===================== */

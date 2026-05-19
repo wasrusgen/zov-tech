@@ -10,7 +10,8 @@
   margin-bottom: var(--s4);
 }
 
-.podbor-back {
+.podbor-back,
+.podbor-home {
   width: 28px;
   height: 28px;
   display: grid;
@@ -19,7 +20,11 @@
   cursor: pointer;
 }
 
-.podbor-back svg { width: 20px; height: 20px; }
+.podbor-back svg,
+.podbor-home svg { width: 20px; height: 20px; }
+
+.podbor-home { color: var(--muted); opacity: 0.7; transition: opacity .15s; }
+.podbor-home:hover { opacity: 1; }
 
 .podbor-title {
   font-family: var(--font-mono);
