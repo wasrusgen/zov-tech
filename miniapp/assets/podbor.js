@@ -1395,12 +1395,17 @@ const Podbor = (function () {
       <div class="report-export">
         <div class="report-export-head">Сохранить отчёт</div>
         <div class="report-export-buttons">
+          <button class="btn-export" id="exportCopy">📋 Скопировать текст</button>
           <button class="btn-export" id="exportHtml">⬇ Скачать HTML</button>
           <button class="btn-export" id="exportPrint">🖨 Печать → PDF</button>
         </div>
-        <div class="report-export-hint">HTML удобно отправить клиенту в мессенджер · PDF — для печати или вложения</div>
+        <div class="report-export-hint">Текст — для Telegram/WhatsApp · HTML — клиенту на почту · PDF — для печати</div>
       </div>
     `);
+    const copyBtn = exportNode.querySelector("#exportCopy");
+    copyBtn.addEventListener("click", () => {
+      _copyReportText(ai, leadId, copyBtn);
+    });
     exportNode.querySelector("#exportHtml").addEventListener("click", () => _exportReportHtml(ai, leadId));
     exportNode.querySelector("#exportPrint").addEventListener("click", () => _exportReportPrint(wrap, leadId));
     wrap.appendChild(exportNode);
@@ -1737,6 +1742,94 @@ ${reportEl.outerHTML}
         </table>
       </details>
     `);
+  }
+
+  /* Копирует отчёт как plain-text (удобно вставить в Telegram / WhatsApp) */
+  function _copyReportText(ai, leadId, btn) {
+    const lines = [];
+    const clientName = state.client_name || "клиент";
+    lines.push(`🛒 Подбор техники — ${clientName}`);
+    lines.push(`ID: ${leadId.slice(0, 8)}`);
+    lines.push("");
+
+    if (ai.summary) { lines.push(_stripHtml(ai.summary)); lines.push(""); }
+
+    const byCat = ai.by_category || {};
+    for (const [catKey, catData] of Object.entries(byCat)) {
+      const catMeta = PODBOR_CATEGORIES.find(c => c.key === catKey);
+      const catLabel = catMeta?.label || catKey;
+      const models = (catData && catData.models) || [];
+      if (!models.length) continue;
+
+      lines.push(`━━━ ${catLabel} ━━━`);
+      if (catData.analysis) { lines.push(_stripHtml(catData.analysis)); lines.push(""); }
+
+      for (const m of models) {
+        const pMin = (m.enriched || {}).price_min_rub || m.price_min_rub;
+        const pMax = (m.enriched || {}).price_max_rub || m.price_max_rub;
+        let priceStr = "цена уточняется";
+        if (pMin && pMax && pMin !== pMax) priceStr = `${Math.round(pMin).toLocaleString("ru-RU")} – ${Math.round(pMax).toLocaleString("ru-RU")} ₽`;
+        else if (pMin) priceStr = `от ${Math.round(pMin).toLocaleString("ru-RU")} ₽`;
+
+        lines.push(`${m.brand || ""} ${m.model || ""}  —  ${priceStr}`);
+        if ((m.highlights || []).length) lines.push(`  ✓ ${m.highlights.map(_stripHtml).join(" · ")}`);
+        (m.pros  || []).slice(0, 3).forEach(p => lines.push(`  + ${_stripHtml(p)}`));
+        (m.cons  || []).slice(0, 2).forEach(c => lines.push(`  − ${_stripHtml(c)}`));
+        if (m.reasoning) lines.push(`  💡 ${_stripHtml(m.reasoning)}`);
+
+        // Лучшая ссылка из магазинов
+        const stores = ["ozon", "citilink", "wb", "yamarket", "dns"];
+        const bestStore = stores.map(k => (m.enriched || {})[k]).find(s => s && s.url);
+        if (bestStore) lines.push(`  🔗 ${bestStore.url}`);
+        lines.push("");
+      }
+    }
+
+    const total = ai.total_price_estimate_rub || {};
+    if (total.min || total.max) {
+      const lo = Math.round(total.min || total.max).toLocaleString("ru-RU");
+      const hi = Math.round(total.max || total.min).toLocaleString("ru-RU");
+      lines.push(total.min !== total.max ? `ИТОГО: ${lo} – ${hi} ₽` : `ИТОГО: ${lo} ₽`);
+      lines.push("");
+    }
+
+    lines.push(`Сформировано ${new Date().toLocaleString("ru-RU")} · ЗОВ CRM`);
+    const text = lines.join("\n");
+
+    const doFallback = () => {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.cssText = "position:fixed;top:-9999px;left:-9999px;";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); } catch(e) {}
+      document.body.removeChild(ta);
+    };
+
+    const onOk = () => {
+      haptic && haptic("success");
+      const orig = btn.textContent;
+      btn.textContent = "✅ Скопировано!";
+      btn.disabled = true;
+      setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2200);
+    };
+
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(onOk).catch(() => { doFallback(); onOk(); });
+    } else {
+      doFallback(); onOk();
+    }
+  }
+
+  /* Убирает HTML-теги из AI-текста для plain-text копирования */
+  function _stripHtml(s) {
+    if (!s) return "";
+    return String(s)
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+      .trim();
   }
 
   function _esc(s) {
