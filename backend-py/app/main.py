@@ -154,6 +154,7 @@ async def _dispatch_post(request: Request):
         "assembly_rate_delete":  _handle_assembly_rate_delete,
         "assembler_analytics":   _handle_assembler_analytics,
         "assembler_earnings":    _handle_assembler_earnings,
+        "staff_clients":         _handle_staff_clients,
         "contract_preview":      _handle_contract_preview,
         "contract_save":         _handle_contract_save,
         "proposal_brief":        proposals_mod.handle_brief,
@@ -3082,6 +3083,147 @@ def _handle_assembler_earnings(body: dict[str, Any]) -> dict[str, Any]:
 async def api_assembler_earnings(request: Request):
     body = await _safe_json(request)
     return _handle_assembler_earnings(body)
+
+
+def _handle_staff_clients(body: dict[str, Any]) -> dict[str, Any]:
+    """Список клиентов для сборщика / замерщика.
+    Assembler: все сборки где assigned_to_tg_id == self.
+    Measurer:  все замеры  где assigned_to_tg_id == self.
+    Оба: объединённый список, сгруппированный по клиенту.
+    body: {initData, initDataUnsafe, filter?: 'active'|'done'|'all'}
+    """
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+
+    is_assembler = sheets.has_role(user, "assembler") or sheets.is_master(user)
+    is_measurer  = sheets.has_role(user, "measurer")
+    if not is_assembler and not is_measurer and not sheets.has_role(user, "manager"):
+        return {"error": "forbidden"}
+
+    flt = str(body.get("filter") or "active").lower()  # active | done | all
+
+    def _row_visible_active(status: str) -> bool:
+        if flt == "all":   return True
+        if flt == "done":  return status in ("done", "completed", "cancelled")
+        return status not in ("done", "completed", "cancelled", "archived")
+
+    clients: dict[str, dict] = {}  # key → client card
+
+    # ── Сборки ──────────────────────────────────────────────────────
+    if is_assembler or sheets.has_role(user, "manager"):
+        try:
+            _ensure_assemblies_sheet()
+            ws = sheets.sheet("Assemblies")
+            rows = ws.get_all_values()
+            if rows and len(rows) > 1:
+                headers = rows[0]
+                for r in rows[1:]:
+                    row = dict(zip(headers, r + [""] * max(0, len(headers) - len(r))))
+                    if row.get("archived_at"):
+                        continue
+                    if sheets.has_role(user, "manager"):
+                        if str(row.get("manager_tg_id")) != str(tg_id):
+                            continue
+                    else:
+                        if str(row.get("assigned_to_tg_id")) != str(tg_id):
+                            continue
+                    status = row.get("status", "")
+                    if not _row_visible_active(status):
+                        continue
+                    ckey = row.get("client_tg_id") or row.get("client_name", "").lower().strip()
+                    if ckey not in clients:
+                        clients[ckey] = {
+                            "client_name":  row.get("client_name", ""),
+                            "client_phone": row.get("client_phone", ""),
+                            "client_tg_id": row.get("client_tg_id", ""),
+                            "assemblies":   [],
+                            "measurements": [],
+                        }
+                    clients[ckey]["assemblies"].append({
+                        "id":           row.get("id", ""),
+                        "address":      row.get("address", ""),
+                        "status":       status,
+                        "scheduled_at": row.get("scheduled_at", ""),
+                        "scope_of_work": row.get("scope_of_work", ""),
+                        "signed_by_name": row.get("signed_by_name", ""),
+                        "manager_tg_id": row.get("manager_tg_id", ""),
+                    })
+        except Exception as e:
+            log.warning("staff_clients assemblies error: %s", e)
+
+    # ── Замеры ───────────────────────────────────────────────────────
+    if is_measurer or sheets.has_role(user, "manager"):
+        try:
+            ws2 = sheets.sheet("Measurements")
+            rows2 = ws2.get_all_values()
+            if rows2 and len(rows2) > 1:
+                headers2 = rows2[0]
+                for r in rows2[1:]:
+                    row = dict(zip(headers2, r + [""] * max(0, len(headers2) - len(r))))
+                    if row.get("archived_at"):
+                        continue
+                    if sheets.has_role(user, "manager"):
+                        if str(row.get("manager_tg_id")) != str(tg_id):
+                            continue
+                    else:
+                        if str(row.get("assigned_to_tg_id")) != str(tg_id):
+                            continue
+                    status = row.get("status", "")
+                    if not _row_visible_active(status):
+                        continue
+                    ckey = row.get("client_tg_id") or row.get("client_name", "").lower().strip()
+                    if ckey not in clients:
+                        clients[ckey] = {
+                            "client_name":  row.get("client_name", ""),
+                            "client_phone": row.get("client_phone", ""),
+                            "client_tg_id": row.get("client_tg_id", ""),
+                            "assemblies":   [],
+                            "measurements": [],
+                        }
+                    clients[ckey]["measurements"].append({
+                        "id":           row.get("id", ""),
+                        "address":      row.get("address", ""),
+                        "status":       status,
+                        "scheduled_at": row.get("scheduled_at", ""),
+                        "zamer_no":     row.get("zamer_no", ""),
+                        "layout":       row.get("layout", ""),
+                    })
+        except Exception as e:
+            log.warning("staff_clients measurements error: %s", e)
+
+    # ── Сортировка: сначала с ближайшей датой ───────────────────────
+    def _latest_date(c: dict) -> str:
+        dates = (
+            [a["scheduled_at"] for a in c["assemblies"]  if a["scheduled_at"]] +
+            [m["scheduled_at"] for m in c["measurements"] if m["scheduled_at"]]
+        )
+        return max(dates) if dates else ""
+
+    result = sorted(clients.values(), key=_latest_date, reverse=True)
+
+    return {
+        "ok": True,
+        "is_assembler": is_assembler,
+        "is_measurer":  is_measurer,
+        "count": len(result),
+        "clients": result,
+    }
+
+
+@app.post("/api/staff_clients")
+async def api_staff_clients(request: Request):
+    body = await _safe_json(request)
+    return _handle_staff_clients(body)
 
 
 def _handle_contract_preview(body: dict[str, Any]) -> dict[str, Any]:

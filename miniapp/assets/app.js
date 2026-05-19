@@ -912,6 +912,22 @@ async function renderStaff(me) {
     renderStaffAssemblies(assemblySection.querySelector("#assemblyList"));
   }
 
+  // Список клиентов — сборщик и/или замерщик
+  if (caps.assembler || caps.measurer) {
+    const clientsBtn = el(`
+      <div class="podbor-cta-row" style="margin-top:16px;">
+        <button class="btn-primary" style="gap:8px;">
+          👥 Мои клиенты
+        </button>
+      </div>
+    `);
+    clientsBtn.querySelector("button").addEventListener("click", () => {
+      haptic && haptic("impact");
+      location.hash = "#/master/clients";
+    });
+    app.appendChild(clientsBtn);
+  }
+
   // Шпаргалки + заработки сборщика
   if (caps.assembler) {
     const earningsBtn = el(`
@@ -1715,6 +1731,9 @@ function routeByHash() {
     else init();
   } else if (location.hash.startsWith("#/admin/rates")) {
     if (typeof AdminRates !== "undefined") AdminRates.mount(app);
+    else init();
+  } else if (location.hash === "#/master/clients") {
+    if (typeof StaffClients !== "undefined") StaffClients.mount(app);
     else init();
   } else if (location.hash === "#/master/dashboard") {
     if (typeof AssemblerDashboard !== "undefined") AssemblerDashboard.mount(app);
