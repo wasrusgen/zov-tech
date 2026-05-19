@@ -155,6 +155,8 @@ async def _dispatch_post(request: Request):
         "assembler_analytics":   _handle_assembler_analytics,
         "assembler_earnings":    _handle_assembler_earnings,
         "staff_clients":         _handle_staff_clients,
+        "assembly_schedule":     _handle_assembly_schedule,
+        "measurement_schedule":  _handle_measurement_schedule,
         "contract_preview":      _handle_contract_preview,
         "contract_save":         _handle_contract_save,
         "proposal_brief":        proposals_mod.handle_brief,
@@ -2302,6 +2304,10 @@ def _assembly_columns() -> list[str]:
         "signature_file", "signed_at",
         # Google Calendar
         "gcal_event_id", "gcal_event_url",
+        # Планирование: менеджер задаёт диапазон, мастер подтверждает конкретное время
+        "date_range",          # текстовая подсказка от менеджера: "20–22 мая, утро"
+        "confirm_by",          # ISO — дедлайн для подтверждения (назначение + 3 ч)
+        "confirmed_at",        # ISO — когда мастер подтвердил время
         # Прочее
         "manager_note",
         "archived_at",
@@ -2371,8 +2377,15 @@ def _handle_assembly_create(body: dict[str, Any]) -> dict[str, Any]:
     scheduled_at = (body.get("scheduled_at") or "").strip()
     status = "scheduled" if scheduled_at else "created"
 
+    assigned_to = (body.get("assigned_to_tg_id") or "").strip()
+    date_range  = (body.get("date_range") or "").strip()
+    # Дедлайн подтверждения: 3 часа с момента создания (если есть назначенный мастер)
+    from datetime import timedelta
+    confirm_by = (datetime.utcnow() + timedelta(hours=3)).isoformat() if assigned_to else ""
+
     fields = {
         "manager_tg_id": tg_id,
+        "assigned_to_tg_id": assigned_to,
         "client_name": client_name,
         "client_phone": phone_norm or phone_raw,
         "address": address,
@@ -2383,6 +2396,8 @@ def _handle_assembly_create(body: dict[str, Any]) -> dict[str, Any]:
         "scheduled_at": scheduled_at,
         "status": status,
         "manager_note": (body.get("manager_note") or "").strip(),
+        "date_range": date_range,
+        "confirm_by": confirm_by,
     }
 
     # Google Calendar — если дата назначена
@@ -3157,6 +3172,9 @@ def _handle_staff_clients(body: dict[str, Any]) -> dict[str, Any]:
                         "scope_of_work": row.get("scope_of_work", ""),
                         "signed_by_name": row.get("signed_by_name", ""),
                         "manager_tg_id": row.get("manager_tg_id", ""),
+                        "date_range":   row.get("date_range", ""),
+                        "confirm_by":   row.get("confirm_by", ""),
+                        "confirmed_at": row.get("confirmed_at", ""),
                     })
         except Exception as e:
             log.warning("staff_clients assemblies error: %s", e)
@@ -3191,12 +3209,14 @@ def _handle_staff_clients(body: dict[str, Any]) -> dict[str, Any]:
                             "measurements": [],
                         }
                     clients[ckey]["measurements"].append({
-                        "id":           row.get("id", ""),
-                        "address":      row.get("address", ""),
-                        "status":       status,
-                        "scheduled_at": row.get("scheduled_at", ""),
-                        "zamer_no":     row.get("zamer_no", ""),
-                        "layout":       row.get("layout", ""),
+                        "id":              row.get("id", ""),
+                        "address":         row.get("address", ""),
+                        "status":          status,
+                        "scheduled_at":    row.get("scheduled_at", ""),
+                        "zamer_no":        row.get("zamer_no", ""),
+                        "layout":          row.get("layout", ""),
+                        "preferred_date":  row.get("preferred_date", ""),
+                        "preferred_time_of_day": row.get("preferred_time_of_day", ""),
                     })
         except Exception as e:
             log.warning("staff_clients measurements error: %s", e)
@@ -3224,6 +3244,171 @@ def _handle_staff_clients(body: dict[str, Any]) -> dict[str, Any]:
 async def api_staff_clients(request: Request):
     body = await _safe_json(request)
     return _handle_staff_clients(body)
+
+
+def _handle_assembly_schedule(body: dict[str, Any]) -> dict[str, Any]:
+    """Мастер подтверждает конкретную дату/время сборки после созвона с клиентом.
+    body: {initData, assembly_id, scheduled_at: ISO, note?}
+    После подтверждения → уведомление менеджеру."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+    if not (sheets.is_master(user) or sheets.has_role(user, "assembler") or sheets.has_role(user, "manager")):
+        return {"error": "forbidden"}
+
+    assembly_id  = str(body.get("assembly_id") or "").strip()
+    scheduled_at = str(body.get("scheduled_at") or "").strip()
+    note         = str(body.get("note") or "").strip()
+    if not assembly_id:
+        return {"error": "missing_assembly_id"}
+    if not scheduled_at:
+        return {"error": "missing_scheduled_at"}
+
+    _ensure_assemblies_sheet()
+    asm = sheets.find_row("Assemblies", "id", assembly_id)
+    if not asm:
+        return {"error": "assembly_not_found"}
+
+    # Только назначенный мастер или менеджер могут подтверждать
+    is_assigned = str(asm.get("assigned_to_tg_id", "")) == str(tg_id)
+    is_mgr = sheets.has_role(user, "manager") and str(asm.get("manager_tg_id", "")) == str(tg_id)
+    if not is_assigned and not is_mgr:
+        return {"error": "not_assigned"}
+
+    now_iso = datetime.utcnow().isoformat()
+    sheets.update_cell_by_key("Assemblies", "id", assembly_id, "scheduled_at",  scheduled_at)
+    sheets.update_cell_by_key("Assemblies", "id", assembly_id, "confirmed_at",  now_iso)
+    sheets.update_cell_by_key("Assemblies", "id", assembly_id, "status",        "scheduled")
+    if note:
+        existing_note = asm.get("manager_note", "")
+        new_note = f"{existing_note}\n[Подтверждение {now_iso[:10]}]: {note}".strip()
+        sheets.update_cell_by_key("Assemblies", "id", assembly_id, "manager_note", new_note)
+
+    # Google Calendar — обновляем/создаём событие
+    try:
+        from . import gcalendar
+        ev_id = asm.get("gcal_event_id", "")
+        client_name = asm.get("client_name", "")
+        address     = asm.get("address", "")
+        scope       = asm.get("scope_of_work", "")
+        phone       = asm.get("client_phone", "")
+        staff_name  = user.get("full_name") or f"{user.get('first_name','')} {user.get('last_name','')}".strip() or str(tg_id)
+        if ev_id:
+            gcalendar.update_event(ev_id, start_iso=scheduled_at)
+        else:
+            ev = gcalendar.create_event(
+                summary=f"🔨 Сборка: {client_name}",
+                description=f"{scope}\n\nКлиент: {client_name}\nТел: {phone}\nАдрес: {address}\nМастер: {staff_name}",
+                start_iso=scheduled_at,
+                duration_min=240,
+                location=address,
+            )
+            if ev:
+                sheets.update_cell_by_key("Assemblies", "id", assembly_id, "gcal_event_id",  ev.get("id", ""))
+                sheets.update_cell_by_key("Assemblies", "id", assembly_id, "gcal_event_url", ev.get("html_link", ""))
+    except Exception as e:
+        log.warning("assembly_schedule gcal error: %s", e)
+
+    # Уведомление менеджеру
+    manager_tg_id = asm.get("manager_tg_id", "")
+    if manager_tg_id and str(manager_tg_id) != str(tg_id):
+        try:
+            staff_name = user.get("full_name") or f"{user.get('first_name','')} {user.get('last_name','')}".strip() or str(tg_id)
+            dt_str = scheduled_at[:16].replace("T", " ")
+            tg.send_message(
+                int(manager_tg_id),
+                f"✅ <b>Дата сборки согласована</b>\n\n"
+                f"Клиент: <b>{asm.get('client_name','')}</b>\n"
+                f"Адрес: {asm.get('address','')}\n"
+                f"Дата: <b>{dt_str}</b>\n"
+                f"Мастер: {staff_name}\n\n"
+                f"Лид закреплён 🎯",
+            )
+        except Exception as e:
+            log.warning("assembly_schedule notify error: %s", e)
+
+    sheets.log_event("assembly_scheduled", tg_id, {"id": assembly_id, "scheduled_at": scheduled_at})
+    return {"ok": True, "scheduled_at": scheduled_at}
+
+
+@app.post("/api/assembly_schedule")
+async def api_assembly_schedule(request: Request):
+    body = await _safe_json(request)
+    return _handle_assembly_schedule(body)
+
+
+def _handle_measurement_schedule(body: dict[str, Any]) -> dict[str, Any]:
+    """Замерщик подтверждает дату замера после созвона с клиентом.
+    body: {initData, measurement_id, scheduled_at: ISO, note?}"""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+    if not (sheets.has_role(user, "measurer") or sheets.is_master(user) or sheets.has_role(user, "manager")):
+        return {"error": "forbidden"}
+
+    meas_id      = str(body.get("measurement_id") or "").strip()
+    scheduled_at = str(body.get("scheduled_at") or "").strip()
+    note         = str(body.get("note") or "").strip()
+    if not meas_id or not scheduled_at:
+        return {"error": "missing_fields"}
+
+    meas = sheets.find_row("Measurements", "id", meas_id)
+    if not meas:
+        return {"error": "measurement_not_found"}
+
+    is_assigned = str(meas.get("assigned_to_tg_id", "")) == str(tg_id)
+    is_mgr = sheets.has_role(user, "manager") and str(meas.get("manager_tg_id", "")) == str(tg_id)
+    if not is_assigned and not is_mgr:
+        return {"error": "not_assigned"}
+
+    now_iso = datetime.utcnow().isoformat()
+    sheets.update_cell_by_key("Measurements", "id", meas_id, "scheduled_at",  scheduled_at)
+    sheets.update_cell_by_key("Measurements", "id", meas_id, "status",        "scheduled")
+
+    # Уведомление менеджеру
+    manager_tg_id = meas.get("manager_tg_id", "")
+    if manager_tg_id and str(manager_tg_id) != str(tg_id):
+        try:
+            staff_name = user.get("full_name") or f"{user.get('first_name','')} {user.get('last_name','')}".strip() or str(tg_id)
+            dt_str = scheduled_at[:16].replace("T", " ")
+            tg.send_message(
+                int(manager_tg_id),
+                f"📐 <b>Дата замера согласована</b>\n\n"
+                f"Клиент: <b>{meas.get('client_name','')}</b>\n"
+                f"Адрес: {meas.get('address','')}\n"
+                f"Дата: <b>{dt_str}</b>\n"
+                f"Замерщик: {staff_name}\n\n"
+                f"Лид закреплён 🎯",
+            )
+        except Exception as e:
+            log.warning("measurement_schedule notify error: %s", e)
+
+    sheets.log_event("measurement_scheduled", tg_id, {"id": meas_id, "scheduled_at": scheduled_at})
+    return {"ok": True, "scheduled_at": scheduled_at}
+
+
+@app.post("/api/measurement_schedule")
+async def api_measurement_schedule(request: Request):
+    body = await _safe_json(request)
+    return _handle_measurement_schedule(body)
 
 
 def _handle_contract_preview(body: dict[str, Any]) -> dict[str, Any]:
