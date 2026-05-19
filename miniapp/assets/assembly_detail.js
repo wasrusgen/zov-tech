@@ -192,6 +192,20 @@ const AssemblyDetailScreen = (function () {
       screen.innerHTML = statusBanner + mainBlock + noteBlock + photosBlock + signBlock + calBtn +
         `<div style="height:32px;"></div>`;
 
+      // Кнопка «Акт сдачи-приёмки» — для менеджера всегда доступна
+      const actWrap = document.createElement("div");
+      actWrap.style.cssText = "margin:8px 16px 0;";
+      const actBtn = document.createElement("button");
+      actBtn.className = "btn-secondary";
+      actBtn.style.cssText = "width:100%;font-size:14px;padding:11px;";
+      actBtn.textContent = "📄 Акт сдачи-приёмки";
+      actBtn.addEventListener("click", () => {
+        haptic && haptic("impact");
+        location.hash = `#/assembly/${data.id}/contract`;
+      });
+      actWrap.appendChild(actBtn);
+      screen.appendChild(actWrap);
+
       // Кнопка «Подписать акт» — только если ещё не подписано
       if (!data.signed_by_name) {
         const btnWrap = screen.querySelector("#sr-sign-btn-wrap");
@@ -207,7 +221,6 @@ const AssemblyDetailScreen = (function () {
                 clientName:  data.client_name || "",
                 clientTgId:  data.client_tg_id || "",
                 onSuccess: () => {
-                  // Перерисовываем экран после подписания
                   mount(container, assemblyId);
                 },
               });

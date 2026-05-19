@@ -912,10 +912,23 @@ async function renderStaff(me) {
     renderStaffAssemblies(assemblySection.querySelector("#assemblyList"));
   }
 
-  // Шпаргалки сборщика — прайс, рейки, полкодержатели
+  // Шпаргалки + заработки сборщика
   if (caps.assembler) {
-    const toolsBtn = el(`
+    const earningsBtn = el(`
       <div class="podbor-cta-row" style="margin-top:16px;">
+        <button class="btn-primary" style="gap:8px;">
+          💰 Мои заработки
+        </button>
+      </div>
+    `);
+    earningsBtn.querySelector("button").addEventListener("click", () => {
+      haptic && haptic("impact");
+      location.hash = "#/master/dashboard";
+    });
+    app.appendChild(earningsBtn);
+
+    const toolsBtn = el(`
+      <div class="podbor-cta-row" style="margin-top:8px;">
         <button class="btn-secondary" style="gap:8px;">
           📚 Шпаргалки сборщика
         </button>
@@ -1702,6 +1715,13 @@ function routeByHash() {
     else init();
   } else if (location.hash.startsWith("#/admin/rates")) {
     if (typeof AdminRates !== "undefined") AdminRates.mount(app);
+    else init();
+  } else if (location.hash === "#/master/dashboard") {
+    if (typeof AssemblerDashboard !== "undefined") AssemblerDashboard.mount(app);
+    else init();
+  } else if (location.hash.startsWith("#/assembly/") && location.hash.endsWith("/contract")) {
+    const asmId = location.hash.split("/")[2];
+    if (typeof Contracts !== "undefined") Contracts.mount(app, asmId);
     else init();
   } else if (location.hash.startsWith("#/master/tools")) {
     if (typeof MasterTools !== "undefined") {

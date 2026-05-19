@@ -116,6 +116,9 @@ def parse_sheet(ws) -> list[dict]:
     for ri, row in enumerate(rows):
         if ri <= date_row_idx:
             continue
+        if len(row) < 3:
+            current_assembler = None
+            continue
 
         col_a = str(row[0] or "").strip().lower()
         col_b = str(row[1] or "").strip()

@@ -153,6 +153,9 @@ async def _dispatch_post(request: Request):
         "assembly_rate_save":    _handle_assembly_rate_save,
         "assembly_rate_delete":  _handle_assembly_rate_delete,
         "assembler_analytics":   _handle_assembler_analytics,
+        "assembler_earnings":    _handle_assembler_earnings,
+        "contract_preview":      _handle_contract_preview,
+        "contract_save":         _handle_contract_save,
         "proposal_brief":        proposals_mod.handle_brief,
         "proposal_create":       proposals_mod.handle_create,
         "proposal_upsert_variant": proposals_mod.handle_upsert_variant,
@@ -2637,6 +2640,22 @@ _rates_cache: dict = {"data": None, "ts": 0.0}
 _RATES_CACHE_TTL = 120  # секунд
 
 
+def _ensure_contracts_sheet() -> None:
+    """Создаёт лист Contracts если не существует."""
+    HEADERS = [
+        "contract_id", "assembly_id", "contract_num", "contract_date",
+        "travel_spb", "travel_outside", "tech_list",
+        "created_at", "created_by_tg_id", "updated_at",
+    ]
+    try:
+        wb = sheets._get_workbook()
+        if "Contracts" not in [ws.title for ws in wb.worksheets()]:
+            ws = wb.add_worksheet("Contracts", rows=200, cols=len(HEADERS))
+            ws.append_row(HEADERS)
+    except Exception as e:
+        log.warning("_ensure_contracts_sheet: %s", e)
+
+
 def _ensure_rates_sheet() -> None:
     try:
         ws = sheets._ws("Assembly_Rates")
@@ -2963,6 +2982,227 @@ def _handle_assembler_analytics(body: dict[str, Any]) -> dict[str, Any]:
 async def api_assembler_analytics(request: Request):
     body = await _safe_json(request)
     return _handle_assembler_analytics(body)
+
+
+def _name_match_score(excel_name: str, full_name: str) -> int:
+    """Возвращает score (0-3) схожести имени из Excel с full_name из Users."""
+    en = excel_name.strip().lower()
+    fn = full_name.strip().lower()
+    if not en or not fn:
+        return 0
+    if en == fn:
+        return 3
+    # Первое слово (фамилия) совпадает
+    en_first = en.split()[0] if en.split() else ""
+    fn_first = fn.split()[0] if fn.split() else ""
+    if en_first and fn_first and en_first == fn_first:
+        # Дополнительно: совпадает второе слово или инициал
+        en_parts = en.split()
+        fn_parts = fn.split()
+        if len(en_parts) > 1 and len(fn_parts) > 1:
+            if en_parts[1] == fn_parts[1] or en_parts[1][:1] == fn_parts[1][:1]:
+                return 2
+        return 1
+    return 0
+
+
+def _handle_assembler_earnings(body: dict[str, Any]) -> dict[str, Any]:
+    """Личная аналитика сборщика — его заработки из Excel-расписания.
+    body: {initData, year?: '2026'}
+    Доступен сборщику, замерщику, менеджеру."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+    if not (sheets.has_role(user, "assembler") or sheets.has_role(user, "measurer") or
+            sheets.has_role(user, "manager") or sheets.has_role(user, "admin")):
+        return {"error": "forbidden"}
+
+    full_name = (user.get("full_name") or "").strip()
+    if not full_name:
+        return {"error": "no_name", "message": "Имя не задано в профиле"}
+
+    data = _get_schedule_data()
+    if "error" in data:
+        return data
+
+    year = str(body.get("year") or "").strip()
+
+    # Находим лучшее совпадение по имени
+    best_name = None
+    best_score = 0
+    for excel_name in data.get("by_assembler", {}).keys():
+        score = _name_match_score(excel_name, full_name)
+        if score > best_score:
+            best_score = score
+            best_name = excel_name
+
+    if not best_name or best_score == 0:
+        return {
+            "ok": True,
+            "matched_name": None,
+            "full_name": full_name,
+            "months": {},
+            "total_amount": 0,
+            "total_orders": 0,
+            "message": "Данные по вашему имени не найдены в таблице занятости",
+        }
+
+    months_raw = data["by_assembler"][best_name]
+    if year and year.isdigit():
+        months_raw = {k: v for k, v in months_raw.items() if k.startswith(year)}
+
+    total_amount = sum(m["total_amount"] for m in months_raw.values())
+    total_orders = sum(m["orders"] for m in months_raw.values())
+
+    # Сортируем по дате desc
+    months_sorted = dict(sorted(months_raw.items(), reverse=True))
+
+    return {
+        "ok": True,
+        "matched_name": best_name,
+        "full_name": full_name,
+        "match_score": best_score,
+        "months": months_sorted,
+        "total_amount": total_amount,
+        "total_orders": total_orders,
+        "parsed_at": data.get("parsed_at"),
+    }
+
+
+@app.post("/api/assembler_earnings")
+async def api_assembler_earnings(request: Request):
+    body = await _safe_json(request)
+    return _handle_assembler_earnings(body)
+
+
+def _handle_contract_preview(body: dict[str, Any]) -> dict[str, Any]:
+    """Возвращает данные сборки + сохранённые поля контракта для предпросмотра акта.
+    body: {initData, initDataUnsafe, assembly_id}
+    Доступен менеджеру и сборщику."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+    if not (sheets.has_role(user, "manager") or sheets.has_role(user, "assembler") or
+            sheets.has_role(user, "admin")):
+        return {"error": "forbidden"}
+
+    assembly_id = str(body.get("assembly_id") or "").strip()
+    if not assembly_id:
+        return {"error": "missing_assembly_id"}
+
+    asm = sheets.find_row("Assemblies", "id", assembly_id)
+    if not asm:
+        return {"error": "assembly_not_found"}
+
+    # Загружаем сохранённые поля контракта (если есть)
+    contract = sheets.find_row("Contracts", "assembly_id", assembly_id) or {}
+
+    return {
+        "ok": True,
+        "assembly": {
+            "id":           asm.get("id", ""),
+            "client_name":  asm.get("client_name", ""),
+            "client_tg_id": asm.get("client_tg_id", ""),
+            "address":      asm.get("address", ""),
+            "scheduled_at": asm.get("scheduled_at", ""),
+            "assembly_price_for_client": asm.get("assembly_price_for_client") or asm.get("kitchen_price", ""),
+            "signed_by_name": asm.get("signed_by_name", ""),
+            "signed_at":    asm.get("signed_at", ""),
+            "signed_via":   asm.get("signed_via", ""),
+            "status":       asm.get("status", ""),
+        },
+        "contract": {
+            "contract_num":    contract.get("contract_num", assembly_id),
+            "contract_date":   contract.get("contract_date", ""),
+            "travel_spb":      contract.get("travel_spb", "0"),
+            "travel_outside":  contract.get("travel_outside", "0"),
+            "tech_list":       contract.get("tech_list", ""),
+        },
+    }
+
+
+@app.post("/api/contract_preview")
+async def api_contract_preview(request: Request):
+    body = await _safe_json(request)
+    return _handle_contract_preview(body)
+
+
+def _handle_contract_save(body: dict[str, Any]) -> dict[str, Any]:
+    """Сохраняет дополнительные поля акта в лист Contracts.
+    body: {initData, initDataUnsafe, assembly_id, contract_num, contract_date, travel_spb, travel_outside, tech_list}
+    Доступен менеджеру."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+    if not (sheets.has_role(user, "manager") or sheets.has_role(user, "admin")):
+        return {"error": "forbidden"}
+
+    assembly_id = str(body.get("assembly_id") or "").strip()
+    if not assembly_id:
+        return {"error": "missing_assembly_id"}
+
+    _ensure_contracts_sheet()
+
+    contract_num   = str(body.get("contract_num")  or assembly_id).strip()
+    contract_date  = str(body.get("contract_date") or "").strip()
+    travel_spb     = str(body.get("travel_spb")    or "0").strip()
+    travel_outside = str(body.get("travel_outside") or "0").strip()
+    tech_list      = str(body.get("tech_list")     or "").strip()
+    now_iso        = datetime.utcnow().isoformat()
+
+    existing = sheets.find_row("Contracts", "assembly_id", assembly_id)
+    if existing:
+        # Обновляем существующую запись
+        sheets.update_cell_by_key("Contracts", "assembly_id", assembly_id, "contract_num",   contract_num)
+        sheets.update_cell_by_key("Contracts", "assembly_id", assembly_id, "contract_date",  contract_date)
+        sheets.update_cell_by_key("Contracts", "assembly_id", assembly_id, "travel_spb",     travel_spb)
+        sheets.update_cell_by_key("Contracts", "assembly_id", assembly_id, "travel_outside", travel_outside)
+        sheets.update_cell_by_key("Contracts", "assembly_id", assembly_id, "tech_list",      tech_list)
+        sheets.update_cell_by_key("Contracts", "assembly_id", assembly_id, "updated_at",     now_iso)
+    else:
+        # Создаём новую запись
+        import uuid
+        contract_id = str(uuid.uuid4())[:8]
+        sheets.append_row("Contracts", [
+            contract_id, assembly_id, contract_num, contract_date,
+            travel_spb, travel_outside, tech_list,
+            now_iso, str(tg_id), "",
+        ])
+
+    return {"ok": True}
+
+
+@app.post("/api/contract_save")
+async def api_contract_save(request: Request):
+    body = await _safe_json(request)
+    return _handle_contract_save(body)
 
 
 # =================================================================
