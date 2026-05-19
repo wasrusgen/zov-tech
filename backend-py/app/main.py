@@ -20,6 +20,7 @@ from .auth import verify_init_data
 from . import sheets, ai, telegram as tg, proxy_pool, catalog, geocoder, drive
 from . import parsers
 from . import proposals as proposals_mod
+from . import assembler_parser
 from .parsers import dns as parser_dns, wb as parser_wb, ozon as parser_ozon, yamarket as parser_ym, citilink as parser_cl
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -151,6 +152,7 @@ async def _dispatch_post(request: Request):
         "assembly_rates_list":   _handle_assembly_rates_list,
         "assembly_rate_save":    _handle_assembly_rate_save,
         "assembly_rate_delete":  _handle_assembly_rate_delete,
+        "assembler_analytics":   _handle_assembler_analytics,
         "proposal_brief":        proposals_mod.handle_brief,
         "proposal_create":       proposals_mod.handle_create,
         "proposal_upsert_variant": proposals_mod.handle_upsert_variant,
@@ -2829,6 +2831,138 @@ def _handle_assembly_rate_delete(body: dict[str, Any]) -> dict[str, Any]:
     sheets.update_cell_by_key("Assembly_Rates", "rule_id", rule_id, "updated_at", _now_iso())
     _rates_cache["data"] = None
     return {"ok": True}
+
+
+# =================================================================
+# Assembler Analytics — парсинг таблицы занятости сборщиков
+# =================================================================
+
+# Кэш распарсенного Excel в памяти (drive bytes → parse → aggregate)
+_schedule_cache: dict = {"data": None, "ts": 0.0, "etag": ""}
+_SCHEDULE_CACHE_TTL = 600  # 10 минут
+
+
+_LOCAL_SCHEDULE_PATH = os.environ.get(
+    "ASSEMBLER_SCHEDULE_PATH",
+    "/app/data/assembler_schedule.xlsx"
+)
+
+
+def _get_schedule_data() -> dict:
+    """Парсит таблицу занятости сборщиков. Кэш 10 мин.
+    Источник: локальный файл (LOCAL) или Google Drive (DRIVE)."""
+    import time as _time
+    now = _time.monotonic()
+
+    if _schedule_cache["data"] and (now - _schedule_cache["ts"]) < _SCHEDULE_CACHE_TTL:
+        return _schedule_cache["data"]
+
+    # Пробуем локальный файл
+    if os.path.exists(_LOCAL_SCHEDULE_PATH):
+        log.info("assembler_schedule: using local file %s", _LOCAL_SCHEDULE_PATH)
+        parsed = assembler_parser.parse_file(_LOCAL_SCHEDULE_PATH)
+    else:
+        # Fallback: Google Drive
+        cfg = get_config()
+        file_id = cfg.assembler_schedule_file_id
+        if not file_id:
+            return {"error": "Файл не найден локально и ASSEMBLER_SCHEDULE_FILE_ID не задан"}
+        try:
+            xlsx_bytes = drive.download_file_bytes(file_id)
+        except Exception as e:
+            log.warning("assembler_schedule download error: %s", e)
+            return {"error": f"download_failed: {e}"}
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tf:
+            tf.write(xlsx_bytes)
+            tmp_path = tf.name
+        try:
+            parsed = assembler_parser.parse_file(tmp_path)
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
+
+    if "error" in parsed:
+        return parsed
+
+    records = parsed.get("records", [])
+    agg = assembler_parser.aggregate(records)
+
+    data = {
+        "ok": True,
+        "parsed_sheets": parsed.get("parsed_sheets", []),
+        "total_records": len(records),
+        "elapsed_s": parsed.get("elapsed_s"),
+        "parsed_at": parsed.get("parsed_at"),
+        "by_assembler": agg["by_assembler"],
+        "by_month":     agg["by_month"],
+    }
+    _schedule_cache["data"] = data
+    _schedule_cache["ts"] = now
+    return data
+
+
+def _handle_assembler_analytics(body: dict[str, Any]) -> dict[str, Any]:
+    """Возвращает аналитику занятости/стоимостей сборщиков.
+    body: {initData, year?: '2026', assembler_name?: 'Иванов И.И.'}
+    Доступен менеджеру."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user or not (sheets.has_role(user, "manager") or sheets.has_role(user, "admin")):
+        return {"error": "forbidden"}
+
+    data = _get_schedule_data()
+    if "error" in data:
+        return data
+
+    # Фильтр по году (если указан)
+    year = str(body.get("year") or "").strip()
+    if year and year.isdigit():
+        by_month = {k: v for k, v in data["by_month"].items() if k.startswith(year)}
+        by_assembler = {}
+        for name, months in data["by_assembler"].items():
+            filtered = {k: v for k, v in months.items() if k.startswith(year)}
+            if filtered:
+                by_assembler[name] = filtered
+    else:
+        by_month = data["by_month"]
+        by_assembler = data["by_assembler"]
+
+    # Топ-5 сборщиков по итоговой сумме
+    assembler_totals = [
+        {
+            "name": name,
+            "total_amount": sum(m["total_amount"] for m in months.values()),
+            "total_orders": sum(m["orders"] for m in months.values()),
+            "months": months,
+        }
+        for name, months in by_assembler.items()
+    ]
+    assembler_totals.sort(key=lambda x: x["total_amount"], reverse=True)
+
+    return {
+        "ok": True,
+        "parsed_at": data.get("parsed_at"),
+        "total_records": data.get("total_records"),
+        "by_month": by_month,
+        "assemblers": assembler_totals,
+    }
+
+
+@app.post("/api/assembler_analytics")
+async def api_assembler_analytics(request: Request):
+    body = await _safe_json(request)
+    return _handle_assembler_analytics(body)
 
 
 # =================================================================

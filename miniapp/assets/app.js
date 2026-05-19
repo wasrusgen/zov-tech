@@ -195,6 +195,7 @@ async function renderManagerHome(me) {
     { icon: "package",   title: "Подбор техники", subtitle: "Встройка + AI",        href: "#/podbor" },
     { icon: "ruler",     title: "Заказать замер", subtitle: "Назначить замерщика",  href: "#/request" },
     { icon: "wrench",    title: "Ставки сборки",  subtitle: "% клиент / сборщик",   href: "#/admin/rates" },
+    { icon: "folder",    title: "Аналитика",       subtitle: "Занятость сборщиков",  href: "#/admin/assembler-analytics" },
   ];
   app.appendChild(el(`<div class="section-head"><span class="label">Быстрые действия</span></div>`));
   const grid = el(`<div class="quick-grid"></div>`);
@@ -1696,6 +1697,9 @@ function routeByHash() {
     else init();
   } else if (location.hash.startsWith("#/assembly")) {
     Assembly.mount(app);
+  } else if (location.hash === "#/admin/assembler-analytics") {
+    if (typeof AssemblerAnalytics !== "undefined") AssemblerAnalytics.mount(app);
+    else init();
   } else if (location.hash.startsWith("#/admin/rates")) {
     if (typeof AdminRates !== "undefined") AdminRates.mount(app);
     else init();

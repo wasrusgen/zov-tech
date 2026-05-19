@@ -30,6 +30,8 @@ class Config:
     shipments_file_id: str
     # Google Drive ID файла «Поступление заказов на склад СПб.xlsx»
     arrivals_file_id: str
+    # Google Drive ID «Таблица занятости сборщиков.xlsx»
+    assembler_schedule_file_id: str
 
 
 def _required(name: str) -> str:
@@ -59,4 +61,6 @@ def get_config() -> Config:
         shipments_file_id=os.getenv("SHIPMENTS_FILE_ID", "1KCJUXjhVR2NWEz9bD0kjTaEADsxF8gI5GMzLwJ2bw84"),
         # Поступление заказов на склад СПб — тот же файл что ОТГРУЗКИ
         arrivals_file_id=os.getenv("ARRIVALS_FILE_ID", "1KCJUXjhVR2NWEz9bD0kjTaEADsxF8gI5GMzLwJ2bw84"),
+        # Таблица занятости сборщиков — передать file_id через env
+        assembler_schedule_file_id=os.getenv("ASSEMBLER_SCHEDULE_FILE_ID", ""),
     )

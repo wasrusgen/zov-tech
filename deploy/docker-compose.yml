@@ -11,6 +11,7 @@ services:
     volumes:
       - ./credentials.json:/app/credentials.json:ro
       - ./photos:/app/photos
+      - /opt/zov-tech/data:/app/data:ro
     networks:
       - web   # внешняя сеть от deploy-стека (Caddy там)
       - internal
