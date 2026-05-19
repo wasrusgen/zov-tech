@@ -1410,6 +1410,29 @@ const Podbor = (function () {
     exportNode.querySelector("#exportPrint").addEventListener("click", () => _exportReportPrint(wrap, leadId));
     wrap.appendChild(exportNode);
 
+    // Кнопка «Домой» в самом конце отчёта — без скролла вверх
+    const footerNav = el(`
+      <div style="margin:16px 0 24px;display:flex;gap:10px;">
+        <button class="btn-secondary" style="flex:1;" id="reportNewPodbor">＋ Новый подбор</button>
+        <button class="btn-primary" style="flex:1;" id="reportGoHome">← Главное меню</button>
+      </div>
+    `);
+    footerNav.querySelector("#reportGoHome").addEventListener("click", () => {
+      haptic && haptic("impact");
+      _goHome();
+    });
+    footerNav.querySelector("#reportNewPodbor").addEventListener("click", () => {
+      haptic && haptic("impact");
+      // Сбрасываем state и начинаем заново
+      state = defaultState();
+      saveState();
+      currentStep = "intro";
+      detailView = "menu";
+      render();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+    wrap.appendChild(footerNav);
+
     return wrap;
   }
 
@@ -1842,12 +1865,24 @@ ${reportEl.outerHTML}
   }
 
   /* AI-generated text — trusted backend output, render as HTML.
-     Strip script/on* to be safe, but allow <b><em><ul><li><br>. */
+     Strip script/on* to be safe, but allow <b><em><ul><li><br>.
+     Markdown fallback: если GigaChat всё же вернул ** или *, конвертируем. */
   function _ai(s) {
     if (s == null) return "";
-    return String(s)
+    let t = String(s)
       .replace(/<script[\s\S]*?<\/script>/gi, "")
       .replace(/\son\w+\s*=/gi, " data-stripped=");
+    // Markdown → HTML только если нет HTML-тегов (GigaChat иногда игнорирует инструкцию)
+    if (!/<[a-zA-Z]/.test(t)) {
+      t = t
+        .replace(/\*\*\*(.+?)\*\*\*/g, "<b><em>$1</em></b>")  // ***bold-italic***
+        .replace(/\*\*(.+?)\*\*/g,     "<b>$1</b>")            // **bold**
+        .replace(/\*([^*\n]+?)\*/g,    "<em>$1</em>")          // *italic*
+        .replace(/_([^_\n]+?)_/g,      "<em>$1</em>")          // _italic_
+        .replace(/`([^`]+?)`/g,        "<code>$1</code>")       // `code`
+        .replace(/\n/g,                "<br>");                 // newlines
+    }
+    return t;
   }
 
   /* ===================== Helpers ===================== */
