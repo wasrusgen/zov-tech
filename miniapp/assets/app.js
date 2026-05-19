@@ -194,6 +194,7 @@ async function renderManagerHome(me) {
     { icon: "clipboard", title: "Заказы",          subtitle: "Сборки + заявки",      href: "#/assembly" },
     { icon: "package",   title: "Подбор техники", subtitle: "Встройка + AI",        href: "#/podbor" },
     { icon: "ruler",     title: "Заказать замер", subtitle: "Назначить замерщика",  href: "#/request" },
+    { icon: "wrench",    title: "Ставки сборки",  subtitle: "% клиент / сборщик",   href: "#/admin/rates" },
   ];
   app.appendChild(el(`<div class="section-head"><span class="label">Быстрые действия</span></div>`));
   const grid = el(`<div class="quick-grid"></div>`);
@@ -1695,6 +1696,9 @@ function routeByHash() {
     else init();
   } else if (location.hash.startsWith("#/assembly")) {
     Assembly.mount(app);
+  } else if (location.hash.startsWith("#/admin/rates")) {
+    if (typeof AdminRates !== "undefined") AdminRates.mount(app);
+    else init();
   } else if (location.hash.startsWith("#/master/tools")) {
     if (typeof MasterTools !== "undefined") {
       const h = location.hash;

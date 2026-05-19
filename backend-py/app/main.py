@@ -148,6 +148,9 @@ async def _dispatch_post(request: Request):
         "sign_request_create":   _handle_sign_request_create,
         "sign_request_submit":   _handle_sign_request_submit,
         "managers_list":         _handle_managers_list,
+        "assembly_rates_list":   _handle_assembly_rates_list,
+        "assembly_rate_save":    _handle_assembly_rate_save,
+        "assembly_rate_delete":  _handle_assembly_rate_delete,
         "proposal_brief":        proposals_mod.handle_brief,
         "proposal_create":       proposals_mod.handle_create,
         "proposal_upsert_variant": proposals_mod.handle_upsert_variant,
@@ -354,6 +357,24 @@ async def api_assembly_detail(request: Request):
 async def api_assembly_set_kitchen_price(request: Request):
     body = await _safe_json(request)
     return _handle_assembly_set_kitchen_price(body)
+
+
+@app.post("/api/assembly_rates_list")
+async def api_assembly_rates_list(request: Request):
+    body = await _safe_json(request)
+    return _handle_assembly_rates_list(body)
+
+
+@app.post("/api/assembly_rate_save")
+async def api_assembly_rate_save(request: Request):
+    body = await _safe_json(request)
+    return _handle_assembly_rate_save(body)
+
+
+@app.post("/api/assembly_rate_delete")
+async def api_assembly_rate_delete(request: Request):
+    body = await _safe_json(request)
+    return _handle_assembly_rate_delete(body)
 
 
 @app.post("/api/grant_role")
@@ -2452,6 +2473,30 @@ def _handle_assembly_list(body: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True, "count": len(out), "assemblies": out}
 
 
+def _calc_assembly_prices(row: dict, viewer_tg_id) -> dict:
+    """Вычисляет стоимости сборки с учётом ставок из Assembly_Rates.
+    Возвращает словарь полей для добавления в ответ assembly_detail."""
+    assembler_tg_id = str(row.get("assigned_to_tg_id") or "")
+    client_rate, assembler_rate = _resolve_rates(assembler_tg_id, scope="*")
+    is_assembler = str(viewer_tg_id) == assembler_tg_id
+
+    try:
+        kp = float(row.get("kitchen_price") or 0)
+    except (ValueError, TypeError):
+        kp = 0.0
+
+    result: dict[str, Any] = {
+        "client_rate_pct": client_rate,
+        "assembler_rate_pct": assembler_rate,
+        "assembly_price_for_client": round(kp * client_rate / 100, 2) if kp else None,
+        "viewer_is_assembler": is_assembler,
+    }
+    # Сборщик видит свой заработок; менеджер и клиент — только цену для клиента
+    if is_assembler or sheets.has_role(sheets.find_user(viewer_tg_id), "manager"):
+        result["assembler_payout"] = round(kp * assembler_rate / 100, 2) if kp else None
+    return result
+
+
 def _handle_assembly_detail(body: dict[str, Any]) -> dict[str, Any]:
     """Детальная карточка сборки."""
     cfg = get_config()
@@ -2517,6 +2562,8 @@ def _handle_assembly_detail(body: dict[str, Any]) -> dict[str, Any]:
         "manager_note": row.get("manager_note", ""),
         "kitchen_price": row.get("kitchen_price", ""),
         "client_tg_id": row.get("client_tg_id", ""),
+        # Ставки — подсчёт в реальном времени
+        **_calc_assembly_prices(row, tg_id),
     }
 
 
@@ -2560,8 +2607,228 @@ def _handle_assembly_set_kitchen_price(body: dict[str, Any]) -> dict[str, Any]:
         "id": assembly_id, "kitchen_price": kitchen_price,
     })
 
-    assembly_price = round(kitchen_price * 0.09, 2)
-    return {"ok": True, "kitchen_price": kitchen_price, "assembly_price": assembly_price}
+    client_rate, assembler_rate = _resolve_rates(
+        row.get("assigned_to_tg_id") or "", scope="*"
+    )
+    assembly_price = round(kitchen_price * client_rate / 100, 2)
+    return {
+        "ok": True,
+        "kitchen_price": kitchen_price,
+        "assembly_price": assembly_price,
+        "client_rate_pct": client_rate,
+        "assembler_rate_pct": assembler_rate,
+    }
+
+
+# =================================================================
+# Assembly Rates — настройка % сборки (клиент / сборщик)
+# =================================================================
+
+_RATES_COLUMNS = [
+    "rule_id", "assembler_tg_id", "assembler_name",
+    "scope", "client_rate_pct", "assembler_rate_pct",
+    "note", "active", "updated_by", "updated_at",
+]
+_DEFAULT_CLIENT_RATE    = 10.0
+_DEFAULT_ASSEMBLER_RATE = 9.0
+_rates_cache: dict = {"data": None, "ts": 0.0}
+_RATES_CACHE_TTL = 120  # секунд
+
+
+def _ensure_rates_sheet() -> None:
+    try:
+        ws = sheets._ws("Assembly_Rates")
+        existing = ws.row_values(1)
+    except Exception:
+        sheets.ensure_sheet("Assembly_Rates", _RATES_COLUMNS)
+        # seed default rule
+        _seed_default_rate()
+        return
+    missing = [c for c in _RATES_COLUMNS if c not in existing]
+    if missing:
+        for col in missing:
+            ws.update_cell(1, len(existing) + 1, col)
+            existing.append(col)
+    # Seed если лист пуст (только заголовок)
+    try:
+        all_rows = sheets.get_all_rows("Assembly_Rates")
+        if not all_rows:
+            _seed_default_rate()
+    except Exception:
+        pass
+
+
+def _seed_default_rate() -> None:
+    sheets.append_row("Assembly_Rates", _RATES_COLUMNS, {
+        "rule_id": str(uuid.uuid4()),
+        "assembler_tg_id": "*",
+        "assembler_name": "Все сборщики",
+        "scope": "*",
+        "client_rate_pct": str(_DEFAULT_CLIENT_RATE),
+        "assembler_rate_pct": str(_DEFAULT_ASSEMBLER_RATE),
+        "note": "Базовая ставка по умолчанию",
+        "active": "TRUE",
+        "updated_by": "system",
+        "updated_at": _now_iso(),
+    })
+
+
+def _get_rates_cached() -> list[dict]:
+    now = time.time()
+    if _rates_cache["data"] is None or (now - _rates_cache["ts"]) > _RATES_CACHE_TTL:
+        try:
+            _ensure_rates_sheet()
+            rows = sheets.get_all_rows("Assembly_Rates")
+            _rates_cache["data"] = [r for r in rows if r.get("active", "").upper() != "FALSE"]
+            _rates_cache["ts"] = now
+        except Exception as e:
+            log.warning("_get_rates_cached error: %s", e)
+            _rates_cache["data"] = _rates_cache["data"] or []
+    return _rates_cache["data"] or []
+
+
+def _resolve_rates(assembler_tg_id: str, scope: str = "*") -> tuple[float, float]:
+    """Ищет наиболее специфичное правило для сборщика и типа работ.
+    Приоритет: конкретный сборщик+scope > сборщик+* > *+scope > *+* > дефолт."""
+    rules = _get_rates_cached()
+    best_score = -1
+    best_rule = None
+    tid = str(assembler_tg_id).strip()
+    for r in rules:
+        rtid = str(r.get("assembler_tg_id", "*")).strip()
+        rscope = str(r.get("scope", "*")).strip()
+        score = 0
+        if rtid == tid:
+            score += 2
+        elif rtid != "*":
+            continue
+        if rscope == scope:
+            score += 1
+        elif rscope != "*":
+            continue
+        if score > best_score:
+            best_score = score
+            best_rule = r
+    if best_rule:
+        try:
+            cpct = float(best_rule.get("client_rate_pct", _DEFAULT_CLIENT_RATE))
+            apct = float(best_rule.get("assembler_rate_pct", _DEFAULT_ASSEMBLER_RATE))
+            return (cpct, apct)
+        except (ValueError, TypeError):
+            pass
+    return (_DEFAULT_CLIENT_RATE, _DEFAULT_ASSEMBLER_RATE)
+
+
+def _handle_assembly_rates_list(body: dict[str, Any]) -> dict[str, Any]:
+    """Список всех правил ставок (включая неактивные). Доступен менеджеру."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user or not sheets.has_role(user, "manager"):
+        return {"error": "forbidden"}
+    _ensure_rates_sheet()
+    rows = sheets.get_all_rows("Assembly_Rates")
+    return {"ok": True, "rates": rows}
+
+
+def _handle_assembly_rate_save(body: dict[str, Any]) -> dict[str, Any]:
+    """Создать или обновить правило ставки.
+    body: {initData, rule_id?, assembler_tg_id, assembler_name,
+           scope, client_rate_pct, assembler_rate_pct, note}"""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user or not sheets.has_role(user, "manager"):
+        return {"error": "forbidden"}
+
+    try:
+        cpct = float(body.get("client_rate_pct", _DEFAULT_CLIENT_RATE))
+        apct = float(body.get("assembler_rate_pct", _DEFAULT_ASSEMBLER_RATE))
+    except (ValueError, TypeError):
+        return {"error": "bad_rate", "msg": "Ставка должна быть числом"}
+    if not (0 < cpct <= 100) or not (0 < apct <= 100):
+        return {"error": "bad_rate", "msg": "Ставка должна быть от 0.1 до 100"}
+    if apct > cpct:
+        return {"error": "bad_rate", "msg": "Ставка сборщика не может быть больше ставки клиента"}
+
+    _ensure_rates_sheet()
+    rule_id = (body.get("rule_id") or "").strip()
+    now = _now_iso()
+
+    if rule_id:
+        # Обновляем существующее
+        for field, val in [
+            ("assembler_tg_id", str(body.get("assembler_tg_id") or "*")),
+            ("assembler_name",  str(body.get("assembler_name") or "")),
+            ("scope",           str(body.get("scope") or "*")),
+            ("client_rate_pct", str(cpct)),
+            ("assembler_rate_pct", str(apct)),
+            ("note",            str(body.get("note") or "")),
+            ("active",          "TRUE"),
+            ("updated_by",      str(tg_id)),
+            ("updated_at",      now),
+        ]:
+            sheets.update_cell_by_key("Assembly_Rates", "rule_id", rule_id, field, val)
+    else:
+        # Создаём новое
+        rule_id = str(uuid.uuid4())
+        sheets.append_row("Assembly_Rates", _RATES_COLUMNS, {
+            "rule_id": rule_id,
+            "assembler_tg_id": str(body.get("assembler_tg_id") or "*"),
+            "assembler_name":  str(body.get("assembler_name") or ""),
+            "scope":           str(body.get("scope") or "*"),
+            "client_rate_pct": str(cpct),
+            "assembler_rate_pct": str(apct),
+            "note":            str(body.get("note") or ""),
+            "active":          "TRUE",
+            "updated_by":      str(tg_id),
+            "updated_at":      now,
+        })
+
+    # Сбрасываем кеш
+    _rates_cache["data"] = None
+    return {"ok": True, "rule_id": rule_id}
+
+
+def _handle_assembly_rate_delete(body: dict[str, Any]) -> dict[str, Any]:
+    """Деактивирует правило ставки.
+    body: {initData, rule_id}"""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user or not sheets.has_role(user, "manager"):
+        return {"error": "forbidden"}
+
+    rule_id = (body.get("rule_id") or "").strip()
+    if not rule_id:
+        return {"error": "missing_rule_id"}
+    _ensure_rates_sheet()
+    sheets.update_cell_by_key("Assembly_Rates", "rule_id", rule_id, "active", "FALSE")
+    sheets.update_cell_by_key("Assembly_Rates", "rule_id", rule_id, "updated_by", str(tg_id))
+    sheets.update_cell_by_key("Assembly_Rates", "rule_id", rule_id, "updated_at", _now_iso())
+    _rates_cache["data"] = None
+    return {"ok": True}
 
 
 # =================================================================

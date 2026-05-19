@@ -102,13 +102,29 @@ const AssemblyDetailScreen = (function () {
           </div>
         </div>`;
 
+      // Финансовый блок — ставки из backend (настраиваются в админке)
+      const _kp  = data.kitchen_price ? Number(data.kitchen_price) : 0;
+      const _cr  = data.client_rate_pct    || 10;
+      const _ar  = data.assembler_rate_pct || 9;
+      const _cp  = data.assembly_price_for_client != null
+        ? Number(data.assembly_price_for_client)
+        : (_kp ? Math.round(_kp * _cr / 100) : 0);
+      const _ap  = data.assembler_payout != null
+        ? Number(data.assembler_payout)
+        : null;
+
+      const _priceRows = _kp ? `
+        ${row("Стоимость кухни", _kp.toLocaleString("ru-RU") + " ₽")}
+        ${row("Стоимость сборки (" + _cr + "%)", _cp.toLocaleString("ru-RU") + " ₽")}
+        ${_ap != null ? row("Ваш заработок (" + _ar + "%)", Math.round(_ap).toLocaleString("ru-RU") + " ₽", {color: "var(--accent)"}) : ""}
+      ` : "";
+
       // Основные данные
       const mainBlock = `
         <div style="margin:12px 16px 0;border:1px solid var(--border);border-radius:12px;
                     padding:0 12px;background:var(--surface);">
           ${row("Адрес", data.address)}
-          ${data.kitchen_price ? row("Стоимость кухни", Number(data.kitchen_price).toLocaleString("ru-RU") + " ₽") : ""}
-          ${data.kitchen_price ? row("Стоимость сборки", Number(Math.round(data.kitchen_price * 0.09)).toLocaleString("ru-RU") + " ₽", {color: "var(--accent)"}) : ""}
+          ${_priceRows}
           ${row("Объём работ", data.scope_of_work)}
           ${row("Дата сборки", fmtDate(data.scheduled_at))}
           ${row("Начало", fmtDate(data.started_at))}
