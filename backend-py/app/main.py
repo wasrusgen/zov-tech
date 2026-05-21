@@ -1738,6 +1738,310 @@ def _handle_assembly_assign_dispatch(body):
     return {"ok": True, "status": "scheduled"}
 
 
+def _extra_act_columns():
+    return [
+        "id", "assembly_id", "created_by_tg_id",
+        "status",           # draft | agreed | signed | cancelled
+        "items_json",       # JSON: [{id, name, unit, price, qty, total, category, source}]
+        "total_amount",
+        "signed_by_name", "signed_via", "signed_at",
+        "signature_b64",
+        "client_agreed_at",
+        "notes",
+        "created_at", "updated_at",
+    ]
+
+
+def _ensure_extra_acts_sheet():
+    try:
+        sheets.sheet("ExtraActs")
+    except Exception:
+        sheets.ensure_sheet("ExtraActs", _extra_act_columns())
+        return
+    ws = sheets.sheet("ExtraActs")
+    existing = ws.row_values(1)
+    want = _extra_act_columns()
+    missing = [c for c in want if c not in existing]
+    if missing:
+        ws.update("A1", [existing + missing])
+
+
+def _handle_pricebook_list(body):
+    """Возвращает каталог для выбора позиций в акт."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = str(auth["user"]["id"])
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+    if not (sheets.has_role(user, "assembler") or sheets.has_role(user, "manager")):
+        return {"error": "forbidden"}
+
+    result = {"ok": True, "company": [], "personal": []}
+
+    try:
+        ws = sheets.sheet("PriceBook_Company")
+        rows = ws.get_all_values()
+        if rows and len(rows) > 1:
+            headers = rows[0]
+            for r in rows[1:]:
+                row = dict(zip(headers, r + [""] * max(0, len(headers) - len(r))))
+                if row.get("active", "yes") == "no":
+                    continue
+                try:
+                    price = float(row.get("price", 0) or 0)
+                except Exception:
+                    price = 0
+                result["company"].append({
+                    "id":       row.get("id", ""),
+                    "category": row.get("category", ""),
+                    "name":     row.get("name", ""),
+                    "unit":     row.get("unit", "шт."),
+                    "price":    price,
+                    "source":   "company",
+                })
+    except Exception as e:
+        log.warning("pricebook_company error: %s", e)
+
+    try:
+        ws = sheets.sheet("PriceBook_IP")
+        rows = ws.get_all_values()
+        if rows and len(rows) > 1:
+            headers = rows[0]
+            for r in rows[1:]:
+                row = dict(zip(headers, r + [""] * max(0, len(headers) - len(r))))
+                if row.get("active", "yes") == "no":
+                    continue
+                try:
+                    price = float(row.get("price", 0) or 0)
+                except Exception:
+                    price = 0
+                result["personal"].append({
+                    "id":       row.get("id", ""),
+                    "category": row.get("category", ""),
+                    "name":     row.get("name", ""),
+                    "unit":     row.get("unit", "шт."),
+                    "price":    price,
+                    "source":   "ip",
+                })
+    except Exception as e:
+        log.warning("pricebook_ip error: %s", e)
+
+    return result
+
+
+def _handle_extra_act_save(body):
+    """Создать или обновить черновик акта доп.работ."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = str(auth["user"]["id"])
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+    if not (sheets.has_role(user, "assembler") or sheets.has_role(user, "manager")):
+        return {"error": "forbidden"}
+
+    assembly_id = (body.get("assembly_id") or "").strip()
+    items       = body.get("items") or []
+    notes       = (body.get("notes") or "").strip()
+    act_id      = (body.get("act_id") or "").strip()
+
+    if not assembly_id:
+        return {"error": "missing_assembly_id"}
+    if not items:
+        return {"error": "missing_items"}
+
+    _ensure_extra_acts_sheet()
+
+    total = sum(
+        float(it.get("price", 0)) * max(1, int(it.get("qty", 1)))
+        for it in items
+    )
+
+    now = _now_iso()
+    if act_id:
+        existing = sheets.find_row("ExtraActs", "id", act_id)
+        if not existing or existing.get("created_by_tg_id") != tg_id:
+            return {"error": "not_found_or_forbidden"}
+        sheets.update_cell_by_key("ExtraActs", "id", act_id, "items_json",    json.dumps(items, ensure_ascii=False))
+        sheets.update_cell_by_key("ExtraActs", "id", act_id, "total_amount",  str(round(total, 2)))
+        sheets.update_cell_by_key("ExtraActs", "id", act_id, "notes",         notes)
+        sheets.update_cell_by_key("ExtraActs", "id", act_id, "updated_at",    now)
+        return {"ok": True, "act_id": act_id, "total": total}
+    else:
+        act_id = str(uuid.uuid4())[:8]
+        cols = _extra_act_columns()
+        base = {c: "" for c in cols}
+        base["id"]               = act_id
+        base["assembly_id"]      = assembly_id
+        base["created_by_tg_id"] = tg_id
+        base["status"]           = "draft"
+        base["items_json"]       = json.dumps(items, ensure_ascii=False)
+        base["total_amount"]     = str(round(total, 2))
+        base["notes"]            = notes
+        base["created_at"]       = now
+        base["updated_at"]       = now
+        sheets.append_row("ExtraActs", [str(base.get(c, "")) for c in cols])
+
+        # Уведомить менеджера
+        try:
+            asm = sheets.find_row("Assemblies", "id", assembly_id)
+            mgr_id = asm.get("manager_tg_id") if asm else None
+            if mgr_id and mgr_id != tg_id:
+                items_preview = "\n".join(
+                    f"• {it.get('name','')} × {it.get('qty',1)} = {int(float(it.get('price',0))*int(it.get('qty',1)))} ₽"
+                    for it in items[:5]
+                )
+                tg.send_message(int(mgr_id),
+                    f"📋 <b>Акт доп.работ создан</b>\n"
+                    f"Сборка: {assembly_id}\n"
+                    f"Клиент: {asm.get('client_name','')}\n\n"
+                    f"{items_preview}\n\n"
+                    f"<b>Итого: {round(total):,} ₽</b>".replace(",", " "))
+        except Exception as e:
+            log.warning("extra_act notify error: %s", e)
+
+        return {"ok": True, "act_id": act_id, "total": total}
+
+
+def _handle_extra_act_sign(body):
+    """Сборщик подписывает акт (canvas или OTP)."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = str(auth["user"]["id"])
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+
+    act_id       = (body.get("act_id") or "").strip()
+    signed_via   = (body.get("signed_via") or "canvas").strip()   # canvas | telegram_otp
+    signature_b64 = (body.get("signature_b64") or "").strip()
+    signer_name  = (body.get("signed_by_name") or "").strip()
+
+    if not act_id:
+        return {"error": "missing_act_id"}
+
+    _ensure_extra_acts_sheet()
+    act = sheets.find_row("ExtraActs", "id", act_id)
+    if not act:
+        return {"error": "act_not_found"}
+    if act.get("status") not in ("draft", "agreed"):
+        return {"error": "already_signed"}
+
+    name = signer_name or (user.get("name") or user.get("first_name") or tg_id)
+    now  = _now_iso()
+
+    for col, val in [
+        ("status",        "signed"),
+        ("signed_by_name", name),
+        ("signed_via",    signed_via),
+        ("signed_at",     now),
+        ("signature_b64", signature_b64),
+        ("updated_at",    now),
+    ]:
+        sheets.update_cell_by_key("ExtraActs", "id", act_id, col, val)
+
+    return {"ok": True, "signed": True, "signed_by_name": name}
+
+
+def _handle_extra_acts_list(body):
+    """Список актов доп.работ по сборке."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = str(auth["user"]["id"])
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+
+    assembly_id = (body.get("assembly_id") or "").strip()
+
+    _ensure_extra_acts_sheet()
+    try:
+        ws = sheets.sheet("ExtraActs")
+        rows = ws.get_all_values()
+    except Exception:
+        return {"ok": True, "acts": []}
+
+    if not rows or len(rows) < 2:
+        return {"ok": True, "acts": []}
+
+    headers = rows[0]
+    out = []
+    for r in rows[1:]:
+        row = dict(zip(headers, r + [""] * max(0, len(headers) - len(r))))
+        if assembly_id and row.get("assembly_id") != assembly_id:
+            continue
+        # Только свои или менеджер
+        if row.get("created_by_tg_id") != tg_id and not sheets.has_role(user, "manager"):
+            continue
+        try:
+            items = json.loads(row.get("items_json") or "[]")
+        except Exception:
+            items = []
+        out.append({
+            "id":            row.get("id"),
+            "assembly_id":   row.get("assembly_id"),
+            "status":        row.get("status", "draft"),
+            "total_amount":  row.get("total_amount", "0"),
+            "items_count":   len(items),
+            "signed_by_name": row.get("signed_by_name"),
+            "signed_at":     row.get("signed_at"),
+            "created_at":    row.get("created_at"),
+            "notes":         row.get("notes"),
+        })
+
+    out.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+    return {"ok": True, "acts": out}
+
+
+@app.post("/api/pricebook_list")
+async def api_pricebook_list(request: Request):
+    body = await _safe_json(request)
+    return JSONResponse(_handle_pricebook_list(body))
+
+
+@app.post("/api/extra_act_save")
+async def api_extra_act_save(request: Request):
+    body = await _safe_json(request)
+    return JSONResponse(_handle_extra_act_save(body))
+
+
+@app.post("/api/extra_act_sign")
+async def api_extra_act_sign(request: Request):
+    body = await _safe_json(request)
+    return JSONResponse(_handle_extra_act_sign(body))
+
+
+@app.post("/api/extra_acts_list")
+async def api_extra_acts_list(request: Request):
+    body = await _safe_json(request)
+    return JSONResponse(_handle_extra_acts_list(body))
+
+
 @app.post("/api/dispatcher_inbox")
 async def api_dispatcher_inbox(request: Request):
     body = await _safe_json(request)

@@ -961,6 +961,22 @@ const AssemblyDetailScreen = (function () {
       act4Wrap.appendChild(act4Btn);
       screen.appendChild(act4Wrap);
 
+            // Кнопка «Акт доп.работ» — для сборщика и менеджера
+      if (data.viewer_is_assembler || data.viewer_is_manager) {
+        const extraWrap = document.createElement("div");
+        extraWrap.style.cssText = "margin:8px 16px 0;";
+        const extraBtn = document.createElement("button");
+        extraBtn.className = "btn-secondary";
+        extraBtn.style.cssText = "width:100%;font-size:14px;padding:11px;";
+        extraBtn.textContent = "📋 Акт доп. работ";
+        extraBtn.addEventListener("click", () => {
+          haptic && haptic("impact");
+          location.hash = `#/assembly/${data.id}/extra_acts`;
+        });
+        extraWrap.appendChild(extraBtn);
+        screen.appendChild(extraWrap);
+      }
+
       // Кнопка «Акт сдачи-приёмки» — для менеджера всегда доступна
       const actWrap = document.createElement("div");
       actWrap.style.cssText = "margin:8px 16px 0;";

@@ -1972,7 +1972,11 @@ function routeByHash() {
     const asmId = location.hash.replace("#/expeditor/act/", "").split("?")[0];
     if (typeof ExpeditorDashboard !== "undefined") ExpeditorDashboard.mountAct(app, asmId);
     else init();
-  } else if (location.hash.startsWith("#/assembly/") && location.hash.endsWith("/act4")) {
+  } else if (location.hash.startsWith("#/assembly/") && location.hash.endsWith("/extra_acts")) {
+    const asmId = location.hash.split("/")[2];
+    if (typeof ExtraActs !== "undefined") ExtraActs.mount(app, asmId);
+    else init();
+    } else if (location.hash.startsWith("#/assembly/") && location.hash.endsWith("/act4")) {
     const asmId = location.hash.split("/")[2];
     if (typeof Act4Screen !== "undefined") Act4Screen.mount(app, asmId);
     else init();
