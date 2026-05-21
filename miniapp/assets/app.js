@@ -890,9 +890,14 @@ async function renderStaff(me) {
   if (caps.measurer)  labels.push("замерщик");
   if (caps.assembler) labels.push("сборщик");
   if (caps.expeditor) labels.push("экспедитор");
+  if (caps.dispatcher) labels.push("диспетчер");
   const subtitle = labels.length ? labels.join(" · ") : "сотрудник";
 
   // Экспедитор — отдельный экран
+  if (caps.dispatcher && !caps.measurer && !caps.assembler && !caps.expeditor) {
+    location.hash = "#/dispatcher";
+    return;
+  }
   if (caps.expeditor && !caps.measurer && !caps.assembler) {
     _renderExpeditorScreen(app, me);
     return;
@@ -1959,6 +1964,9 @@ function routeByHash() {
     else init();
   } else if (location.hash === "#/expeditor") {
     if (typeof ExpeditorDashboard !== "undefined") ExpeditorDashboard.mount(app);
+    else init();
+  } else if (location.hash === "#/dispatcher") {
+    if (typeof DispatcherDashboard !== "undefined") DispatcherDashboard.mount(app);
     else init();
   } else if (location.hash.startsWith("#/expeditor/act/")) {
     const asmId = location.hash.replace("#/expeditor/act/", "").split("?")[0];

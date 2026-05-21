@@ -859,6 +859,7 @@ def _handle_me(body: dict[str, Any]) -> dict[str, Any]:
                 "measurer":  has_measurer,
                 "assembler": has_assembler,
                 "expeditor": has_expeditor,
+                "dispatcher": sheets.has_role(user, "dispatcher"),
             },
             "equipment": equipment_list,
             "equipment_ok": equipment_ok,
@@ -1528,6 +1529,237 @@ def _handle_act4_save_signature(body):
             "", "[]", "", "0", "0", name, "", "canvas", now_iso, signature_b64,
             "", "", now_iso, str(tg_id), now_iso])
     return {"ok": True, "signed": True, "signed_by_name": name}
+
+
+def _handle_dispatcher_inbox(body):
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+    is_disp = sheets.has_role(user, "dispatcher")
+    is_mgr  = sheets.has_role(user, "manager")
+    if not (is_disp or is_mgr):
+        return {"error": "forbidden"}
+
+    _ensure_assemblies_sheet()
+    try:
+        ws = sheets.sheet("Assemblies")
+        rows = ws.get_all_values()
+    except Exception:
+        return {"ok": True, "assemblies": []}
+    if not rows or len(rows) < 2:
+        return {"ok": True, "assemblies": []}
+
+    headers = rows[0]
+    STATUS_ORDER = {"created": 0, "shipped": 1, "arrived": 2, "scheduled": 3,
+                    "in_progress": 4, "completed": 5, "cancelled": 9}
+    out = []
+    for r in rows[1:]:
+        row = dict(zip(headers, r + [""] * max(0, len(headers) - len(r))))
+        if row.get("archived_at"):
+            continue
+        st = row.get("status", "created")
+        if st == "cancelled":
+            continue
+        out.append({
+            "id":                    row.get("id", ""),
+            "client_name":           row.get("client_name", ""),
+            "client_phone":          row.get("client_phone", ""),
+            "address":               row.get("address", ""),
+            "scope_of_work":         row.get("scope_of_work", ""),
+            "status":                st,
+            "scheduled_at":          row.get("scheduled_at", ""),
+            "shipment_date":         row.get("shipment_date", ""),
+            "packages_count":        row.get("packages_count", ""),
+            "arrival_date":          row.get("arrival_date", ""),
+            "arrival_packages_count": row.get("arrival_packages_count", ""),
+            "expeditor_tg_id":       row.get("expeditor_tg_id", ""),
+            "manager_note":          row.get("manager_note", ""),
+            "ts":                    row.get("ts", ""),
+        })
+    out.sort(key=lambda x: (STATUS_ORDER.get(x["status"], 9), x.get("ts", "")))
+    return {"ok": True, "assemblies": out}
+
+
+def _handle_assembly_set_shipment(body):
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+    if not (sheets.has_role(user, "dispatcher") or sheets.has_role(user, "manager")):
+        return {"error": "forbidden"}
+
+    assembly_id    = (body.get("assembly_id") or "").strip()
+    shipment_date  = (body.get("shipment_date") or "").strip()
+    packages_count = str(body.get("packages_count") or "").strip()
+    if not assembly_id or not shipment_date:
+        return {"error": "missing_fields"}
+
+    _ensure_assemblies_sheet()
+    asm = sheets.find_row("Assemblies", "id", assembly_id)
+    if not asm:
+        return {"error": "assembly_not_found"}
+
+    sheets.update_cell_by_key("Assemblies", "id", assembly_id, "shipment_date",  shipment_date)
+    sheets.update_cell_by_key("Assemblies", "id", assembly_id, "packages_count", packages_count)
+    sheets.update_cell_by_key("Assemblies", "id", assembly_id, "status",         "shipped")
+
+    # Уведомить менеджера
+    try:
+        mgr_id = asm.get("manager_tg_id")
+        if mgr_id:
+            tg.send_message(int(mgr_id),
+                f"🚚 <b>Отгрузка с фабрики зафиксирована</b>\n"
+                f"Клиент: {asm.get('client_name','')}\n"
+                f"Дата отгрузки: {shipment_date}\n"
+                f"Упаковок: {packages_count or '—'}")
+    except Exception as e:
+        log.warning("dispatcher notify error: %s", e)
+
+    return {"ok": True, "status": "shipped"}
+
+
+def _handle_assembly_set_arrival(body):
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+    if not (sheets.has_role(user, "dispatcher") or sheets.has_role(user, "manager")):
+        return {"error": "forbidden"}
+
+    assembly_id              = (body.get("assembly_id") or "").strip()
+    arrival_date             = (body.get("arrival_date") or "").strip()
+    arrival_packages_count   = str(body.get("arrival_packages_count") or "").strip()
+    if not assembly_id or not arrival_date:
+        return {"error": "missing_fields"}
+
+    _ensure_assemblies_sheet()
+    asm = sheets.find_row("Assemblies", "id", assembly_id)
+    if not asm:
+        return {"error": "assembly_not_found"}
+
+    sheets.update_cell_by_key("Assemblies", "id", assembly_id, "arrival_date",            arrival_date)
+    sheets.update_cell_by_key("Assemblies", "id", assembly_id, "arrival_packages_count",  arrival_packages_count)
+    sheets.update_cell_by_key("Assemblies", "id", assembly_id, "arrival_confirmed_by_tg_id", str(tg_id))
+    sheets.update_cell_by_key("Assemblies", "id", assembly_id, "status",                  "arrived")
+
+    # Проверяем расхождение упаковок
+    try:
+        expected = int(asm.get("packages_count") or 0)
+        actual   = int(arrival_packages_count or 0)
+        if expected > 0 and actual != expected:
+            mgr_id = asm.get("manager_tg_id")
+            if mgr_id:
+                tg.send_message(int(mgr_id),
+                    f"⚠️ <b>Расхождение упаковок на складе</b>\n"
+                    f"Клиент: {asm.get('client_name','')}\n"
+                    f"Ожидалось: {expected} · Принято: {actual}")
+    except Exception as e:
+        log.warning("arrival check error: %s", e)
+
+    return {"ok": True, "status": "arrived"}
+
+
+def _handle_assembly_assign_dispatch(body):
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+    if not (sheets.has_role(user, "dispatcher") or sheets.has_role(user, "manager")):
+        return {"error": "forbidden"}
+
+    assembly_id    = (body.get("assembly_id") or "").strip()
+    scheduled_at   = (body.get("scheduled_at") or "").strip()
+    expeditor_tg_id = str(body.get("expeditor_tg_id") or "").strip()
+    if not assembly_id or not scheduled_at:
+        return {"error": "missing_fields"}
+
+    _ensure_assemblies_sheet()
+    asm = sheets.find_row("Assemblies", "id", assembly_id)
+    if not asm:
+        return {"error": "assembly_not_found"}
+
+    sheets.update_cell_by_key("Assemblies", "id", assembly_id, "scheduled_at",    scheduled_at)
+    if expeditor_tg_id:
+        sheets.update_cell_by_key("Assemblies", "id", assembly_id, "expeditor_tg_id", expeditor_tg_id)
+    sheets.update_cell_by_key("Assemblies", "id", assembly_id, "status", "scheduled")
+
+    # Уведомить экспедитора
+    try:
+        exp_id = int(expeditor_tg_id) if expeditor_tg_id else None
+        if exp_id:
+            tg.send_message(exp_id,
+                f"📋 <b>Назначена сборка</b>\n"
+                f"Клиент: {asm.get('client_name','')}\n"
+                f"Адрес: {asm.get('address','')}\n"
+                f"Дата: {scheduled_at[:10]}")
+        mgr_id = asm.get("manager_tg_id")
+        if mgr_id:
+            tg.send_message(int(mgr_id),
+                f"✅ <b>Сборка назначена</b>\n"
+                f"Клиент: {asm.get('client_name','')}\n"
+                f"Дата: {scheduled_at[:10]}\n"
+                f"Экспедитор: tg:{expeditor_tg_id or '—'}")
+    except Exception as e:
+        log.warning("dispatch notify error: %s", e)
+
+    return {"ok": True, "status": "scheduled"}
+
+
+@app.post("/api/dispatcher_inbox")
+async def api_dispatcher_inbox(request: Request):
+    body = await _safe_json(request)
+    return JSONResponse(_handle_dispatcher_inbox(body))
+
+
+@app.post("/api/assembly_set_shipment")
+async def api_assembly_set_shipment(request: Request):
+    body = await _safe_json(request)
+    return JSONResponse(_handle_assembly_set_shipment(body))
+
+
+@app.post("/api/assembly_set_arrival")
+async def api_assembly_set_arrival(request: Request):
+    body = await _safe_json(request)
+    return JSONResponse(_handle_assembly_set_arrival(body))
+
+
+@app.post("/api/assembly_assign_dispatch")
+async def api_assembly_assign_dispatch(request: Request):
+    body = await _safe_json(request)
+    return JSONResponse(_handle_assembly_assign_dispatch(body))
 
 
 @app.post("/api/expeditor_inbox")
@@ -4721,6 +4953,9 @@ def _assembly_columns() -> list[str]:
         # Обратная связь
         "client_feedback_at",    # ISO — когда клиент оставил оценку
         "archived_at",
+        # Логистика (диспетчер)
+        "shipment_date", "packages_count",
+        "arrival_date", "arrival_packages_count", "arrival_confirmed_by_tg_id",
     ]
 
 
