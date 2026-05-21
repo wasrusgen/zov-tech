@@ -159,6 +159,32 @@ async def _dispatch_post(request: Request):
         "measurement_schedule":  _handle_measurement_schedule,
         "contract_preview":      _handle_contract_preview,
         "contract_save":         _handle_contract_save,
+        "invoice_create":        _handle_invoice_create,
+        "equipment_save":        _handle_equipment_save,
+        "measurer_earnings":     _handle_measurer_earnings,
+        "assembler_client_podbor": _handle_assembler_client_podbor,
+        "act4_preview":          _handle_act4_preview,
+        "act4_save":             _handle_act4_save,
+        "assembly_set_status":   _handle_assembly_set_status,
+        "assembly_set_expeditor": _handle_assembly_set_expeditor,
+        "assembly_photo_upload":    _handle_assembly_photo_upload,
+        "assembler_set_probation":  _handle_assembler_set_probation,
+        "assembly_notes_save":      _handle_assembly_notes_save,
+        "assembly_invoice_create":  _handle_assembly_invoice_create,
+        "assembly_extras_list":     _handle_assembly_extras_list,
+        "assembly_extra_add":       _handle_assembly_extra_add,
+        "assembly_extra_delete":    _handle_assembly_extra_delete,
+        "assembly_extra_approve":   _handle_assembly_extra_approve,
+        "assembly_receipt_parse":   _handle_assembly_receipt_parse,
+        "staff_roster":             _handle_staff_roster,
+        "client_order_timeline":    _handle_client_order_timeline,
+        "manager_finance_summary":  _handle_manager_finance_summary,
+        "feedback_submit":           _handle_feedback_submit,
+        "feedback_my":              _handle_feedback_my,
+        "assembly_suggest_slots":   _handle_assembly_suggest_slots,
+        "assembly_propose_date":    _handle_assembly_propose_date,
+        "assembly_date_confirm":    _handle_assembly_date_confirm,
+        "assembly_date_decline":    _handle_assembly_date_decline,
         "proposal_brief":        proposals_mod.handle_brief,
         "proposal_create":       proposals_mod.handle_create,
         "proposal_upsert_variant": proposals_mod.handle_upsert_variant,
@@ -802,9 +828,10 @@ def _handle_me(body: dict[str, Any]) -> dict[str, Any]:
 
     # Staff (замерщик / сборщик) — отдельный кабинет, доступен только тем у кого роль выдана
     if explicit_role == "staff":
-        has_measurer = "measurer" in roles
+        has_measurer  = "measurer"  in roles
         has_assembler = "assembler" in roles
-        if not (has_measurer or has_assembler):
+        has_expeditor = "expeditor" in roles
+        if not (has_measurer or has_assembler or has_expeditor):
             return {
                 "role": "staff",
                 "roles": roles,
@@ -816,6 +843,10 @@ def _handle_me(body: dict[str, Any]) -> dict[str, Any]:
                 },
             }
         full_name = user.get("full_name", "") or tg_user.get("first_name", "")
+        # Оборудование замерщика
+        equipment_raw = user.get("equipment", "")
+        equipment_list = [x.strip() for x in equipment_raw.split(",") if x.strip()] if equipment_raw else []
+        equipment_ok = _equipment_complete(equipment_list) if has_measurer else True
         return {
             "role": "staff",
             "roles": roles,
@@ -825,9 +856,12 @@ def _handle_me(body: dict[str, Any]) -> dict[str, Any]:
                 "avatar_initial": _initial(full_name),
             },
             "capabilities": {
-                "measurer": has_measurer,
+                "measurer":  has_measurer,
                 "assembler": has_assembler,
+                "expeditor": has_expeditor,
             },
+            "equipment": equipment_list,
+            "equipment_ok": equipment_ok,
         }
 
     if "manager" in roles:
@@ -874,7 +908,2353 @@ def _handle_me(body: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# Обязательный набор оборудования замерщика (ключи)
+EQUIPMENT_REQUIRED = {"tablet", "laser_tape", "angle_meter", "tape", "laser_level"}
+
+
+def _equipment_complete(equipment_list: list[str]) -> bool:
+    return EQUIPMENT_REQUIRED.issubset(set(equipment_list))
+
+
+def _handle_equipment_save(body: dict[str, Any]) -> dict[str, Any]:
+    """Замерщик сохраняет свой набор оборудования.
+    body: {initData, equipment: ["tablet","laser_tape",...]}"""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+    if not sheets.has_role(user, "measurer"):
+        return {"error": "only_measurer"}
+
+    raw = body.get("equipment") or []
+    if not isinstance(raw, list):
+        return {"error": "invalid_equipment"}
+    # Принимаем только известные ключи
+    valid_keys = {"tablet", "laser_tape", "angle_meter", "tape", "laser_level"}
+    clean = [k for k in raw if k in valid_keys]
+    equipment_str = ",".join(clean)
+
+    # Убедимся что колонка equipment есть в Users
+    try:
+        ws = sheets.sheet("Users")
+        headers = ws.row_values(1)
+        if "equipment" not in headers:
+            ws.update_cell(1, len(headers) + 1, "equipment")
+    except Exception as e:
+        log.warning("equipment col ensure error: %s", e)
+
+    sheets.update_cell_by_key("Users", "tg_id", tg_id, "equipment", equipment_str)
+    equipment_ok = _equipment_complete(clean)
+    return {"ok": True, "equipment": clean, "equipment_ok": equipment_ok}
+
+
+@app.post("/api/equipment_save")
+async def api_equipment_save(request: Request):
+    body = await _safe_json(request)
+    return _handle_equipment_save(body)
+
+
+# =================================================================
+# Заработки замерщика — по листу Measurements
+# =================================================================
+
+def _handle_measurer_earnings(body: dict[str, Any]) -> dict[str, Any]:
+    """Личная статистика замерщика: количество замеров и сумма по месяцам.
+    body: {initData, year?}"""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+    if not (sheets.has_role(user, "measurer") or sheets.has_role(user, "manager")):
+        return {"error": "forbidden"}
+
+    year_filter = str(body.get("year") or "").strip()
+
+    _ensure_measurements_sheet()
+    try:
+        ws = sheets.sheet("Measurements")
+        rows = ws.get_all_values()
+    except Exception as e:
+        return {"error": f"sheet_error: {e}"}
+
+    if not rows or len(rows) < 2:
+        return {"ok": True, "months": {}, "total_amount": 0, "total_measurements": 0}
+
+    headers = rows[0]
+    months: dict[str, dict] = {}
+
+    for r in rows[1:]:
+        row = dict(zip(headers, r + [""] * (len(headers) - len(r))))
+        if str(row.get("assigned_to_tg_id", "")) != str(tg_id):
+            continue
+        if row.get("archived_at"):
+            continue
+
+        # Дата — из scheduled_at или zamer_date или ts
+        date_str = row.get("scheduled_at") or row.get("zamer_date") or row.get("ts") or ""
+        if not date_str:
+            continue
+        try:
+            ym = date_str[:7]  # "2026-05"
+            if year_filter and not ym.startswith(year_filter):
+                continue
+        except Exception:
+            continue
+
+        fee_raw = row.get("measurement_fee", "")
+        try:
+            fee = float(fee_raw) if fee_raw else 0.0
+        except (ValueError, TypeError):
+            fee = 0.0
+
+        status = row.get("status", "")
+        if ym not in months:
+            months[ym] = {"total_amount": 0.0, "measurements": 0, "paid": 0}
+        months[ym]["measurements"] += 1
+        months[ym]["total_amount"] += fee
+        if fee > 0:
+            months[ym]["paid"] += 1
+
+    total_amount = sum(m["total_amount"] for m in months.values())
+    total_meas = sum(m["measurements"] for m in months.values())
+    months_sorted = dict(sorted(months.items(), reverse=True))
+
+    return {
+        "ok": True,
+        "months": months_sorted,
+        "total_amount": total_amount,
+        "total_measurements": total_meas,
+    }
+
+
+@app.post("/api/measurer_earnings")
+async def api_measurer_earnings(request: Request):
+    body = await _safe_json(request)
+    return _handle_measurer_earnings(body)
+
+
+# =================================================================
+# Подбор техники для сборщика — по клиенту из замера
+# =================================================================
+
+def _handle_assembler_client_podbor(body: dict[str, Any]) -> dict[str, Any]:
+    """Возвращает сводку выбранной техники для сборщика/замерщика.
+    body: {initData, measurement_id}
+    Доступно: назначенный замерщик/сборщик, менеджер."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+
+    is_staff = sheets.has_role(user, "assembler") or sheets.has_role(user, "measurer")
+    is_manager = sheets.has_role(user, "manager")
+    if not (is_staff or is_manager):
+        return {"error": "forbidden"}
+
+    measurement_id = (body.get("measurement_id") or "").strip()
+    if not measurement_id:
+        return {"error": "missing_measurement_id"}
+
+    _ensure_measurements_sheet()
+    mrow = sheets.find_row("Measurements", "id", measurement_id)
+    if not mrow:
+        return {"error": "measurement_not_found"}
+
+    # Проверка доступа: только назначенный или менеджер
+    if is_staff and not is_manager:
+        if str(mrow.get("assigned_to_tg_id", "")) != str(tg_id):
+            return {"error": "not_assigned"}
+
+    podbor_lead_id = (mrow.get("podbor_lead_id") or "").strip()
+    client_name = mrow.get("client_name", "")
+    client_phone = mrow.get("client_phone", "")
+
+    if not podbor_lead_id:
+        return {"ok": True, "has_podbor": False, "client_name": client_name}
+
+    # Ищем proposal по client_key
+    client_key = client_name.lower() if client_name else ""
+    try:
+        import proposals as proposals_mod
+    except ImportError:
+        from . import proposals as proposals_mod
+
+    try:
+        ws_p = sheets.sheet("Proposals")
+        rows_p = ws_p.get_all_values()
+    except Exception:
+        return {"ok": True, "has_podbor": False, "client_name": client_name, "error_detail": "proposals_unavailable"}
+
+    if not rows_p or len(rows_p) < 2:
+        return {"ok": True, "has_podbor": False, "client_name": client_name}
+
+    headers_p = rows_p[0]
+    proposal = None
+    for r in rows_p[1:]:
+        rd = dict(zip(headers_p, r + [""] * (len(headers_p) - len(r))))
+        if rd.get("client_key", "").lower() == client_key and rd.get("manager_tg_id") == str(mrow.get("manager_tg_id", "")):
+            proposal = rd
+            break
+
+    if not proposal:
+        return {"ok": True, "has_podbor": False, "client_name": client_name}
+
+    # Парсим positions
+    try:
+        positions = json.loads(proposal.get("positions_json") or "[]")
+    except (ValueError, TypeError):
+        positions = []
+
+    # Формируем сводку: только выбранные (voted yes) или все варианты
+    summary = []
+    for pos in positions:
+        category = pos.get("label") or pos.get("category", "")
+        variants = pos.get("variants") or []
+        chosen = [v for v in variants if v.get("client_vote") == "yes"]
+        if not chosen:
+            # Если голосов нет — берём первый вариант как предложенный
+            chosen = variants[:1]
+        for v in chosen:
+            summary.append({
+                "category": category,
+                "name": v.get("name") or v.get("title") or "",
+                "price": v.get("price") or v.get("final_price") or 0,
+                "image_url": v.get("image_url") or "",
+                "voted": v.get("client_vote") == "yes",
+            })
+
+    return {
+        "ok": True,
+        "has_podbor": True,
+        "client_name": client_name,
+        "proposal_status": proposal.get("status", ""),
+        "items": summary,
+        "total_items": len(summary),
+    }
+
+
+@app.post("/api/assembler_client_podbor")
+async def api_assembler_client_podbor(request: Request):
+    body = await _safe_json(request)
+    return _handle_assembler_client_podbor(body)
+
+
+# =================================================================
+# Акт №4 — приёмка товара (экспедитор)
+# =================================================================
+
+def _act4_columns() -> list[str]:
+    return [
+        "id", "assembly_id", "act_num", "act_date", "supplier",
+        "items_json", "notes", "total_items", "damaged_count",
+        "signed_by_name", "signed_by_phone", "signed_via", "signed_at",
+        "signature_b64", "otp_code", "otp_expires_at",
+        "created_at", "created_by_tg_id", "updated_at",
+    ]
+
+
+def _ensure_act4_sheet() -> None:
+    want = _act4_columns()
+    try:
+        ws = sheets.sheet("Act4s")
+        existing = ws.row_values(1)
+        if not existing:
+            ws.update("A1", [want])
+            return
+        missing = [c for c in want if c not in existing]
+        if missing:
+            ws.update("A1", [existing + missing])
+    except Exception:
+        sheets.ensure_sheet("Act4s", want)
+
+
+def _handle_act4_preview(body: dict[str, Any]) -> dict[str, Any]:
+    """Загружает данные для Акта №4.
+    body: {initData, assembly_id}
+    Доступно: expeditor, assembler, manager."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+
+    is_exp  = sheets.has_role(user, "expeditor")
+    is_asm  = sheets.has_role(user, "assembler")
+    is_mgr  = sheets.has_role(user, "manager")
+    if not (is_exp or is_asm or is_mgr):
+        return {"error": "forbidden"}
+
+    assembly_id = (body.get("assembly_id") or "").strip()
+    if not assembly_id:
+        return {"error": "missing_assembly_id"}
+
+    _ensure_assemblies_sheet()
+    asm = sheets.find_row("Assemblies", "id", assembly_id)
+    if not asm:
+        return {"error": "assembly_not_found"}
+
+    # Проверка доступа к сборке
+    is_owner = (str(asm.get("manager_tg_id")) == str(tg_id) or
+                str(asm.get("assigned_to_tg_id")) == str(tg_id) or
+                is_mgr)
+    if not is_owner and not is_exp:
+        return {"error": "forbidden"}
+
+    _ensure_act4_sheet()
+    act4 = sheets.find_row("Act4s", "assembly_id", assembly_id)
+
+    # Номер акта: asm-id + "-4" если не задан вручную
+    default_act_num = f"{assembly_id}-4"
+    default_date = _now_iso()[:10]
+
+    return {
+        "ok": True,
+        "assembly_id": assembly_id,
+        "client_name":  asm.get("client_name", ""),
+        "client_phone": asm.get("client_phone", ""),
+        "address":      asm.get("address", ""),
+        "manager_tg_id": asm.get("manager_tg_id", ""),
+        # Данные акта (если уже сохранён)
+        "act_num":      act4.get("act_num", default_act_num) if act4 else default_act_num,
+        "act_date":     act4.get("act_date", default_date)   if act4 else default_date,
+        "supplier":     act4.get("supplier", "")             if act4 else "",
+        "items":        json.loads(act4["items_json"]) if act4 and act4.get("items_json") else [],
+        "notes":        act4.get("notes", "")                if act4 else "",
+        "signed_by_name":  act4.get("signed_by_name", "")   if act4 else "",
+        "signed_by_phone": act4.get("signed_by_phone", "")  if act4 else "",
+        "signed_via":      act4.get("signed_via", "")        if act4 else "",
+        "signed_at":       act4.get("signed_at", "")         if act4 else "",
+        "is_signed":    bool(act4 and act4.get("signed_by_name")) if act4 else False,
+    }
+
+
+def _handle_act4_save(body: dict[str, Any]) -> dict[str, Any]:
+    """Сохраняет / обновляет Акт №4.
+    body: {initData, assembly_id, act_num, act_date, supplier, items, notes,
+           signed_by_name?, signed_by_phone?, signed_via?}"""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+    if not (sheets.has_role(user, "expeditor") or
+            sheets.has_role(user, "assembler") or
+            sheets.has_role(user, "manager")):
+        return {"error": "forbidden"}
+
+    assembly_id  = (body.get("assembly_id") or "").strip()
+    act_num      = (body.get("act_num") or f"{assembly_id}-4").strip()
+    act_date     = (body.get("act_date") or _now_iso()[:10]).strip()
+    supplier     = (body.get("supplier") or "").strip()
+    notes        = (body.get("notes") or "").strip()
+    items        = body.get("items") or []
+    signed_by_name  = (body.get("signed_by_name") or "").strip()
+    signed_by_phone = (body.get("signed_by_phone") or "").strip()
+    signed_via      = (body.get("signed_via") or "").strip()
+
+    if not isinstance(items, list):
+        return {"error": "invalid_items"}
+
+    # Подсчёт
+    total_items   = sum(int(it.get("qty", 1)) for it in items)
+    damaged_count = sum(int(it.get("qty", 1)) for it in items if it.get("condition") == "damaged")
+    items_json    = json.dumps(items, ensure_ascii=False)
+    now_iso       = _now_iso()
+
+    _ensure_act4_sheet()
+    existing = sheets.find_row("Act4s", "assembly_id", assembly_id)
+
+    if existing:
+        for col, val in [
+            ("act_num", act_num), ("act_date", act_date), ("supplier", supplier),
+            ("items_json", items_json), ("notes", notes),
+            ("total_items", str(total_items)), ("damaged_count", str(damaged_count)),
+            ("updated_at", now_iso),
+        ]:
+            sheets.update_cell_by_key("Act4s", "assembly_id", assembly_id, col, val)
+        if signed_by_name:
+            for col, val in [
+                ("signed_by_name", signed_by_name),
+                ("signed_by_phone", signed_by_phone),
+                ("signed_via", signed_via or "manual"),
+                ("signed_at", now_iso),
+            ]:
+                sheets.update_cell_by_key("Act4s", "assembly_id", assembly_id, col, val)
+    else:
+        act4_id = str(uuid.uuid4())[:8]
+        signed_at = now_iso if signed_by_name else ""
+        sheets.append_row("Act4s", [
+            act4_id, assembly_id, act_num, act_date, supplier,
+            items_json, notes, str(total_items), str(damaged_count),
+            signed_by_name, signed_by_phone, signed_via or ("manual" if signed_by_name else ""),
+            signed_at, now_iso, str(tg_id), now_iso,
+        ])
+
+    # Автоматика: подписали акт №4 → сборка переходит в in_progress
+    if signed_by_name:
+        try:
+            _ensure_assemblies_sheet()
+            asm = sheets.find_row("Assemblies", "id", assembly_id)
+            if asm and asm.get("status") in ("created", "scheduled"):
+                sheets.update_cell_by_key("Assemblies", "id", assembly_id, "status", "in_progress")
+                sheets.update_cell_by_key("Assemblies", "id", assembly_id, "started_at", now_iso)
+                log.info("act4 signed → assembly %s in_progress", assembly_id)
+            # Уведомить менеджера
+            mgr_id = asm.get("manager_tg_id") if asm else None
+            if mgr_id:
+                dmg_text = f"⚠️ Повреждений: {damaged_count}" if damaged_count else "✅ Без повреждений"
+                tg.send_message(int(mgr_id),
+                    f"📦 <b>Акт №4 подписан — сборка началась</b>\n"
+                    f"Сборка: <code>{assembly_id}</code>\n"
+                    f"Клиент: {asm.get('client_name','')}\n"
+                    f"Позиций: {total_items} · {dmg_text}\n"
+                    f"Подписал: {signed_by_name}")
+        except Exception as e:
+            log.warning("act4 notify error: %s", e)
+
+    return {"ok": True, "total_items": total_items, "damaged_count": damaged_count}
+
+
+def _handle_expeditor_inbox(body):
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+    is_exp = sheets.has_role(user, "expeditor")
+    is_mgr = sheets.has_role(user, "manager")
+    if not (is_exp or is_mgr):
+        return {"error": "forbidden"}
+    _ensure_assemblies_sheet()
+    _ensure_act4_sheet()
+    try:
+        ws = sheets.sheet("Assemblies")
+        rows = ws.get_all_values()
+    except Exception:
+        return {"ok": True, "assemblies": []}
+    if not rows or len(rows) < 2:
+        return {"ok": True, "assemblies": []}
+    headers = rows[0]
+    try:
+        act_ws = sheets.sheet("Act4s")
+        act_rows = act_ws.get_all_values()
+        act_headers = act_rows[0] if act_rows else []
+        acts = {}
+        if act_headers and "assembly_id" in act_headers:
+            aidx = act_headers.index("assembly_id")
+            for r in act_rows[1:]:
+                if r and len(r) > aidx:
+                    acts[r[aidx]] = dict(zip(act_headers, r + [""] * max(0, len(act_headers) - len(r))))
+    except Exception:
+        acts = {}
+    out = []
+    for r in rows[1:]:
+        row = dict(zip(headers, r + [""] * max(0, len(headers) - len(r))))
+        if row.get("archived_at") or row.get("status") in ("cancelled",):
+            continue
+        visible = is_mgr or str(row.get("expeditor_tg_id", "")) == str(tg_id)
+        if not visible:
+            continue
+        act = acts.get(row.get("id", ""), {})
+        out.append({
+            "id": row.get("id",""), "client_name": row.get("client_name",""),
+            "client_phone": row.get("client_phone",""), "address": row.get("address",""),
+            "scheduled_at": row.get("scheduled_at",""), "status": row.get("status",""),
+            "is_signed": bool(act.get("signed_by_name")),
+            "signed_at": act.get("signed_at",""), "act_num": act.get("act_num",""),
+        })
+    return {"ok": True, "assemblies": out}
+
+
+def _handle_act4_request_otp(body):
+    import random, datetime as dt
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+    if not (sheets.has_role(user, "expeditor") or sheets.has_role(user, "assembler") or sheets.has_role(user, "manager")):
+        return {"error": "forbidden"}
+    assembly_id = (body.get("assembly_id") or "").strip()
+    if not assembly_id:
+        return {"error": "missing_assembly_id"}
+    code = str(random.randint(100000, 999999))
+    expires = (dt.datetime.utcnow() + dt.timedelta(minutes=10)).isoformat()
+    _ensure_act4_sheet()
+    existing = sheets.find_row("Act4s", "assembly_id", assembly_id)
+    if existing:
+        sheets.update_cell_by_key("Act4s", "assembly_id", assembly_id, "otp_code", code)
+        sheets.update_cell_by_key("Act4s", "assembly_id", assembly_id, "otp_expires_at", expires)
+    else:
+        act4_id = str(uuid.uuid4())[:8]
+        sheets.append_row("Act4s", [act4_id, assembly_id, assembly_id+"-4", _now_iso()[:10],
+            "", "[]", "", "0", "0", "", "", "", "", "", code, expires, _now_iso(), str(tg_id), _now_iso()])
+    try:
+        asm = sheets.find_row("Assemblies", "id", assembly_id)
+        client = asm.get("client_name", "") if asm else ""
+        tg.send_message(int(tg_id),
+            "<b>Код подписи акта</b>\n\nКлиент: " + client + "\nКод: <code>" + code + "</code>\n\nДействителен 10 минут.")
+    except Exception as e:
+        log.warning("otp send: %s", e)
+        return {"error": "send_failed"}
+    return {"ok": True, "sent": True}
+
+
+def _handle_act4_verify_otp(body):
+    import datetime as dt
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+    assembly_id = (body.get("assembly_id") or "").strip()
+    code_input = str(body.get("code") or "").strip()
+    signer_name = (body.get("signed_by_name") or "").strip()
+    if not assembly_id or not code_input:
+        return {"error": "missing_fields"}
+    _ensure_act4_sheet()
+    act4 = sheets.find_row("Act4s", "assembly_id", assembly_id)
+    if not act4:
+        return {"error": "act_not_found"}
+    stored = act4.get("otp_code", "")
+    expires_str = act4.get("otp_expires_at", "")
+    if not stored or stored != code_input:
+        return {"error": "invalid_code"}
+    if expires_str:
+        try:
+            exp = dt.datetime.fromisoformat(expires_str)
+            if dt.datetime.utcnow() > exp:
+                return {"error": "code_expired"}
+        except Exception:
+            pass
+    now_iso = _now_iso()
+    name = signer_name or (user.get("name") or user.get("first_name") or str(tg_id))
+    for col, val in [("signed_by_name",name),("signed_via","telegram_otp"),
+                     ("signed_at",now_iso),("otp_code",""),("otp_expires_at","")]:
+        sheets.update_cell_by_key("Act4s", "assembly_id", assembly_id, col, val)
+    return {"ok": True, "signed": True, "signed_by_name": name}
+
+
+def _handle_act4_save_signature(body):
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+    if not (sheets.has_role(user, "expeditor") or sheets.has_role(user, "assembler") or sheets.has_role(user, "manager")):
+        return {"error": "forbidden"}
+    assembly_id = (body.get("assembly_id") or "").strip()
+    signature_b64 = (body.get("signature_b64") or "").strip()
+    signer_name = (body.get("signed_by_name") or "").strip()
+    if not assembly_id or not signature_b64:
+        return {"error": "missing_fields"}
+    name = signer_name or (user.get("name") or user.get("first_name") or str(tg_id))
+    now_iso = _now_iso()
+    _ensure_act4_sheet()
+    existing = sheets.find_row("Act4s", "assembly_id", assembly_id)
+    if existing:
+        for col, val in [("signature_b64",signature_b64),("signed_by_name",name),
+                         ("signed_via","canvas"),("signed_at",now_iso)]:
+            sheets.update_cell_by_key("Act4s", "assembly_id", assembly_id, col, val)
+    else:
+        act4_id = str(uuid.uuid4())[:8]
+        sheets.append_row("Act4s", [act4_id, assembly_id, assembly_id+"-4", now_iso[:10],
+            "", "[]", "", "0", "0", name, "", "canvas", now_iso, signature_b64,
+            "", "", now_iso, str(tg_id), now_iso])
+    return {"ok": True, "signed": True, "signed_by_name": name}
+
+
+@app.post("/api/expeditor_inbox")
+async def api_expeditor_inbox(request: Request):
+    body = await _safe_json(request)
+    return JSONResponse(_handle_expeditor_inbox(body))
+
+@app.post("/api/act4_request_otp")
+async def api_act4_request_otp(request: Request):
+    body = await _safe_json(request)
+    return JSONResponse(_handle_act4_request_otp(body))
+
+@app.post("/api/act4_verify_otp")
+async def api_act4_verify_otp(request: Request):
+    body = await _safe_json(request)
+    return JSONResponse(_handle_act4_verify_otp(body))
+
+@app.post("/api/act4_save_signature")
+async def api_act4_save_signature(request: Request):
+    body = await _safe_json(request)
+    return JSONResponse(_handle_act4_save_signature(body))
+
+
+@app.post("/api/act4_preview")
+async def api_act4_preview(request: Request):
+    body = await _safe_json(request)
+    return _handle_act4_preview(body)
+
+
+@app.post("/api/act4_save")
+async def api_act4_save(request: Request):
+    body = await _safe_json(request)
+    return _handle_act4_save(body)
+
+
+# =================================================================
+# Смена статуса сборки — сборщик меняет статус прямо из карточки
+# =================================================================
+
+_ASSEMBLY_STATUS_TRANSITIONS = {
+    # текущий → допустимые следующие
+    "created":     ["in_progress", "cancelled"],
+    "scheduled":   ["in_progress", "cancelled"],
+    "in_progress": ["done", "cancelled"],
+}
+
+
+def _handle_assembly_set_status(body: dict[str, Any]) -> dict[str, Any]:
+    """Сборщик / менеджер меняет статус сборки.
+    body: {initData, assembly_id, status}"""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+
+    is_assembler = sheets.has_role(user, "assembler")
+    is_manager   = sheets.has_role(user, "manager")
+    if not (is_assembler or is_manager):
+        return {"error": "forbidden"}
+
+    assembly_id = (body.get("assembly_id") or "").strip()
+    new_status  = (body.get("status") or "").strip()
+    if not assembly_id:
+        return {"error": "missing_assembly_id"}
+
+    _ensure_assemblies_sheet()
+    row = sheets.find_row("Assemblies", "id", assembly_id)
+    if not row:
+        return {"error": "assembly_not_found"}
+
+    # Assembler — только назначенный; менеджер — любая своя
+    if is_assembler and not is_manager:
+        if str(row.get("assigned_to_tg_id", "")) != str(tg_id):
+            return {"error": "not_assigned"}
+
+    current = (row.get("status") or "created").strip()
+    allowed = _ASSEMBLY_STATUS_TRANSITIONS.get(current, [])
+    if new_status not in allowed:
+        return {"error": "invalid_transition",
+                "msg": f"Из «{current}» нельзя перейти в «{new_status}»",
+                "allowed": allowed}
+
+    now_iso = _now_iso()
+    sheets.update_cell_by_key("Assemblies", "id", assembly_id, "status", new_status)
+
+    # Временны́е метки
+    if new_status == "in_progress":
+        sheets.update_cell_by_key("Assemblies", "id", assembly_id, "started_at", now_iso)
+    elif new_status == "done":
+        sheets.update_cell_by_key("Assemblies", "id", assembly_id, "completed_at", now_iso)
+
+    # Уведомить менеджера если меняет сборщик
+    if is_assembler and not is_manager:
+        try:
+            mgr_id = row.get("manager_tg_id")
+            if mgr_id:
+                labels = {"in_progress": "🔨 Сборка началась", "done": "✅ Сборка завершена", "cancelled": "❌ Сборка отменена"}
+                tg.send_message(int(mgr_id),
+                    f"{labels.get(new_status, new_status)}\n"
+                    f"Сборка: <code>{assembly_id}</code>\n"
+                    f"Клиент: {row.get('client_name','')}")
+        except Exception as e:
+            log.warning("assembly_set_status notify: %s", e)
+
+    # Уведомить клиента
+    client_tg_id_str = (row.get("client_tg_id") or "").strip()
+    if client_tg_id_str:
+        try:
+            client_msgs = {
+                "in_progress": (
+                    f"🔨 <b>Сборка вашей кухни началась!</b>\n"
+                    f"Адрес: {row.get('address','')}\n"
+                    f"Мастер уже на объекте."
+                ),
+                "done": (
+                    f"✅ <b>Сборка завершена!</b>\n"
+                    f"Адрес: {row.get('address','')}\n"
+                    f"Пожалуйста, проверьте работу и подпишите акт."
+                ),
+                "cancelled": (
+                    f"❌ <b>Сборка отменена.</b>\n"
+                    f"Свяжитесь с менеджером для уточнения деталей."
+                ),
+            }
+            if new_status in client_msgs:
+                tg.send_message(int(client_tg_id_str), client_msgs[new_status])
+        except Exception as e:
+            log.warning("assembly_set_status notify client: %s", e)
+
+    sheets.log_event("assembly_status_changed", tg_id, {
+        "id": assembly_id, "from": current, "to": new_status,
+    })
+    return {"ok": True, "status": new_status, "prev_status": current}
+
+
+@app.post("/api/assembly_set_status")
+async def api_assembly_set_status(request: Request):
+    body = await _safe_json(request)
+    return _handle_assembly_set_status(body)
+
+
+# =================================================================
+# Назначить экспедитора на сборку
+# =================================================================
+
+def _handle_assembly_set_expeditor(body: dict[str, Any]) -> dict[str, Any]:
+    """Менеджер назначает экспедитора на сборку.
+    body: {initData, assembly_id, expeditor_tg_id}"""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user or not sheets.has_role(user, "manager"):
+        return {"error": "only_manager"}
+
+    assembly_id    = (body.get("assembly_id") or "").strip()
+    exp_tg_id      = str(body.get("expeditor_tg_id") or "").strip()
+    if not assembly_id:
+        return {"error": "missing_assembly_id"}
+
+    _ensure_assemblies_sheet()
+    row = sheets.find_row("Assemblies", "id", assembly_id)
+    if not row:
+        return {"error": "assembly_not_found"}
+
+    sheets.update_cell_by_key("Assemblies", "id", assembly_id, "expeditor_tg_id", exp_tg_id)
+
+    # Уведомить экспедитора
+    if exp_tg_id:
+        try:
+            exp_user = sheets.find_user(int(exp_tg_id))
+            exp_name = exp_user.get("full_name", "") if exp_user else ""
+            tg.send_message(int(exp_tg_id),
+                f"📦 <b>Вам назначена приёмка товара</b>\n"
+                f"Сборка: <code>{assembly_id}</code>\n"
+                f"Клиент: {row.get('client_name','')}\n"
+                f"Адрес: {row.get('address','')}\n\n"
+                f"Оформите Акт №4 при доставке.")
+        except Exception as e:
+            log.warning("expeditor notify: %s", e)
+        return {"ok": True, "expeditor_tg_id": exp_tg_id}
+    return {"ok": True, "expeditor_tg_id": ""}
+
+
+@app.post("/api/assembly_set_expeditor")
+async def api_assembly_set_expeditor(request: Request):
+    body = await _safe_json(request)
+    return _handle_assembly_set_expeditor(body)
+
+
 _DATA_URL_RE = re.compile(r"^data:image/(jpeg|jpg|png|webp);base64,(.+)$", re.DOTALL)
+
+
+# =================================================================
+# Фото-отчёт сборки (сборщик / менеджер)
+# =================================================================
+
+def _handle_assembly_photo_upload(body: dict[str, Any]) -> dict[str, Any]:
+    """Сохраняет фото сборки.
+    body: {initData, assembly_id, photo_b64, kind: 'before'|'in_progress'|'after'}"""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+
+    is_assembler = sheets.has_role(user, "assembler")
+    is_manager   = sheets.has_role(user, "manager")
+    if not (is_assembler or is_manager):
+        return {"error": "forbidden"}
+
+    assembly_id = (body.get("assembly_id") or "").strip()
+    kind        = (body.get("kind") or "after").strip()
+    if kind not in ("before", "in_progress", "after"):
+        kind = "after"
+    if not assembly_id or not _SAFE_ID_RE.match(assembly_id):
+        return {"error": "missing_assembly_id"}
+
+    photo_b64 = (body.get("photo_b64") or "").strip()
+    if not photo_b64:
+        return {"error": "missing_photo"}
+
+    m = _DATA_URL_RE.match(photo_b64)
+    if not m:
+        return {"error": "invalid_photo_format", "msg": "Ожидается data:image/...;base64,..."}
+    ext = "jpg" if m.group(1) in ("jpeg", "jpg") else m.group(1)
+    try:
+        raw = base64.b64decode(m.group(2), validate=False)
+    except Exception:
+        return {"error": "invalid_photo_base64"}
+    if len(raw) > 10 * 1024 * 1024:
+        return {"error": "photo_too_large", "msg": "Максимум 10 МБ"}
+
+    _ensure_assemblies_sheet()
+    row = sheets.find_row("Assemblies", "id", assembly_id)
+    if not row:
+        return {"error": "assembly_not_found"}
+
+    if is_assembler and not is_manager:
+        if str(row.get("assigned_to_tg_id", "")) != str(tg_id):
+            return {"error": "not_assigned"}
+
+    col_name = f"photos_{kind}"
+    target_dir = PHOTOS_DIR / assembly_id
+    try:
+        target_dir.mkdir(parents=True, exist_ok=True)
+        existing = [x for x in (row.get(col_name) or "").split(",") if x.strip()]
+        n = len(existing) + 1
+        filename = f"{kind}_{n}.{ext}"
+        (target_dir / filename).write_bytes(raw)
+    except Exception as e:
+        log.warning("assembly photo save failed: %s", e)
+        return {"error": "save_failed"}
+
+    existing_str = (row.get(col_name) or "").strip().strip(",")
+    new_val = (existing_str + "," + filename).lstrip(",")
+    sheets.update_cell_by_key("Assemblies", "id", assembly_id, col_name, new_val)
+
+    log.info("Assembly photo saved: %s/%s", assembly_id, filename)
+    return {"ok": True, "filename": filename, "kind": kind}
+
+
+# =================================================================
+# Испытательный срок сборщика (менеджер включает/выключает)
+# =================================================================
+
+def _ensure_users_probation_col() -> None:
+    """Добавляет колонку on_probation в Users если её нет."""
+    try:
+        ws = sheets.sheet("Users")
+        headers = ws.row_values(1)
+        if "on_probation" not in headers:
+            ws.update_cell(1, len(headers) + 1, "on_probation")
+            log.info("Users: добавили колонку on_probation")
+    except Exception as e:
+        log.warning("_ensure_users_probation_col: %s", e)
+
+
+def _handle_assembler_set_probation(body: dict[str, Any]) -> dict[str, Any]:
+    """Менеджер устанавливает / снимает испытательный срок у сборщика.
+    body: {initData, assembler_tg_id, on_probation: true|false}"""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user or not sheets.has_role(user, "manager"):
+        return {"error": "only_manager"}
+
+    assembler_tg_id = str(body.get("assembler_tg_id") or "").strip()
+    if not assembler_tg_id:
+        return {"error": "missing_assembler_tg_id"}
+    on_prob = bool(body.get("on_probation"))
+
+    target = sheets.find_user(int(assembler_tg_id))
+    if not target:
+        return {"error": "user_not_found"}
+    if not sheets.has_role(target, "assembler"):
+        return {"error": "not_assembler"}
+
+    _ensure_users_probation_col()
+    ok = sheets.update_cell_by_key("Users", "tg_id", assembler_tg_id, "on_probation", "1" if on_prob else "")
+    if not ok:
+        return {"error": "update_failed"}
+
+    # Уведомить сборщика
+    try:
+        if on_prob:
+            tg.send_message(int(assembler_tg_id),
+                "📋 <b>Вы переведены на испытательный срок.</b>\n"
+                "Для каждого заказа требуется фото-отчёт «До / После сборки».")
+        else:
+            tg.send_message(int(assembler_tg_id),
+                "✅ <b>Испытательный срок завершён.</b> Поздравляем!")
+    except Exception as e:
+        log.warning("probation notify: %s", e)
+
+    return {"ok": True, "assembler_tg_id": assembler_tg_id, "on_probation": on_prob}
+
+
+# =================================================================
+# Заметки сборщика
+# =================================================================
+
+def _handle_assembly_notes_save(body: dict[str, Any]) -> dict[str, Any]:
+    """Сборщик (назначенный) сохраняет заметки по ходу сборки.
+    body: {initData, assembly_id, notes}"""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+    if not (sheets.has_role(user, "assembler") or sheets.has_role(user, "manager")):
+        return {"error": "forbidden"}
+
+    assembly_id = (body.get("assembly_id") or "").strip()
+    notes       = (body.get("notes") or "").strip()[:2000]
+    if not assembly_id:
+        return {"error": "missing_assembly_id"}
+
+    _ensure_assemblies_sheet()
+    row = sheets.find_row("Assemblies", "id", assembly_id)
+    if not row:
+        return {"error": "assembly_not_found"}
+
+    if sheets.has_role(user, "assembler") and not sheets.has_role(user, "manager"):
+        if str(row.get("assigned_to_tg_id", "")) != str(tg_id):
+            return {"error": "not_assigned"}
+
+    sheets.update_cell_by_key("Assemblies", "id", assembly_id, "assembler_notes", notes)
+    return {"ok": True}
+
+
+# =================================================================
+# Счёт клиенту на сборку
+# =================================================================
+
+def _handle_assembly_invoice_create(body: dict[str, Any]) -> dict[str, Any]:
+    """Менеджер / сборщик создаёт счёт клиенту на оплату сборки.
+    body: {initData, assembly_id, amount?}
+    Если amount не передан — берём assembly_price_for_client."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+    if not (sheets.has_role(user, "assembler") or sheets.has_role(user, "manager")):
+        return {"error": "forbidden"}
+
+    assembly_id = (body.get("assembly_id") or "").strip()
+    if not assembly_id:
+        return {"error": "missing_assembly_id"}
+
+    _ensure_assemblies_sheet()
+    row = sheets.find_row("Assemblies", "id", assembly_id)
+    if not row:
+        return {"error": "assembly_not_found"}
+
+    # Вычисляем цену сборки для клиента через общий хелпер
+    prices = _calc_assembly_prices(row, tg_id)
+    auto_amount = prices.get("assembly_price_for_client") or 0
+
+    amount_raw = body.get("amount")
+    if amount_raw is not None:
+        try:
+            amount = float(amount_raw)
+            if amount <= 0:
+                raise ValueError
+        except (TypeError, ValueError):
+            return {"error": "invalid_amount"}
+    else:
+        amount = float(auto_amount or 0)
+    if amount <= 0:
+        return {"error": "amount_required", "msg": "Укажите сумму или задайте стоимость кухни"}
+
+    address = row.get("address", "")
+    purpose = f"Оплата услуг по сборке кухни {address or assembly_id}"
+    try:
+        qr_b64 = _invoice_qr_b64(amount, purpose)
+    except Exception as e:
+        log.warning("assembly invoice qr error: %s", e)
+        qr_b64 = ""
+
+    now_date = _now_iso()[:10]
+    try:
+        sheets.update_cell_by_key("Assemblies", "id", assembly_id, "assembly_invoice_amount", str(amount))
+        sheets.update_cell_by_key("Assemblies", "id", assembly_id, "assembly_invoice_date", now_date)
+    except Exception as e:
+        log.warning("assembly_invoice_create: save error: %s", e)
+
+    return {
+        "ok": True,
+        "assembly_id":  assembly_id,
+        "client_name":  row.get("client_name", "Клиент"),
+        "client_phone": row.get("client_phone", ""),
+        "address":      address,
+        "date":         now_date,
+        "amount":       amount,
+        "purpose":      purpose,
+        "ip_name":      _IP_NAME,
+        "ip_inn":       _IP_INN,
+        "bank_name":    _IP_BANK,
+        "bic":          _IP_BIC,
+        "rs":           _IP_RS,
+        "ks":           _IP_KS,
+        "qr_b64":       qr_b64,
+    }
+
+
+# =================================================================
+# Доп работы (AssemblyExtras) — чеки из магазина
+# =================================================================
+
+def _assembly_extras_columns() -> list[str]:
+    return ["id", "ts", "assembly_id", "added_by_tg_id", "added_by_name",
+            "description", "amount", "receipt_photo",
+            "status",               # pending | approved | rejected
+            "approved_by_tg_id", "approved_at"]
+
+
+def _ensure_extras_sheet() -> None:
+    want = _assembly_extras_columns()
+    try:
+        ws = sheets.sheet("AssemblyExtras")
+        existing = ws.row_values(1)
+        if not existing:
+            ws.update("A1", [want])
+            return
+        missing = [c for c in want if c not in existing]
+        if missing:
+            ws.update("A1", [existing + missing])
+    except Exception:
+        sheets.ensure_sheet("AssemblyExtras", want)
+
+
+def _assembly_extra_auth(body: dict) -> tuple[dict | None, int | None]:
+    """Возвращает (user, tg_id) или (None, None) при ошибке."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return None, None
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    return user, tg_id
+
+
+def _handle_assembly_extras_list(body: dict[str, Any]) -> dict[str, Any]:
+    """Список доп работ по сборке."""
+    user, tg_id = _assembly_extra_auth(body)
+    if not user:
+        return {"error": "invalid_init_data"}
+    if not (sheets.has_role(user, "assembler") or sheets.has_role(user, "manager") or sheets.has_role(user, "client")):
+        return {"error": "forbidden"}
+
+    assembly_id = (body.get("assembly_id") or "").strip()
+    if not assembly_id:
+        return {"error": "missing_assembly_id"}
+
+    _ensure_extras_sheet()
+    try:
+        ws = sheets.sheet("AssemblyExtras")
+        rows = ws.get_all_values()
+    except Exception:
+        return {"ok": True, "extras": []}
+    if not rows or len(rows) < 2:
+        return {"ok": True, "extras": []}
+    headers = rows[0]
+    out = []
+    for r in rows[1:]:
+        row = dict(zip(headers, r + [""] * (len(headers) - len(r))))
+        if row.get("assembly_id") != assembly_id:
+            continue
+        out.append({
+            "id":            row.get("id", ""),
+            "ts":            row.get("ts", ""),
+            "description":   row.get("description", ""),
+            "amount":        row.get("amount", ""),
+            "receipt_photo": row.get("receipt_photo", ""),
+            "added_by_name": row.get("added_by_name", ""),
+            "status":        row.get("status", "pending") or "pending",
+            "approved_at":   row.get("approved_at", ""),
+        })
+    return {"ok": True, "extras": out}
+
+
+def _handle_assembly_extra_add(body: dict[str, Any]) -> dict[str, Any]:
+    """Добавляет доп работу. receipt_b64 — фото чека (опционально)."""
+    user, tg_id = _assembly_extra_auth(body)
+    if not user:
+        return {"error": "invalid_init_data"}
+    if not (sheets.has_role(user, "assembler") or sheets.has_role(user, "manager")):
+        return {"error": "forbidden"}
+
+    assembly_id = (body.get("assembly_id") or "").strip()
+    description = (body.get("description") or "").strip()[:300]
+    amount_raw  = body.get("amount")
+    receipt_b64 = (body.get("receipt_b64") or "").strip()
+
+    if not assembly_id or not description:
+        return {"error": "missing_fields"}
+    try:
+        amount = float(amount_raw) if amount_raw else 0.0
+    except (TypeError, ValueError):
+        amount = 0.0
+
+    _ensure_assemblies_sheet()
+    if not sheets.find_row("Assemblies", "id", assembly_id):
+        return {"error": "assembly_not_found"}
+
+    # Сохраняем фото чека если есть
+    receipt_fn = ""
+    if receipt_b64:
+        m = _DATA_URL_RE.match(receipt_b64)
+        if m and _SAFE_ID_RE.match(assembly_id):
+            ext = "jpg" if m.group(1) in ("jpeg", "jpg") else m.group(1)
+            try:
+                raw = base64.b64decode(m.group(2), validate=False)
+                if len(raw) <= 10 * 1024 * 1024:
+                    target_dir = PHOTOS_DIR / assembly_id
+                    target_dir.mkdir(parents=True, exist_ok=True)
+                    existing_cnt = len([f for f in target_dir.iterdir() if f.name.startswith("receipt_")])
+                    receipt_fn = f"receipt_{existing_cnt + 1}.{ext}"
+                    (target_dir / receipt_fn).write_bytes(raw)
+            except Exception as e:
+                log.warning("extra receipt save: %s", e)
+
+    extra_id = _short_id()
+    full_name = user.get("full_name") or f"{user.get('first_name','')} {user.get('last_name','')}".strip()
+
+    _ensure_extras_sheet()
+    sheets.append_named_row("AssemblyExtras", {
+        "id": extra_id, "ts": _now_iso(), "assembly_id": assembly_id,
+        "added_by_tg_id": str(tg_id), "added_by_name": full_name,
+        "description": description, "amount": str(amount) if amount else "",
+        "receipt_photo": receipt_fn,
+        "status": "pending",
+        "approved_by_tg_id": "", "approved_at": "",
+    })
+
+    # Уведомить менеджера о новой доп работе
+    try:
+        asm_row = sheets.find_row("Assemblies", "id", assembly_id)
+        if asm_row:
+            mgr_id = asm_row.get("manager_tg_id")
+            if mgr_id and str(mgr_id) != str(tg_id):
+                amt_str = f"{amount:,.0f} ₽".replace(",", " ") if amount else "сумма не указана"
+                tg.send_message(int(mgr_id),
+                    f"🧾 <b>Доп работа на согласование</b>\n"
+                    f"Клиент: {asm_row.get('client_name','')}\n"
+                    f"{description} — {amt_str}")
+    except Exception as e:
+        log.warning("extra_add notify manager: %s", e)
+
+    return {"ok": True, "extra": {
+        "id": extra_id, "ts": _now_iso(), "description": description,
+        "amount": str(amount) if amount else "",
+        "receipt_photo": receipt_fn, "added_by_name": full_name,
+    }}
+
+
+def _handle_assembly_extra_delete(body: dict[str, Any]) -> dict[str, Any]:
+    """Удаляет запись доп работы (менеджер или автор)."""
+    user, tg_id = _assembly_extra_auth(body)
+    if not user:
+        return {"error": "invalid_init_data"}
+    if not (sheets.has_role(user, "assembler") or sheets.has_role(user, "manager")):
+        return {"error": "forbidden"}
+
+    assembly_id = (body.get("assembly_id") or "").strip()
+    extra_id    = (body.get("extra_id") or "").strip()
+    if not extra_id:
+        return {"error": "missing_extra_id"}
+
+    _ensure_extras_sheet()
+    try:
+        ws = sheets.sheet("AssemblyExtras")
+        rows = ws.get_all_values()
+        if not rows:
+            return {"error": "not_found"}
+        headers = rows[0]
+        id_idx    = headers.index("id")       if "id"       in headers else -1
+        auth_idx  = headers.index("added_by_tg_id") if "added_by_tg_id" in headers else -1
+        for i, r in enumerate(rows[1:], start=2):
+            if len(r) > id_idx and r[id_idx] == extra_id:
+                is_author  = auth_idx >= 0 and len(r) > auth_idx and str(r[auth_idx]) == str(tg_id)
+                is_manager = sheets.has_role(user, "manager")
+                if not (is_author or is_manager):
+                    return {"error": "forbidden"}
+                ws.delete_rows(i)
+                return {"ok": True}
+    except Exception as e:
+        log.warning("extra_delete: %s", e)
+    return {"error": "not_found"}
+
+
+def _handle_assembly_receipt_parse(body: dict[str, Any]) -> dict[str, Any]:
+    """Парсит сумму из фото чека через GigaChat Vision."""
+    user, tg_id = _assembly_extra_auth(body)
+    if not user:
+        return {"error": "invalid_init_data"}
+    if not (sheets.has_role(user, "assembler") or sheets.has_role(user, "manager")):
+        return {"error": "forbidden"}
+
+    photo_b64 = (body.get("photo_b64") or "").strip()
+    if not photo_b64:
+        return {"error": "missing_photo"}
+
+    result = ai.parse_receipt_amount(photo_b64)
+    return {
+        "ok":     not result.get("error"),
+        "amount": result.get("amount"),
+        "raw":    result.get("raw", ""),
+    }
+
+
+def _handle_assembly_extra_approve(body: dict[str, Any]) -> dict[str, Any]:
+    """Менеджер согласует или отклоняет доп работу.
+    body: {initData, assembly_id, extra_id, action: 'approve'|'reject'}"""
+    user, tg_id = _assembly_extra_auth(body)
+    if not user:
+        return {"error": "invalid_init_data"}
+    if not sheets.has_role(user, "manager"):
+        return {"error": "only_manager"}
+
+    assembly_id = (body.get("assembly_id") or "").strip()
+    extra_id    = (body.get("extra_id") or "").strip()
+    action      = (body.get("action") or "").strip()
+    if action not in ("approve", "reject"):
+        return {"error": "bad_action"}
+    if not extra_id:
+        return {"error": "missing_extra_id"}
+
+    _ensure_extras_sheet()
+    try:
+        ws = sheets.sheet("AssemblyExtras")
+        rows = ws.get_all_values()
+        if not rows:
+            return {"error": "not_found"}
+        headers = rows[0]
+        id_idx     = headers.index("id")     if "id"     in headers else -1
+        status_idx = headers.index("status") if "status" in headers else -1
+        appr_idx   = headers.index("approved_by_tg_id") if "approved_by_tg_id" in headers else -1
+        at_idx     = headers.index("approved_at")       if "approved_at"       in headers else -1
+        author_idx = headers.index("added_by_tg_id")    if "added_by_tg_id"    in headers else -1
+        desc_idx   = headers.index("description")       if "description"       in headers else -1
+
+        new_status = "approved" if action == "approve" else "rejected"
+        now_iso = _now_iso()
+
+        for i, r in enumerate(rows[1:], start=2):
+            if len(r) > id_idx and r[id_idx] == extra_id:
+                if status_idx >= 0:
+                    ws.update_cell(i, status_idx + 1, new_status)
+                if appr_idx >= 0:
+                    ws.update_cell(i, appr_idx + 1, str(tg_id))
+                if at_idx >= 0:
+                    ws.update_cell(i, at_idx + 1, now_iso)
+
+                # Уведомить сборщика
+                try:
+                    author_tg_id = r[author_idx] if author_idx >= 0 and len(r) > author_idx else ""
+                    desc = r[desc_idx] if desc_idx >= 0 and len(r) > desc_idx else ""
+                    if author_tg_id and str(author_tg_id) != str(tg_id):
+                        emoji = "✅" if action == "approve" else "❌"
+                        label = "согласована" if action == "approve" else "отклонена"
+                        tg.send_message(int(author_tg_id),
+                            f"{emoji} <b>Доп работа {label}</b>\n{desc}")
+                except Exception as e:
+                    log.warning("extra_approve notify: %s", e)
+
+                return {"ok": True, "status": new_status}
+    except Exception as e:
+        log.warning("extra_approve: %s", e)
+    return {"error": "not_found"}
+
+
+# =================================================================
+# Обзор команды (менеджер)
+# =================================================================
+
+def _handle_staff_roster(body: dict[str, Any]) -> dict[str, Any]:
+    """Полный список сотрудников с нагрузкой, статусом оборудования и испытательным сроком."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user or not sheets.has_role(user, "manager"):
+        return {"error": "only_manager"}
+
+    # Считаем активные сборки по сборщику
+    active_by_assembler: dict[str, int] = {}
+    try:
+        _ensure_assemblies_sheet()
+        ws_asm = sheets.sheet("Assemblies")
+        asm_rows = ws_asm.get_all_values()
+        if asm_rows and len(asm_rows) > 1:
+            hdrs = asm_rows[0]
+            for r in asm_rows[1:]:
+                row = dict(zip(hdrs, r + [""] * (len(hdrs) - len(r))))
+                if row.get("status") in ("created", "scheduled", "in_progress"):
+                    atg = (row.get("assigned_to_tg_id") or "").strip()
+                    if atg:
+                        active_by_assembler[atg] = active_by_assembler.get(atg, 0) + 1
+    except Exception:
+        pass
+
+    # Счётчик замеров за текущий месяц по замерщику
+    month_prefix = _now_iso()[:7]  # "2026-05"
+    measures_by_measurer: dict[str, int] = {}
+    try:
+        ws_m = sheets.sheet("Measurements")
+        m_rows = ws_m.get_all_values()
+        if m_rows and len(m_rows) > 1:
+            hdrs = m_rows[0]
+            for r in m_rows[1:]:
+                row = dict(zip(hdrs, r + [""] * (len(hdrs) - len(r))))
+                if (row.get("ts") or "").startswith(month_prefix):
+                    atg = (row.get("assigned_to_tg_id") or "").strip()
+                    if atg:
+                        measures_by_measurer[atg] = measures_by_measurer.get(atg, 0) + 1
+    except Exception:
+        pass
+
+    EQUIPMENT_REQUIRED = {"tablet", "laser_tape", "angle_meter", "tape", "laser_level"}
+    out: list[dict] = []
+
+    try:
+        ws_u = sheets.sheet("Users")
+        u_rows = ws_u.get_all_values()
+        if not u_rows or len(u_rows) < 2:
+            return {"ok": True, "staff": []}
+        hdrs = u_rows[0]
+        for r in u_rows[1:]:
+            row = dict(zip(hdrs, r + [""] * (len(hdrs) - len(r))))
+            roles = sheets.parse_roles(row.get("role", ""))
+            if not any(rl in roles for rl in ("assembler", "measurer", "expeditor")):
+                continue
+            tg_id_str = (row.get("tg_id") or "").strip()
+            full_name = (f"{row.get('first_name','')} {row.get('last_name','')}".strip()
+                         or row.get("tg_username", "") or tg_id_str)
+
+            eq_raw = row.get("equipment", "")
+            eq_list = [x.strip() for x in eq_raw.split(",") if x.strip()] if eq_raw else []
+            equipment_ok = EQUIPMENT_REQUIRED.issubset(set(eq_list)) if "measurer" in roles else None
+            on_probation = str(row.get("on_probation", "")).lower() in ("1", "true", "yes")
+
+            out.append({
+                "tg_id":        tg_id_str,
+                "full_name":    full_name,
+                "tg_username":  row.get("tg_username", ""),
+                "roles":        roles,
+                "equipment_ok": equipment_ok,
+                "on_probation": on_probation,
+                "avg_stars":    _get_avg_stars(tg_id_str),
+                "active_assemblies": active_by_assembler.get(tg_id_str, 0),
+                "month_measures":    measures_by_measurer.get(tg_id_str, 0),
+            })
+    except Exception as e:
+        log.warning("staff_roster: %s", e)
+        return {"error": "sheets_error"}
+
+    # Сортировка: сначала сборщики, потом замерщики
+    out.sort(key=lambda x: (0 if "assembler" in x["roles"] else 1, x["full_name"]))
+    return {"ok": True, "staff": out}
+
+
+# =================================================================
+# Таймлайн заказа для клиента
+# =================================================================
+
+def _handle_client_order_timeline(body: dict[str, Any]) -> dict[str, Any]:
+    """Визуальный таймлайн заказа: замер → сборка → акт.
+    Доступен клиенту, менеджеру и назначенному сборщику."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+
+    assembly_id = (body.get("assembly_id") or "").strip()
+    if not assembly_id:
+        return {"error": "missing_assembly_id"}
+
+    _ensure_assemblies_sheet()
+    asm = sheets.find_row("Assemblies", "id", assembly_id)
+    if not asm:
+        return {"error": "assembly_not_found"}
+
+    is_authorized = (
+        str(asm.get("client_tg_id", "")) == str(tg_id) or
+        str(asm.get("manager_tg_id", "")) == str(tg_id) or
+        str(asm.get("assigned_to_tg_id", "")) == str(tg_id)
+    )
+    if not is_authorized:
+        return {"error": "forbidden"}
+
+    milestones: list[dict] = []
+
+    # --- Замер ---
+    measurement = None
+    measurement_id = (asm.get("measurement_id") or "").strip()
+    if measurement_id:
+        try:
+            measurement = sheets.find_row("Measurements", "id", measurement_id)
+        except Exception:
+            pass
+
+    if measurement:
+        milestones.append({
+            "key": "request_created",
+            "icon": "📋",
+            "title": "Заявка создана",
+            "ts": measurement.get("ts") or measurement.get("created_at", ""),
+            "done": True,
+            "detail": None,
+        })
+
+        measurer_name = ""
+        if measurement.get("assigned_to_tg_id"):
+            try:
+                m_user = sheets.find_user(int(measurement["assigned_to_tg_id"]))
+                if m_user:
+                    measurer_name = (m_user.get("full_name") or
+                        f"{m_user.get('first_name','')} {m_user.get('last_name','')}".strip())
+            except Exception:
+                pass
+
+        milestones.append({
+            "key": "measure_scheduled",
+            "icon": "📐",
+            "title": "Замер назначен",
+            "ts": measurement.get("scheduled_at") or None,
+            "done": bool(measurement.get("scheduled_at")),
+            "detail": measurer_name or None,
+        })
+
+        meas_done = measurement.get("status") == "completed"
+        milestones.append({
+            "key": "measure_done",
+            "icon": "✅",
+            "title": "Замер выполнен",
+            "ts": measurement.get("completed_at") or (measurement.get("scheduled_at") if meas_done else None),
+            "done": meas_done,
+            "detail": None,
+        })
+    else:
+        milestones.append({
+            "key": "request_created",
+            "icon": "📋",
+            "title": "Заявка создана",
+            "ts": asm.get("ts", ""),
+            "done": True,
+            "detail": None,
+        })
+
+    # --- Сборка создана ---
+    milestones.append({
+        "key": "assembly_created",
+        "icon": "🔨",
+        "title": "Сборка создана",
+        "ts": asm.get("ts", ""),
+        "done": True,
+        "detail": asm.get("address") or None,
+    })
+
+    # --- Товар принят (Акт №4) ---
+    act4_signed = False
+    act4_signed_at = ""
+    act4_signed_by = ""
+    try:
+        _ensure_act4_sheet()
+        act4_row = sheets.find_row("Act4s", "assembly_id", assembly_id)
+        if act4_row and act4_row.get("signed_by_name"):
+            act4_signed = True
+            act4_signed_at = act4_row.get("signed_at", "")
+            act4_signed_by = act4_row.get("signed_by_name", "")
+    except Exception:
+        pass
+
+    milestones.append({
+        "key": "goods_accepted",
+        "icon": "📦",
+        "title": "Товар принят",
+        "ts": act4_signed_at or None,
+        "done": act4_signed,
+        "detail": f"Принял: {act4_signed_by}" if act4_signed_by else None,
+    })
+
+    # --- Сборка началась ---
+    asm_status = asm.get("status", "")
+    in_progress_done = asm_status in ("in_progress", "done")
+    milestones.append({
+        "key": "assembly_started",
+        "icon": "🔧",
+        "title": "Сборка началась",
+        "ts": asm.get("started_at") or None,
+        "done": in_progress_done,
+        "detail": None,
+    })
+
+    # --- Доп работы ---
+    extras_count = 0
+    extras_approved = 0.0
+    try:
+        _ensure_assembly_extras_sheet()
+        ws_ex = sheets.sheet("AssemblyExtras")
+        ex_rows = ws_ex.get_all_values()
+        if ex_rows and len(ex_rows) > 1:
+            hdrs = ex_rows[0]
+            for r in ex_rows[1:]:
+                rd = dict(zip(hdrs, r + [""] * (len(hdrs) - len(r))))
+                if rd.get("assembly_id") == assembly_id:
+                    extras_count += 1
+                    if rd.get("status") == "approved":
+                        try:
+                            extras_approved += float(rd.get("amount") or 0)
+                        except (ValueError, TypeError):
+                            pass
+    except Exception:
+        pass
+
+    if extras_count > 0:
+        detail_str = f"{extras_count} поз."
+        if extras_approved > 0:
+            detail_str += f" · одобрено {int(extras_approved):,} ₽".replace(",", " ")
+        milestones.append({
+            "key": "extras",
+            "icon": "🧾",
+            "title": "Доп работы",
+            "ts": None,
+            "done": True,
+            "detail": detail_str,
+        })
+
+    # --- Сборка завершена ---
+    asm_done = asm_status == "done"
+    milestones.append({
+        "key": "assembly_done",
+        "icon": "✅",
+        "title": "Сборка завершена",
+        "ts": asm.get("completed_at") or None,
+        "done": asm_done,
+        "detail": None,
+    })
+
+    # --- Акт подписан ---
+    signed = bool(asm.get("signed_by_name"))
+    milestones.append({
+        "key": "act_signed",
+        "icon": "✍️",
+        "title": "Акт сдачи-приёмки подписан",
+        "ts": asm.get("signed_at") or None,
+        "done": signed,
+        "detail": asm.get("signed_by_name") or None,
+    })
+
+    return {
+        "ok": True,
+        "assembly_id": assembly_id,
+        "client_name": asm.get("client_name", ""),
+        "address": asm.get("address", ""),
+        "status": asm_status,
+        "milestones": milestones,
+    }
+
+
+# =================================================================
+# Финансовая сводка для менеджера
+# =================================================================
+
+_MONTHS_RU = [
+    "", "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+    "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
+]
+_MONTHS_RU_GEN = [
+    "", "января", "февраля", "марта", "апреля", "мая", "июня",
+    "июля", "августа", "сентября", "октября", "ноября", "декабря",
+]
+
+
+def _month_prefixes(period: str, now: datetime) -> tuple[list[str], str]:
+    """Возвращает (список префиксов YYYY-MM, человеко-читаемый лейбл)."""
+    y, m = now.year, now.month
+    if period == "prev_month":
+        m -= 1
+        if m == 0:
+            m, y = 12, y - 1
+        return [f"{y:04d}-{m:02d}"], f"{_MONTHS_RU[m]} {y}"
+    elif period == "quarter":
+        prefixes = []
+        labels = []
+        for i in range(3):
+            cm, cy = m - i, y
+            if cm <= 0:
+                cm += 12
+                cy -= 1
+            prefixes.append(f"{cy:04d}-{cm:02d}")
+            labels.append(_MONTHS_RU_GEN[cm])
+        return prefixes, f"{labels[-1]} – {labels[0]} {y}"
+    else:  # current_month
+        return [f"{y:04d}-{m:02d}"], f"{_MONTHS_RU[m]} {y}"
+
+
+def _handle_manager_finance_summary(body: dict[str, Any]) -> dict[str, Any]:
+    """Финансовая сводка менеджера: замеры, сборки, выручка, выплаты, доп работы.
+    body: {initData, period: 'current_month'|'prev_month'|'quarter'}"""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user or not sheets.has_role(user, "manager"):
+        return {"error": "only_manager"}
+
+    period = (body.get("period") or "current_month").strip()
+    now = datetime.now(timezone.utc)
+    prefixes, period_label = _month_prefixes(period, now)
+
+    def _in_period(ts: str) -> bool:
+        return bool(ts) and any(ts.startswith(p) for p in prefixes)
+
+    # ── Замеры ──────────────────────────────────────────────────────
+    meas_total = 0
+    meas_done = 0
+    try:
+        ws_m = sheets.sheet("Measurements")
+        m_rows = ws_m.get_all_values()
+        if m_rows and len(m_rows) > 1:
+            hdrs = m_rows[0]
+            for r in m_rows[1:]:
+                row = dict(zip(hdrs, r + [""] * (len(hdrs) - len(r))))
+                if _in_period(row.get("ts", "")):
+                    meas_total += 1
+                    if row.get("status") == "completed":
+                        meas_done += 1
+    except Exception as e:
+        log.warning("finance_summary measurements: %s", e)
+
+    # ── Сборки ──────────────────────────────────────────────────────
+    asm_total = 0
+    asm_done_count = 0
+    asm_active_count = 0
+    revenue_client = 0.0    # выручка (клиент платит)
+    payout_assembler = 0.0  # выплата сборщику
+    asm_list: list[dict] = []
+
+    try:
+        _ensure_assemblies_sheet()
+        ws_a = sheets.sheet("Assemblies")
+        a_rows = ws_a.get_all_values()
+        if a_rows and len(a_rows) > 1:
+            hdrs = a_rows[0]
+            _ensure_rates_sheet()
+            for r in a_rows[1:]:
+                row = dict(zip(hdrs, r + [""] * (len(hdrs) - len(r))))
+                # Фильтр по периоду: created or completed in period
+                ts_use = row.get("completed_at") or row.get("ts", "")
+                if not _in_period(ts_use):
+                    continue
+                asm_total += 1
+                status = row.get("status", "")
+                if status == "done":
+                    asm_done_count += 1
+                elif status in ("created", "scheduled", "in_progress"):
+                    asm_active_count += 1
+
+                # Финансы только для done-сборок с указанной ценой кухни
+                kp = 0.0
+                try:
+                    kp = float(row.get("kitchen_price") or 0)
+                except (ValueError, TypeError):
+                    pass
+
+                if kp and status == "done":
+                    atg = str(row.get("assigned_to_tg_id") or "")
+                    cr, ar = _resolve_rates(atg, scope="*")
+                    client_pay = round(kp * cr / 100, 2)
+                    asm_pay    = round(kp * ar / 100, 2)
+                    revenue_client    += client_pay
+                    payout_assembler  += asm_pay
+                    asm_list.append({
+                        "id":           row.get("id", ""),
+                        "client_name":  row.get("client_name", ""),
+                        "address":      row.get("address", ""),
+                        "completed_at": row.get("completed_at", ""),
+                        "kitchen_price": kp,
+                        "client_pay":   client_pay,
+                        "asm_pay":      asm_pay,
+                        "margin":       round(client_pay - asm_pay, 2),
+                    })
+    except Exception as e:
+        log.warning("finance_summary assemblies: %s", e)
+
+    # ── Доп работы (approved) ────────────────────────────────────────
+    extras_total = 0.0
+    extras_count = 0
+    try:
+        _ensure_assembly_extras_sheet()
+        ws_ex = sheets.sheet("AssemblyExtras")
+        ex_rows = ws_ex.get_all_values()
+        if ex_rows and len(ex_rows) > 1:
+            hdrs = ex_rows[0]
+            for r in ex_rows[1:]:
+                rd = dict(zip(hdrs, r + [""] * (len(hdrs) - len(r))))
+                if rd.get("status") == "approved" and _in_period(rd.get("ts", "")):
+                    extras_count += 1
+                    try:
+                        extras_total += float(rd.get("amount") or 0)
+                    except (ValueError, TypeError):
+                        pass
+    except Exception as e:
+        log.warning("finance_summary extras: %s", e)
+
+    margin = round(revenue_client - payout_assembler, 2)
+
+    return {
+        "ok": True,
+        "period": period,
+        "period_label": period_label,
+        # Замеры
+        "meas_total":   meas_total,
+        "meas_done":    meas_done,
+        # Сборки
+        "asm_total":    asm_total,
+        "asm_done":     asm_done_count,
+        "asm_active":   asm_active_count,
+        # Финансы
+        "revenue_client":   round(revenue_client, 2),
+        "payout_assembler": round(payout_assembler, 2),
+        "margin":           margin,
+        # Доп работы
+        "extras_count":  extras_count,
+        "extras_total":  round(extras_total, 2),
+        # Детали сборок с деньгами
+        "asm_list":      sorted(asm_list, key=lambda x: x["completed_at"], reverse=True),
+    }
+
+
+# =================================================================
+# Согласование даты сборки с клиентом
+# =================================================================
+
+def _auth_manager_only(body: dict) -> tuple[Any, dict | None]:
+    """Возвращает (tg_id, None) при успехе или (None, error_dict) при ошибке."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return None, {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user or not sheets.has_role(user, "manager"):
+        return None, {"error": "only_manager"}
+    return tg_id, None
+
+
+def _auth_any_user(body: dict) -> tuple[Any, Any, dict | None]:
+    """Возвращает (tg_id, user, None) при успехе или (None, None, error_dict)."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return None, None, {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return None, None, {"error": "user_not_found"}
+    return tg_id, user, None
+
+
+def _fmt_dt_ru(iso: str) -> str:
+    """ISO → «19 мая, 14:00»"""
+    try:
+        dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+        months = ["", "января", "февраля", "марта", "апреля", "мая", "июня",
+                  "июля", "августа", "сентября", "октября", "ноября", "декабря"]
+        return f"{dt.day} {months[dt.month]}, {dt.hour:02d}:{dt.minute:02d}"
+    except Exception:
+        return iso[:16].replace("T", " ")
+
+
+# =================================================================
+# Система оценок (Feedback)
+# =================================================================
+
+_FEEDBACK_COLUMNS = [
+    "id", "ts",
+    "from_tg_id", "from_role",
+    "target_tg_id", "target_role",  # target_role: assembler|measurer|manager|service
+    "ref_id", "ref_type",            # ref_type: assembly|measurement
+    "stars",                         # 1..5
+    "comment",
+]
+
+
+def _ensure_feedback_sheet() -> None:
+    try:
+        sheets.sheet("Feedback").row_values(1)
+    except Exception:
+        sheets.ensure_sheet("Feedback", _FEEDBACK_COLUMNS)
+
+
+def _get_avg_stars(target_tg_id: str) -> float | None:
+    """Средний балл по всем оценкам для target_tg_id. None если оценок нет."""
+    try:
+        _ensure_feedback_sheet()
+        rows = sheets.get_all_rows("Feedback")
+        vals = [
+            int(r["stars"]) for r in rows
+            if r.get("target_tg_id") == str(target_tg_id)
+            and str(r.get("stars", "")).isdigit()
+            and 1 <= int(r["stars"]) <= 5
+        ]
+        return round(sum(vals) / len(vals), 1) if vals else None
+    except Exception:
+        return None
+
+
+def _handle_feedback_submit(body: dict[str, Any]) -> dict[str, Any]:
+    """Сохраняет набор оценок одним вызовом.
+    body: {
+      initData,
+      ref_id,        # assembly_id или measurement_id
+      ref_type,      # "assembly" | "measurement"
+      ratings: [
+        {target_tg_id?, target_role, stars, comment?}
+      ]
+    }"""
+    tg_id, user, err = _auth_any_user(body)
+    if err:
+        return err
+
+    ref_id   = (body.get("ref_id")   or "").strip()
+    ref_type = (body.get("ref_type") or "").strip()
+    ratings  = body.get("ratings") or []
+
+    if not ref_id or not ref_type:
+        return {"error": "missing_ref"}
+    if not ratings:
+        return {"error": "missing_ratings"}
+
+    roles = sheets.parse_roles(user.get("role", ""))
+    from_role = (
+        "client"   if "client"   in roles else
+        "measurer" if "measurer" in roles else
+        "assembler" if "assembler" in roles else
+        "manager"  if "manager"  in roles else
+        "user"
+    )
+
+    _ensure_feedback_sheet()
+    now = _now_iso()
+
+    for r in ratings:
+        stars = int(r.get("stars") or 0)
+        if not (1 <= stars <= 5):
+            continue
+        target_role = (r.get("target_role") or "").strip()
+        if not target_role:
+            continue
+        sheets.append_row("Feedback", _FEEDBACK_COLUMNS, {
+            "id":           str(uuid.uuid4()),
+            "ts":           now,
+            "from_tg_id":   str(tg_id),
+            "from_role":    from_role,
+            "target_tg_id": str(r.get("target_tg_id") or ""),
+            "target_role":  target_role,
+            "ref_id":       ref_id,
+            "ref_type":     ref_type,
+            "stars":        str(stars),
+            "comment":      str(r.get("comment") or ""),
+        })
+
+    # Отмечаем что отзыв оставлен
+    if ref_type == "assembly":
+        _ensure_assemblies_sheet()
+        asm = sheets.find_row("Assemblies", "id", ref_id)
+        if asm:
+            # Определяем поле по роли отправителя
+            if from_role == "client":
+                sheets.update_cell_by_key("Assemblies", "id", ref_id, "client_feedback_at", now)
+    elif ref_type == "measurement":
+        _ensure_measurements_sheet()
+        m = sheets.find_row("Measurements", "id", ref_id)
+        if m:
+            if from_role == "measurer":
+                sheets.update_cell_by_key("Measurements", "id", ref_id, "measurer_feedback_at", now)
+            elif from_role == "manager":
+                sheets.update_cell_by_key("Measurements", "id", ref_id, "manager_feedback_at", now)
+
+    return {"ok": True, "saved": len(ratings)}
+
+
+def _handle_feedback_my(body: dict[str, Any]) -> dict[str, Any]:
+    """Возвращает агрегированные оценки для текущего пользователя (или target_tg_id).
+    body: {initData, target_tg_id?}"""
+    tg_id, user, err = _auth_any_user(body)
+    if err:
+        return err
+
+    target_id = str(body.get("target_tg_id") or tg_id)
+    # Менеджер может смотреть любого; остальные — только себя
+    if str(target_id) != str(tg_id):
+        if not sheets.has_role(user, "manager"):
+            return {"error": "forbidden"}
+
+    try:
+        _ensure_feedback_sheet()
+        rows = sheets.get_all_rows("Feedback")
+    except Exception as e:
+        return {"error": "sheets_error", "msg": str(e)}
+
+    my_rows = [r for r in rows if r.get("target_tg_id") == str(target_id)]
+
+    # Группируем по target_role
+    by_role: dict[str, list[int]] = {}
+    comments: list[dict] = []
+    for r in my_rows:
+        role = r.get("target_role", "")
+        try:
+            s = int(r["stars"])
+            if 1 <= s <= 5:
+                by_role.setdefault(role, []).append(s)
+        except (ValueError, TypeError):
+            pass
+        if r.get("comment"):
+            comments.append({
+                "ts":      r.get("ts", ""),
+                "role":    r.get("from_role", ""),
+                "comment": r["comment"],
+                "stars":   r.get("stars", ""),
+            })
+
+    aggregated = []
+    role_labels = {
+        "assembler": "Как сборщик",
+        "measurer":  "Как замерщик",
+        "manager":   "Как менеджер",
+        "service":   "Сервис компании",
+    }
+    for role, vals in by_role.items():
+        aggregated.append({
+            "target_role": role,
+            "label": role_labels.get(role, role),
+            "avg":   round(sum(vals) / len(vals), 1),
+            "count": len(vals),
+        })
+
+    # Последние 5 комментариев
+    comments.sort(key=lambda x: x["ts"], reverse=True)
+
+    return {
+        "ok": True,
+        "target_tg_id": target_id,
+        "aggregated": aggregated,
+        "comments": comments[:5],
+        "total": len(my_rows),
+    }
+
+
+def _handle_assembly_suggest_slots(body: dict[str, Any]) -> dict[str, Any]:
+    """Возвращает свободные слоты сборщиков на 14 дней вперёд, отсортированных по рейтингу.
+    body: {initData, assembly_id}"""
+    tg_id, err = _auth_manager_only(body)
+    if err:
+        return err
+
+    assembly_id = (body.get("assembly_id") or "").strip()
+    if not assembly_id:
+        return {"error": "missing_assembly_id"}
+
+    _ensure_assemblies_sheet()
+
+    # ── Занятость всех сборщиков (busy dates) ────────────────────────
+    # busy_dates[tg_id] = set of date strings "YYYY-MM-DD"
+    busy_dates: dict[str, set] = {}
+    completed_count: dict[str, int] = {}
+    active_count: dict[str, int] = {}
+
+    try:
+        ws_a = sheets.sheet("Assemblies")
+        rows = ws_a.get_all_values()
+        if rows and len(rows) > 1:
+            hdrs = rows[0]
+            for r in rows[1:]:
+                row = dict(zip(hdrs, r + [""] * (len(hdrs) - len(r))))
+                atg = (row.get("assigned_to_tg_id") or "").strip()
+                if not atg:
+                    continue
+                status = row.get("status", "")
+                if status == "done":
+                    completed_count[atg] = completed_count.get(atg, 0) + 1
+                if status in ("created", "scheduled", "in_progress"):
+                    active_count[atg] = active_count.get(atg, 0) + 1
+                    # Занятая дата = день назначенной/активной сборки
+                    sched = (row.get("scheduled_at") or "").strip()
+                    if sched:
+                        day = sched[:10]
+                        if atg not in busy_dates:
+                            busy_dates[atg] = set()
+                        busy_dates[atg].add(day)
+    except Exception as e:
+        log.warning("suggest_slots busy_dates: %s", e)
+
+    # ── Список сборщиков ──────────────────────────────────────────────
+    assemblers = []
+    EQUIPMENT_REQUIRED = {"tablet", "laser_tape", "angle_meter", "tape", "laser_level"}
+    try:
+        ws_u = sheets.sheet("Users")
+        u_rows = ws_u.get_all_values()
+        if u_rows and len(u_rows) > 1:
+            hdrs = u_rows[0]
+            for r in u_rows[1:]:
+                row = dict(zip(hdrs, r + [""] * (len(hdrs) - len(r))))
+                roles = sheets.parse_roles(row.get("role", ""))
+                if "assembler" not in roles:
+                    continue
+                atg = (row.get("tg_id") or "").strip()
+                if not atg:
+                    continue
+                full_name = (f"{row.get('first_name', '')} {row.get('last_name', '')}".strip()
+                             or row.get("tg_username", "") or atg)
+                on_probation = str(row.get("on_probation", "")).lower() in ("1", "true", "yes")
+
+                # Рейтинг: звёзды × 15 + завершённые × 10 − активные × 5 − испытательный × 20
+                comp = completed_count.get(atg, 0)
+                active = active_count.get(atg, 0)
+                avg_stars = _get_avg_stars(atg)
+                star_bonus = round((avg_stars - 3) * 15) if avg_stars else 0
+                score = star_bonus + comp * 10 - active * 5 - (20 if on_probation else 0)
+
+                assemblers.append({
+                    "tg_id": atg,
+                    "name": full_name,
+                    "tg_username": row.get("tg_username", ""),
+                    "on_probation": on_probation,
+                    "completed_count": comp,
+                    "active_count": active,
+                    "avg_stars": avg_stars,
+                    "score": score,
+                    "_busy": busy_dates.get(atg, set()),
+                })
+    except Exception as e:
+        log.warning("suggest_slots assemblers: %s", e)
+        return {"error": "sheets_error"}
+
+    # Сортируем по убыванию рейтинга
+    assemblers.sort(key=lambda x: x["score"], reverse=True)
+
+    # ── Генерируем свободные слоты на 14 дней ────────────────────────
+    now = datetime.now(timezone.utc)
+    # Начинаем со следующего дня (сегодня уже поздно)
+    slots_hours = [9, 14]  # 09:00 и 14:00
+    result = []
+
+    for asm in assemblers[:6]:  # не больше 6 сборщиков
+        busy = asm.pop("_busy")
+        free_slots = []
+        for day_offset in range(1, 15):
+            d = now + timedelta(days=day_offset)
+            day_str = d.strftime("%Y-%m-%d")
+            if day_str in busy:
+                continue
+            # Пропускаем воскресенье (6)
+            if d.weekday() == 6:
+                continue
+            for h in slots_hours:
+                slot_iso = f"{day_str}T{h:02d}:00"
+                free_slots.append(slot_iso)
+                if len(free_slots) >= 6:
+                    break
+            if len(free_slots) >= 6:
+                break
+        asm["free_slots"] = free_slots
+        result.append(asm)
+
+    return {"ok": True, "assemblers": result}
+
+
+def _handle_assembly_propose_date(body: dict[str, Any]) -> dict[str, Any]:
+    """Менеджер предлагает дату сборки клиенту.
+    body: {initData, assembly_id, proposed_date: ISO, assign_assembler_tg_id?: str}"""
+    tg_id, err = _auth_manager_only(body)
+    if err:
+        return err
+
+    assembly_id = (body.get("assembly_id") or "").strip()
+    proposed_date = (body.get("proposed_date") or "").strip()
+    if not assembly_id:
+        return {"error": "missing_assembly_id"}
+    if not proposed_date:
+        return {"error": "missing_proposed_date"}
+
+    _ensure_assemblies_sheet()
+    asm = sheets.find_row("Assemblies", "id", assembly_id)
+    if not asm:
+        return {"error": "assembly_not_found"}
+    if str(asm.get("manager_tg_id", "")) != str(tg_id):
+        return {"error": "forbidden"}
+
+    sheets.update_cell_by_key("Assemblies", "id", assembly_id, "proposed_date", proposed_date)
+    sheets.update_cell_by_key("Assemblies", "id", assembly_id, "client_date_status", "pending")
+    sheets.update_cell_by_key("Assemblies", "id", assembly_id, "client_preferred_date", "")
+
+    # Опционально: назначить сборщика одновременно с предложением даты
+    assembler_name = ""
+    assign_tg_id = (body.get("assign_assembler_tg_id") or "").strip()
+    if assign_tg_id:
+        sheets.update_cell_by_key("Assemblies", "id", assembly_id, "assigned_to_tg_id", assign_tg_id)
+        # Уведомляем сборщика
+        try:
+            asm_user = sheets.find_user(int(assign_tg_id))
+            if asm_user:
+                assembler_name = (asm_user.get("full_name") or
+                    f"{asm_user.get('first_name','')} {asm_user.get('last_name','')}".strip())
+            cfg = get_config()
+            tg.send_message(
+                cfg.bot_token, int(assign_tg_id),
+                f"🔨 Вас назначили на сборку кухни!\n"
+                f"📍 {asm.get('address', '')}\n"
+                f"📅 Предлагаемая дата: <b>{_fmt_dt_ru(proposed_date)}</b>\n"
+                f"(ожидаем подтверждения клиента)",
+                parse_mode="HTML",
+            )
+        except Exception as e:
+            log.warning("propose_date tg notify assembler: %s", e)
+
+    # Telegram клиенту
+    client_tg_id = (asm.get("client_tg_id") or "").strip()
+    if client_tg_id:
+        date_str = _fmt_dt_ru(proposed_date)
+        master_line = f"\n👷 Мастер: <b>{assembler_name}</b>" if assembler_name else ""
+        try:
+            cfg = get_config()
+            tg.send_message(
+                cfg.bot_token, int(client_tg_id),
+                f"📅 Менеджер предлагает дату сборки кухни:\n"
+                f"<b>{date_str}</b>{master_line}\n\n"
+                f"📍 {asm.get('address', '')}\n\n"
+                f"Откройте приложение, чтобы подтвердить или предложить другое время.",
+                parse_mode="HTML",
+            )
+        except Exception as e:
+            log.warning("propose_date tg notify client: %s", e)
+
+    return {"ok": True, "proposed_date": proposed_date, "assembler_assigned": bool(assign_tg_id)}
+
+
+def _handle_assembly_date_confirm(body: dict[str, Any]) -> dict[str, Any]:
+    """Клиент подтверждает предложенную дату сборки.
+    body: {initData, assembly_id}"""
+    tg_id, user, err = _auth_any_user(body)
+    if err:
+        return err
+
+    assembly_id = (body.get("assembly_id") or "").strip()
+    if not assembly_id:
+        return {"error": "missing_assembly_id"}
+
+    _ensure_assemblies_sheet()
+    asm = sheets.find_row("Assemblies", "id", assembly_id)
+    if not asm:
+        return {"error": "assembly_not_found"}
+
+    # Только клиент этой сборки
+    if str(asm.get("client_tg_id", "")) != str(tg_id):
+        return {"error": "forbidden"}
+
+    proposed = (asm.get("proposed_date") or "").strip()
+    if not proposed:
+        return {"error": "no_proposed_date"}
+
+    # Подтверждаем — ставим scheduled_at
+    sheets.update_cell_by_key("Assemblies", "id", assembly_id, "scheduled_at", proposed)
+    sheets.update_cell_by_key("Assemblies", "id", assembly_id, "client_date_status", "confirmed")
+    sheets.update_cell_by_key("Assemblies", "id", assembly_id, "proposed_date", "")
+
+    # Если сборка ещё в created — переводим в scheduled
+    if asm.get("status") == "created":
+        sheets.update_cell_by_key("Assemblies", "id", assembly_id, "status", "scheduled")
+
+    # Telegram менеджеру
+    mgr_tg_id = (asm.get("manager_tg_id") or "").strip()
+    if mgr_tg_id:
+        date_str = _fmt_dt_ru(proposed)
+        client_name = asm.get("client_name", "Клиент")
+        try:
+            cfg = get_config()
+            tg.send_message(
+                cfg.bot_token, int(mgr_tg_id),
+                f"✅ <b>{client_name}</b> подтвердил дату сборки:\n"
+                f"<b>{date_str}</b>\n"
+                f"📍 {asm.get('address', '')}",
+                parse_mode="HTML",
+            )
+        except Exception as e:
+            log.warning("date_confirm tg notify manager: %s", e)
+
+    return {"ok": True, "scheduled_at": proposed}
+
+
+def _handle_assembly_date_decline(body: dict[str, Any]) -> dict[str, Any]:
+    """Клиент отклоняет предложенную дату, предлагает своё время.
+    body: {initData, assembly_id, preferred_date?: ISO}"""
+    tg_id, user, err = _auth_any_user(body)
+    if err:
+        return err
+
+    assembly_id = (body.get("assembly_id") or "").strip()
+    if not assembly_id:
+        return {"error": "missing_assembly_id"}
+
+    _ensure_assemblies_sheet()
+    asm = sheets.find_row("Assemblies", "id", assembly_id)
+    if not asm:
+        return {"error": "assembly_not_found"}
+
+    if str(asm.get("client_tg_id", "")) != str(tg_id):
+        return {"error": "forbidden"}
+
+    preferred = (body.get("preferred_date") or "").strip()
+
+    sheets.update_cell_by_key("Assemblies", "id", assembly_id, "client_date_status", "declined")
+    sheets.update_cell_by_key("Assemblies", "id", assembly_id, "client_preferred_date", preferred)
+
+    # Telegram менеджеру
+    mgr_tg_id = (asm.get("manager_tg_id") or "").strip()
+    if mgr_tg_id:
+        client_name = asm.get("client_name", "Клиент")
+        msg_lines = [f"❌ <b>{client_name}</b> не может в предложенное время."]
+        if preferred:
+            msg_lines.append(f"Предлагает: <b>{_fmt_dt_ru(preferred)}</b>")
+        else:
+            msg_lines.append("Альтернативное время не указано — свяжитесь с клиентом.")
+        msg_lines.append(f"📍 {asm.get('address', '')}")
+        try:
+            cfg = get_config()
+            tg.send_message(cfg.bot_token, int(mgr_tg_id), "\n".join(msg_lines), parse_mode="HTML")
+        except Exception as e:
+            log.warning("date_decline tg notify manager: %s", e)
+
+    return {"ok": True}
+
 
 # Маппинг тип фото → префикс имени файла (по чек-листу замера)
 _PHOTO_KIND_PREFIX = {
@@ -970,6 +3350,13 @@ def _measurement_columns() -> list[str]:
         # podbor_decision: pending | needed | not_needed | later | done
         # podbor_decision_at — когда зафиксировано решение
         "podbor_decision", "podbor_decision_at", "podbor_lead_id",
+        # Оплата замера
+        "measurement_fee",
+        "rooms_count",  # количество помещений для замера
+        # Обратная связь замерщика о менеджере
+        "measurer_feedback_at",
+        # Обратная связь менеджера о замерщике
+        "manager_feedback_at",
     ]
 
 
@@ -1649,6 +4036,9 @@ def _handle_measurement_request(body: dict[str, Any]) -> dict[str, Any]:
     urgent = bool(body.get("urgent", False))
 
     # Приблизительная дата визита (Commit C2)
+    rooms_count_req = body.get("rooms_count")
+
+    # Приблизительная дата визита (Commit C2)
     preferred_type = (body.get("preferred_type") or "tbd").strip()
     preferred_date = (body.get("preferred_date") or "").strip()
     preferred_time_of_day = (body.get("preferred_time_of_day") or "").strip()
@@ -1683,6 +4073,13 @@ def _handle_measurement_request(body: dict[str, Any]) -> dict[str, Any]:
         # Если целевой пользователь не найден или не менеджер — молча игнорируем
 
     measurement_id = _short_id()
+    rooms_count_val = None
+    if rooms_count_req is not None:
+        try:
+            rooms_count_val = str(max(1, int(rooms_count_req)))
+        except (TypeError, ValueError):
+            pass
+
     sheets.append_named_row("Measurements", _row_for_measurement(
         measurement_id, _now_iso(),
         manager_tg_id=effective_manager_tg_id,
@@ -1698,6 +4095,7 @@ def _handle_measurement_request(body: dict[str, Any]) -> dict[str, Any]:
         preferred_date=preferred_date,
         preferred_time_of_day=preferred_time_of_day,
         preferred_note=preferred_note,
+        rooms_count=rooms_count_val,
     ))
 
     # Уведомляем целевого менеджера если передали ему
@@ -2308,8 +4706,20 @@ def _assembly_columns() -> list[str]:
         "date_range",          # текстовая подсказка от менеджера: "20–22 мая, утро"
         "confirm_by",          # ISO — дедлайн для подтверждения (назначение + 3 ч)
         "confirmed_at",        # ISO — когда мастер подтвердил время
+        # Экспедитор (приёмка товара)
+        "expeditor_tg_id",
         # Прочее
         "manager_note",
+        "assembler_notes",      # заметки сборщика в процессе работы
+        "kitchen_price",
+        # Счёт клиенту на сборку
+        "assembly_invoice_amount", "assembly_invoice_date",
+        # Согласование даты с клиентом
+        "proposed_date",         # ISO — дата предложенная менеджером клиенту
+        "client_date_status",    # "pending" | "confirmed" | "declined"
+        "client_preferred_date", # ISO — альтернатива от клиента
+        # Обратная связь
+        "client_feedback_at",    # ISO — когда клиент оставил оценку
         "archived_at",
     ]
 
@@ -2552,12 +4962,59 @@ def _handle_assembly_detail(body: dict[str, Any]) -> dict[str, Any]:
     def _list(s: str) -> list[str]:
         return [x for x in (s or "").split(",") if x]
 
+    # Контакт назначенного мастера (для клиента) + испытательный срок
+    assigned_tg_id_str = row.get("assigned_to_tg_id", "")
+    assigned_to_name = ""
+    assigned_to_username = ""
+    assigned_on_probation = False
+    assigned_user = None
+    if assigned_tg_id_str:
+        try:
+            assigned_user = sheets.find_user(int(assigned_tg_id_str))
+            if assigned_user:
+                assigned_to_name = assigned_user.get("full_name") or (
+                    f"{assigned_user.get('first_name', '')} {assigned_user.get('last_name', '')}".strip())
+                assigned_to_username = assigned_user.get("tg_username", "")
+                assigned_on_probation = str(assigned_user.get("on_probation", "")).lower() in ("1", "true", "yes")
+        except Exception:
+            pass
+
+    # Испытательный срок самого просматривающего (актуально для сборщика)
+    viewer_on_probation = str(user.get("on_probation", "")).lower() in ("1", "true", "yes")
+
+    # Act №4 summary (не блокирует при ошибке)
+    act4_total = 0
+    act4_damaged = 0
+    act4_signed = False
+    act4_signed_by = ""
+    try:
+        _ensure_act4_sheet()
+        act4_row = sheets.find_row("Act4s", "assembly_id", assembly_id)
+        if act4_row:
+            items_raw = act4_row.get("items_json", "")
+            if items_raw:
+                items_parsed = json.loads(items_raw)
+                act4_total   = sum(int(it.get("qty", 1)) for it in items_parsed)
+                act4_damaged = sum(int(it.get("qty", 1)) for it in items_parsed if it.get("condition") == "damaged")
+            act4_signed    = bool(act4_row.get("signed_by_name"))
+            act4_signed_by = act4_row.get("signed_by_name", "")
+    except Exception:
+        pass
+
     return {
         "ok": True,
         "id": row.get("id", ""),
         "ts": row.get("ts", ""),
         "manager_tg_id": row.get("manager_tg_id", ""),
         "assigned_to_tg_id": row.get("assigned_to_tg_id", ""),
+        "assigned_to_name": assigned_to_name,
+        "assigned_to_username": assigned_to_username,
+        "assigned_on_probation": assigned_on_probation,
+        "expeditor_tg_id": row.get("expeditor_tg_id", ""),
+        "viewer_tg_id": str(tg_id),
+        "viewer_is_assembler": sheets.has_role(user, "assembler"),
+        "viewer_is_manager": sheets.has_role(user, "manager"),
+        "viewer_on_probation": viewer_on_probation,
         "client_name": row.get("client_name", ""),
         "client_phone": row.get("client_phone", ""),
         "address": row.get("address", ""),
@@ -2581,8 +5038,22 @@ def _handle_assembly_detail(body: dict[str, Any]) -> dict[str, Any]:
         "gcal_event_id": row.get("gcal_event_id", ""),
         "gcal_event_url": row.get("gcal_event_url", ""),
         "manager_note": row.get("manager_note", ""),
+        "assembler_notes": row.get("assembler_notes", ""),
         "kitchen_price": row.get("kitchen_price", ""),
+        "assembly_invoice_amount": row.get("assembly_invoice_amount", ""),
+        "assembly_invoice_date":   row.get("assembly_invoice_date", ""),
         "client_tg_id": row.get("client_tg_id", ""),
+        # Act4 summary
+        "act4_total":     act4_total,
+        "act4_damaged":   act4_damaged,
+        "act4_signed":    act4_signed,
+        "act4_signed_by": act4_signed_by,
+        # Согласование даты с клиентом
+        "proposed_date":         row.get("proposed_date", ""),
+        "client_date_status":    row.get("client_date_status", ""),
+        "client_preferred_date": row.get("client_preferred_date", ""),
+        # Оценки
+        "client_feedback_at":    row.get("client_feedback_at", ""),
         # Ставки — подсчёт в реальном времени
         **_calc_assembly_prices(row, tg_id),
     }
@@ -3533,6 +6004,141 @@ async def api_contract_save(request: Request):
 
 
 # =================================================================
+# Счёт на оплату замера (с QR-кодом ГОСТ Р 56042-2014 / СБП)
+# =================================================================
+
+_IP_NAME  = "ИП Васильев Руслан Геннадьевич"
+_IP_INN   = "781909921730"
+_IP_RS    = "40802810355710022284"
+_IP_BANK  = "Северо-Западный банк ПАО Сбербанк"
+_IP_BIC   = "044030653"
+_IP_KS    = "30101810500000000653"
+
+
+def _invoice_qr_b64(amount_rub: float, purpose: str) -> str:
+    """Генерирует QR ГОСТ Р 56042-2014 и возвращает base64 PNG."""
+    import qrcode
+    amount_kopecks = int(round(amount_rub * 100))
+    qr_data = (
+        f"ST00012|Name={_IP_NAME}|PersonalAcc={_IP_RS}"
+        f"|BankName={_IP_BANK}|BIC={_IP_BIC}|CorrespAcc={_IP_KS}"
+        f"|PayeeINN={_IP_INN}|Sum={amount_kopecks}|Purpose={purpose}"
+    )
+    img = qrcode.make(qr_data)
+    import io, base64
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode()
+
+
+def _handle_invoice_create(body: dict[str, Any]) -> dict[str, Any]:
+    """Создаёт счёт на оплату замера.
+    body: {initData, measurement_id, amount}
+    Доступно: измеряющий (measurer) или менеджер."""
+    cfg = get_config()
+    auth = verify_init_data(body.get("initData") or "", cfg.bot_token)
+    if not auth or not auth.get("user"):
+        unsafe = body.get("initDataUnsafe") or {}
+        if isinstance(unsafe, dict) and unsafe.get("user", {}).get("id"):
+            auth = {"user": unsafe["user"]}
+        else:
+            return {"error": "invalid_init_data"}
+    tg_id = auth["user"]["id"]
+    user = sheets.find_user(tg_id)
+    if not user:
+        return {"error": "user_not_found"}
+    if not (sheets.has_role(user, "measurer") or sheets.has_role(user, "manager")):
+        return {"error": "forbidden"}
+
+    measurement_id = (body.get("measurement_id") or "").strip()
+    amount_raw = body.get("amount")
+    rooms_count_raw = body.get("rooms_count")
+
+    MEASUREMENT_FEE_BASE = 2500
+    MEASUREMENT_FEE_EXTRA = 1000
+
+    if not measurement_id:
+        return {"error": "missing_measurement_id"}
+
+    _ensure_measurements_sheet()
+    row = sheets.find_row("Measurements", "id", measurement_id)
+    if not row:
+        return {"error": "measurement_not_found"}
+
+    if amount_raw is not None:
+        try:
+            amount = float(amount_raw)
+            if amount <= 0:
+                raise ValueError
+        except (TypeError, ValueError):
+            return {"error": "invalid_amount"}
+    else:
+        # Авто-расчёт по rooms_count
+        if rooms_count_raw is not None:
+            try:
+                rooms = max(1, int(rooms_count_raw))
+            except (TypeError, ValueError):
+                rooms = 1
+        else:
+            try:
+                rooms = max(1, int(row.get("rooms_count") or 1))
+            except (TypeError, ValueError):
+                rooms = 1
+        amount = MEASUREMENT_FEE_BASE + max(0, rooms - 1) * MEASUREMENT_FEE_EXTRA
+
+    # Сохраняем rooms_count если передан
+    if rooms_count_raw is not None:
+        try:
+            rooms_to_save = max(1, int(rooms_count_raw))
+            sheets.update_cell_by_key("Measurements", "id", measurement_id, "rooms_count", str(rooms_to_save))
+        except Exception as e:
+            log.warning("invoice_create: rooms_count save error: %s", e)
+
+    client_name  = row.get("client_name", "Клиент")
+    client_phone = row.get("client_phone", "")
+    address      = row.get("address", "")
+    sched_date   = (row.get("scheduled_at") or row.get("ts") or "")[:10]
+    purpose = f"Оплата услуг замера кухни {address or measurement_id}"
+
+    try:
+        qr_b64 = _invoice_qr_b64(amount, purpose)
+    except Exception as e:
+        log.warning("invoice qr error: %s", e)
+        qr_b64 = ""
+
+    # Сохраняем fee в Measurements для статистики заработков
+    try:
+        _ensure_measurements_sheet()
+        sheets.update_cell_by_key("Measurements", "id", measurement_id, "measurement_fee", str(amount))
+    except Exception as e:
+        log.warning("invoice_create: fee save error: %s", e)
+
+    return {
+        "ok": True,
+        "measurement_id": measurement_id,
+        "client_name":   client_name,
+        "client_phone":  client_phone,
+        "address":       address,
+        "date":          sched_date,
+        "amount":        amount,
+        "purpose":       purpose,
+        "ip_name":       _IP_NAME,
+        "ip_inn":        _IP_INN,
+        "bank_name":     _IP_BANK,
+        "bic":           _IP_BIC,
+        "rs":            _IP_RS,
+        "ks":            _IP_KS,
+        "qr_b64":        qr_b64,
+    }
+
+
+@app.post("/api/invoice_create")
+async def api_invoice_create(request: Request):
+    body = await _safe_json(request)
+    return _handle_invoice_create(body)
+
+
+# =================================================================
 # SignRequest — цифровая подпись акта сборки (ФЗ-63 ПЭП)
 # =================================================================
 
@@ -3701,6 +6307,23 @@ def _handle_sign_request_submit(body: dict[str, Any]) -> dict[str, Any]:
     }
     for col, val in updates.items():
         sheets.update_cell_by_key("Assemblies", "id", assembly_id, col, val)
+
+    # Автоматика: акт №3 подписан → сборка завершена
+    try:
+        if row.get("status") not in ("done", "cancelled"):
+            sheets.update_cell_by_key("Assemblies", "id", assembly_id, "status", "done")
+            sheets.update_cell_by_key("Assemblies", "id", assembly_id, "completed_at", now_iso)
+            log.info("sign_request signed → assembly %s done", assembly_id)
+        # Уведомить менеджера
+        mgr_id = row.get("manager_tg_id")
+        if mgr_id:
+            tg.send_message(int(mgr_id),
+                f"✅ <b>Акт №3 подписан — сборка завершена</b>\n"
+                f"Сборка: <code>{assembly_id}</code>\n"
+                f"Клиент: {row.get('client_name','')}\n"
+                f"Подписал: {signed_by_name}")
+    except Exception as e:
+        log.warning("sign_submit status update error: %s", e)
 
     sheets.log_event("assembly_signed", signed_by_tg_id or "anon",
                      {"assembly_id": assembly_id, "mode": mode, "by": signed_by_name})
@@ -4340,6 +6963,16 @@ def _handle_measurement_detail(body: dict[str, Any]) -> dict[str, Any]:
         "client_no":      row.get("client_no", ""),
         "contract_no":    row.get("contract_no", ""),
         "contract_date":  row.get("contract_date", ""),
+        # Оплата замера
+        "measurement_fee": row.get("measurement_fee", ""),
+        "rooms_count": row.get("rooms_count", ""),
+        # Оценки
+        "measurer_feedback_at": row.get("measurer_feedback_at", ""),
+        "manager_feedback_at":  row.get("manager_feedback_at", ""),
+        # Для замерщика: кто менеджер
+        "viewer_is_measurer": sheets.has_role(user, "measurer"),
+        "viewer_is_manager":  sheets.has_role(user, "manager"),
+        "viewer_tg_id": str(tg_id),
     }
 
 

@@ -160,7 +160,7 @@ def find_user(tg_id: int) -> dict[str, Any] | None:
 
 # ---- Multi-role helpers ----
 
-VALID_ROLES = {"manager", "client", "measurer", "assembler"}
+VALID_ROLES = {"manager", "client", "measurer", "assembler", "expeditor"}
 
 
 def parse_roles(role_str: str) -> list[str]:
@@ -180,11 +180,11 @@ def has_role(user: dict[str, Any] | None, role: str) -> bool:
 
 def is_master(user: dict[str, Any] | None) -> bool:
     """«Мастер» — единая роль для замерщика+сборщика.
-    True если у пользователя есть либо measurer, либо assembler."""
+    True если у пользователя есть либо measurer, либо assembler, либо expeditor."""
     if not user:
         return False
     roles = parse_roles(user.get("role", ""))
-    return "measurer" in roles or "assembler" in roles
+    return "measurer" in roles or "assembler" in roles or "expeditor" in roles
 
 
 def primary_role(user: dict[str, Any] | None) -> str:
@@ -192,7 +192,7 @@ def primary_role(user: dict[str, Any] | None) -> str:
     if not user:
         return ""
     roles = parse_roles(user.get("role", ""))
-    for r in ("manager", "measurer", "assembler", "client"):
+    for r in ("manager", "measurer", "assembler", "expeditor", "client"):
         if r in roles:
             return r
     return roles[0] if roles else ""
@@ -268,11 +268,16 @@ def list_users_with_role(role: str) -> list[dict[str, Any]]:
         if role in parse_roles(row.get("role", "")):
             full_name = (f"{row.get('first_name', '')} {row.get('last_name', '')}".strip()
                          or row.get("tg_username", ""))
+            equipment_raw = row.get("equipment", "")
+            equipment_list = [x.strip() for x in equipment_raw.split(",") if x.strip()] if equipment_raw else []
+            EQUIPMENT_REQUIRED = {"tablet", "laser_tape", "angle_meter", "tape", "laser_level"}
+            equipment_ok = EQUIPMENT_REQUIRED.issubset(set(equipment_list)) if role == "measurer" else True
             out.append({
                 "tg_id": row.get("tg_id"),
                 "full_name": full_name,
                 "tg_username": row.get("tg_username", ""),
                 "roles": parse_roles(row.get("role", "")),
+                "equipment_ok": equipment_ok,
             })
     return out
 

@@ -388,8 +388,26 @@ const MeasurementRequest = (function () {
     sel.innerHTML =
       `<option value="">— Не назначать —</option>` +
       measurers.map(m =>
-        `<option value="${m.tg_id}">${escHtml(m.full_name || "?")}${m.tg_username ? " (@" + m.tg_username + ")" : ""}</option>`
+        `<option value="${m.tg_id}" data-eq-ok="${m.equipment_ok !== false ? "1" : "0"}">${
+          escHtml(m.full_name || "?")}${m.tg_username ? " (@" + m.tg_username + ")" : ""}${
+          m.equipment_ok === false ? " ⚠️" : ""}</option>`
       ).join("");
+
+    // Алерт при выборе неукомплектованного замерщика
+    sel.addEventListener("change", () => {
+      const opt = sel.options[sel.selectedIndex];
+      if (opt && opt.dataset.eqOk === "0") {
+        if (hint) {
+          hint.style.color = "#E74C3C";
+          hint.textContent = "⚠️ Замерщик не укомплектован — не все инструменты заполнены в профиле. Рекомендуется выбрать другого или попросить заполнить профиль.";
+        }
+      } else {
+        if (hint) {
+          hint.style.color = "";
+          hint.textContent = "Замерщик получит уведомление в Telegram";
+        }
+      }
+    });
   }
 
   function _renderManagerSelect() {

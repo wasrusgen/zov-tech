@@ -1,4 +1,4 @@
-// ЗОВ MiniApp — главный скрипт. v20260518n
+// ЗОВ MiniApp — главный скрипт. v20260519e
 // На входе: подписанный initData от Telegram.
 // Ходим на backend → получаем профиль (роль, статус) → рендерим меню.
 // tg и Platform определены в platform.js (загружается первым).
@@ -196,6 +196,9 @@ async function renderManagerHome(me) {
     { icon: "ruler",     title: "Заказать замер", subtitle: "Назначить замерщика",  href: "#/request" },
     { icon: "wrench",    title: "Ставки сборки",  subtitle: "% клиент / сборщик",   href: "#/admin/rates" },
     { icon: "folder",    title: "Аналитика",       subtitle: "Занятость сборщиков",  href: "#/admin/assembler-analytics" },
+    { icon: "user",      title: "Команда",         subtitle: "Нагрузка + статусы",   href: "#/admin/staff" },
+    { icon: "wallet",    title: "Финансы",         subtitle: "Выручка · маржа · выплаты", href: "#/admin/finance" },
+    { icon: "star",      title: "Мои оценки",      subtitle: "Рейтинг · отзывы",          href: "#/feedback/my"  },
   ];
   app.appendChild(el(`<div class="section-head"><span class="label">Быстрые действия</span></div>`));
   const grid = el(`<div class="quick-grid"></div>`);
@@ -219,6 +222,10 @@ async function renderManagerHome(me) {
   // Активные проекты — будет наполняться позже из реальных данных
   const projectsContainer = el(`<div id="projectsContainer"></div>`);
   app.appendChild(projectsContainer);
+
+  // Сборки в работе (под активными проектами)
+  const assembliesContainer = el(`<div id="assembliesContainer"></div>`);
+  app.appendChild(assembliesContainer);
 
   // Контейнер для отгрузок с завода (под активными проектами)
   const shipmentsContainer = el(`<div id="shipmentsContainer"></div>`);
@@ -249,14 +256,16 @@ async function renderManagerHome(me) {
     renderManagerToday(todayContainer, data.measurements || [], firstName, greetingEl);
     renderManagerProjects(projectsContainer, data.measurements || []);
 
-    // Складские данные — не критичны; грузим после, ошибка не ломает дашборд
+    // Складские данные + сборки — не критичны; ошибка не ломает дашборд
     const authBodyStr = JSON.stringify(authBody);
     Promise.all([
-      fetch(`${BACKEND_URL}/api/shipments`, { method: "POST", body: authBodyStr }).then(r => r.json()).catch(() => ({})),
-      fetch(`${BACKEND_URL}/api/arrivals`,  { method: "POST", body: authBodyStr }).then(r => r.json()).catch(() => ({})),
-    ]).then(([shipmentsData, arrivalsData]) => {
+      fetch(`${BACKEND_URL}/api/shipments`,     { method: "POST", body: authBodyStr }).then(r => r.json()).catch(() => ({})),
+      fetch(`${BACKEND_URL}/api/arrivals`,      { method: "POST", body: authBodyStr }).then(r => r.json()).catch(() => ({})),
+      fetch(`${BACKEND_URL}/api/assembly_list`, { method: "POST", body: authBodyStr }).then(r => r.json()).catch(() => ({})),
+    ]).then(([shipmentsData, arrivalsData, assemblyData]) => {
       renderManagerShipments(shipmentsContainer, shipmentsData.shipments || [], "📦 Отгрузки с завода");
       renderManagerShipments(arrivalsContainer,  arrivalsData.shipments  || [], "📥 Поступление в СПб");
+      renderManagerAssemblies(assembliesContainer, assemblyData.assemblies || []);
     }).catch(() => { /* тихо — дашборд уже отрисован */ });
   } catch (e) {
     todayContainer.innerHTML = `<div class="error">Не удалось загрузить данные: ${escHtml(e.message)}</div>`;
@@ -541,6 +550,52 @@ function renderManagerProjects(container, measurements) {
   container.appendChild(list);
 }
 
+/* ----------------- Менеджер: секция сборок в работе ----------------- */
+function renderManagerAssemblies(container, assemblies) {
+  container.innerHTML = "";
+  const ASSEMBLY_STATUS = {
+    created:     { icon: "🆕", label: "Создана",       cls: "waiting" },
+    scheduled:   { icon: "📅", label: "Запланирована", cls: "active"  },
+    in_progress: { icon: "🔨", label: "В процессе",    cls: "active"  },
+    done:        { icon: "✅", label: "Завершена",      cls: "done"    },
+    cancelled:   { icon: "❌", label: "Отменена",       cls: "cancel"  },
+  };
+  // Показываем только активные (не завершённые и не отменённые)
+  const active = (assemblies || []).filter(a => a.status !== "done" && a.status !== "cancelled");
+  if (!active.length) return;
+
+  container.appendChild(el(`
+    <div class="section-head" style="margin-top:24px;">
+      <span class="label">🔨 Сборки в работе <span class="count">· ${active.length}</span></span>
+    </div>
+  `));
+
+  for (const a of active) {
+    const sl = ASSEMBLY_STATUS[a.status] || { icon: "🔧", label: a.status, cls: "waiting" };
+    const dateLabel = a.scheduled_at
+      ? new Date(a.scheduled_at).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })
+      : "—";
+    const card = el(`
+      <article class="project-card">
+        <div class="project-head">
+          <div class="project-title">${escHtml(a.client_name || "Без имени")}</div>
+          <span class="project-pill ${sl.cls}">${sl.icon} ${sl.label}</span>
+        </div>
+        <div class="project-address">${escHtml(a.address || "адрес не указан")}</div>
+        <div class="project-foot">
+          <span class="stage">${escHtml(a.scope_of_work || "—")}</span>
+          <span>${dateLabel}</span>
+        </div>
+      </article>
+    `);
+    card.addEventListener("click", () => {
+      haptic("impact");
+      location.hash = `#/assembly/${a.id}`;
+    });
+    container.appendChild(card);
+  }
+}
+
 /* ----------------- Менеджер: секция отгрузок / поступлений на склад ----------------- */
 function renderManagerShipments(container, groups, label = "📦 Отгрузки") {
   container.innerHTML = "";
@@ -661,11 +716,17 @@ function renderClient(me) {
 
   const sections = [
     {
-      label: "Подобрать кухню",
+      label: "Мой заказ",
       items: [
-        { icon: "ruler",     color: "blue",  label: "Замер кухни",         href: "#/c/measure"  },
-        { icon: "wrench",    color: "green", label: "Подобрать технику",   href: "#/c/proposal" },
-        { icon: "wallet",    color: "gold",  label: "Проверить договор",   href: "#/c/contract" },
+        { icon: "clipboard", color: "green", label: "Статус сборки",        href: "#/c/orders",   sub: "Этапы и таймлайн" },
+        { icon: "ruler",     color: "blue",  label: "Замер кухни",          href: "#/c/measure"  },
+        { icon: "wallet",    color: "gold",  label: "Проверить договор",    href: "#/c/contract" },
+      ],
+    },
+    {
+      label: "Подбор техники",
+      items: [
+        { icon: "wrench",    color: "green", label: "Подобрать встройку",   href: "#/c/proposal" },
       ],
     },
     {
@@ -826,9 +887,16 @@ async function renderStaff(me) {
 
   const caps = me.capabilities || {};
   const labels = [];
-  if (caps.measurer) labels.push("замерщик");
+  if (caps.measurer)  labels.push("замерщик");
   if (caps.assembler) labels.push("сборщик");
+  if (caps.expeditor) labels.push("экспедитор");
   const subtitle = labels.length ? labels.join(" · ") : "сотрудник";
+
+  // Экспедитор — отдельный экран
+  if (caps.expeditor && !caps.measurer && !caps.assembler) {
+    _renderExpeditorScreen(app, me);
+    return;
+  }
 
   app.appendChild(el(`
     <div class="staff-head">
@@ -928,6 +996,22 @@ async function renderStaff(me) {
     app.appendChild(clientsBtn);
   }
 
+  // Статистика замерщика
+  if (caps.measurer) {
+    const measStatsBtn = el(`
+      <div class="podbor-cta-row" style="margin-top:8px;">
+        <button class="btn-primary" style="gap:8px;">
+          📊 Мои замеры
+        </button>
+      </div>
+    `);
+    measStatsBtn.querySelector("button").addEventListener("click", () => {
+      haptic && haptic("impact");
+      location.hash = "#/master/measurer-stats";
+    });
+    app.appendChild(measStatsBtn);
+  }
+
   // Шпаргалки + заработки сборщика
   if (caps.assembler) {
     const earningsBtn = el(`
@@ -955,6 +1039,88 @@ async function renderStaff(me) {
       location.hash = "#/master/tools";
     });
     app.appendChild(toolsBtn);
+  }
+
+  // Мои оценки — для всех сотрудников
+  const myRatingsBtn = el(`
+    <div class="podbor-cta-row" style="margin-top:8px;">
+      <button class="btn-secondary" style="gap:8px;">
+        ⭐ Мои оценки
+      </button>
+    </div>
+  `);
+  myRatingsBtn.querySelector("button").addEventListener("click", () => {
+    haptic && haptic("impact");
+    location.hash = "#/feedback/my";
+  });
+  app.appendChild(myRatingsBtn);
+}
+
+/* ── Экран экспедитора ─────────────────────────────────────────── */
+function _renderExpeditorScreen(container, me) {
+  const u = me.user || {};
+  container.appendChild(el(`
+    <div class="staff-head">
+      <div class="staff-avatar">${u.avatar_initial || "Э"}</div>
+      <div class="staff-name">${escHtml(u.full_name || "Экспедитор")}</div>
+      <div class="staff-role-label">экспедитор</div>
+    </div>
+  `));
+
+  container.appendChild(el(`
+    <div style="padding:12px 16px;">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:12px;">
+        Выберите сборку для оформления приёмки товара
+      </div>
+    </div>
+  `));
+
+  // Список активных сборок
+  const asmWrap = el(`<div id="exp-asm-list" style="padding:0 16px;"></div>`);
+  container.appendChild(asmWrap);
+  _loadExpeditorAssemblies(asmWrap);
+}
+
+async function _loadExpeditorAssemblies(container) {
+  container.innerHTML = `<div class="loader-inline"><div class="spinner"></div></div>`;
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 15000);
+    const res = await fetch(`${BACKEND_URL}/api/assembly_list`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ initData: Platform.initData, initDataUnsafe: Platform.initDataUnsafe }),
+      signal: ctrl,
+    });
+    clearTimeout(t);
+    const data = await res.json();
+    if (data.error) { container.innerHTML = `<div class="error">${escHtml(data.error)}</div>`; return; }
+    const assemblies = (data.assemblies || []).filter(a => !["done","cancelled"].includes(a.status));
+    if (!assemblies.length) {
+      container.innerHTML = `<div style="padding:24px 0;text-align:center;color:var(--muted);font-size:13px;">
+        Нет активных сборок</div>`;
+      return;
+    }
+    container.innerHTML = "";
+    assemblies.forEach(a => {
+      const card = el(`
+        <div style="padding:12px 14px;background:var(--surface);border:1px solid var(--border);
+                    border-radius:12px;margin-bottom:8px;cursor:pointer;">
+          <div style="font-size:14px;font-weight:600;color:var(--ink);">${escHtml(a.client_name || "Клиент")}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px;">${escHtml(a.address || "")}</div>
+          <div style="margin-top:8px;">
+            <span style="font-size:12px;font-weight:600;color:var(--accent);">📦 Оформить приёмку</span>
+          </div>
+        </div>
+      `);
+      card.addEventListener("click", () => {
+        haptic && haptic("impact");
+        location.hash = `#/expeditor/act/${a.id}`;
+      });
+      container.appendChild(card);
+    });
+  } catch (e) {
+    container.innerHTML = `<div class="error">${escHtml(e.message)}</div>`;
   }
 }
 
@@ -1363,6 +1529,49 @@ async function renderInboxDetail(measurementId) {
     app.appendChild(dateSection);
     dateSection.querySelector("#saveSched").addEventListener("click", () => saveScheduleDate(measurementId, dateSection));
   }
+
+  // === Кнопка «Выставить счёт» (замерщик) ===
+  if (m.viewer_is_measurer) {
+    const invoiceWrap = el('<div style="margin:16px 16px 0;"></div>');
+    const hasFee = parseFloat(m.measurement_fee||0) > 0;
+    invoiceWrap.appendChild(el(
+      '<button class="btn-primary" id="invoiceBtn" style="width:100%;font-size:15px;padding:13px 20px;' +
+      (hasFee ? 'background:var(--surface);color:var(--accent);border:1.5px solid var(--accent);' : '') + '">' +
+      (hasFee ? '💳 Счёт выставлен: ' + Math.round(m.measurement_fee).toLocaleString("ru-RU") + ' ₽ — изменить' : '💳 Выставить счёт') +
+      '</button>'
+    ));
+    invoiceWrap.querySelector('#invoiceBtn').addEventListener('click', () => {
+      haptic && haptic('impact');
+      location.hash = '#/master/invoice/' + measurementId;
+    });
+    app.appendChild(invoiceWrap);
+  }
+
+  // === Обратная связь — замерщик оценивает менеджера ===
+  if (m.status === "completed" && m.viewer_is_measurer && !m.measurer_feedback_at
+      && typeof FeedbackModule !== "undefined") {
+    const fbWrap = el(`<div style="margin:16px;"></div>`);
+    app.appendChild(fbWrap);
+    FeedbackModule.mountMeasurerFeedback(fbWrap, {
+      managerName:    m.manager_name    || "",
+      managerTgId:    m.manager_tg_id   || "",
+      measurementId:  m.id,
+      onSubmit: () => renderInboxDetail(measurementId),
+    });
+  }
+
+  // === Обратная связь — менеджер оценивает замерщика ===
+  if (m.status === "completed" && m.viewer_is_manager && !m.manager_feedback_at
+      && typeof FeedbackModule !== "undefined") {
+    const fbWrap2 = el(`<div style="margin:16px;"></div>`);
+    app.appendChild(fbWrap2);
+    FeedbackModule.mountManagerFeedback(fbWrap2, {
+      measurerName:   m.measurer_name   || "",
+      measurerTgId:   m.measurer_tg_id  || "",
+      measurementId:  m.id,
+      onSubmit: () => renderInboxDetail(measurementId),
+    });
+  }
 }
 
 async function saveScheduleDate(measurementId, section) {
@@ -1726,6 +1935,12 @@ function routeByHash() {
     else init();
   } else if (location.hash.startsWith("#/assembly")) {
     Assembly.mount(app);
+  } else if (location.hash === "#/admin/staff") {
+    if (typeof StaffRoster !== "undefined") StaffRoster.mount(app);
+    else init();
+  } else if (location.hash === "#/admin/finance") {
+    if (typeof FinanceSummary !== "undefined") FinanceSummary.mount(app);
+    else init();
   } else if (location.hash === "#/admin/assembler-analytics") {
     if (typeof AssemblerAnalytics !== "undefined") AssemblerAnalytics.mount(app);
     else init();
@@ -1741,6 +1956,24 @@ function routeByHash() {
   } else if (location.hash.startsWith("#/assembly/") && location.hash.endsWith("/contract")) {
     const asmId = location.hash.split("/")[2];
     if (typeof Contracts !== "undefined") Contracts.mount(app, asmId);
+    else init();
+  } else if (location.hash === "#/expeditor") {
+    if (typeof ExpeditorDashboard !== "undefined") ExpeditorDashboard.mount(app);
+    else init();
+  } else if (location.hash.startsWith("#/expeditor/act/")) {
+    const asmId = location.hash.replace("#/expeditor/act/", "").split("?")[0];
+    if (typeof ExpeditorDashboard !== "undefined") ExpeditorDashboard.mountAct(app, asmId);
+    else init();
+  } else if (location.hash.startsWith("#/assembly/") && location.hash.endsWith("/act4")) {
+    const asmId = location.hash.split("/")[2];
+    if (typeof Act4Screen !== "undefined") Act4Screen.mount(app, asmId);
+    else init();
+  } else if (location.hash === "#/master/measurer-stats") {
+    if (typeof MeasurerDashboard !== "undefined") MeasurerDashboard.mount(app);
+    else init();
+  } else if (location.hash.startsWith("#/master/invoice/")) {
+    const mId = location.hash.replace("#/master/invoice/", "").split("?")[0];
+    if (typeof InvoiceScreen !== "undefined") InvoiceScreen.mount(app, mId);
     else init();
   } else if (location.hash.startsWith("#/master/tools")) {
     if (typeof MasterTools !== "undefined") {
@@ -1782,12 +2015,22 @@ function routeByHash() {
   } else if (location.hash === "#/c/orders") {
     if (typeof OrdersScreen !== "undefined") OrdersScreen.mount(app);
     else init();
+  } else if (location.hash.startsWith("#/c/assembly/") && location.hash.endsWith("/timeline")) {
+    const parts = location.hash.split("/");
+    // #/c/assembly/ID/timeline → parts = ["#", "c", "assembly", "ID", "timeline"]
+    const asmIdRaw = parts[parts.length - 2] || "";
+    const asmId = decodeURIComponent(asmIdRaw);
+    if (typeof ClientTimeline !== "undefined") ClientTimeline.mount(app, asmId);
+    else init();
   } else if (location.hash.startsWith("#/c/assembly/")) {
     const assemblyId = decodeURIComponent(location.hash.replace("#/c/assembly/", ""));
     if (typeof AssemblyDetailScreen !== "undefined") AssemblyDetailScreen.mount(app, assemblyId);
     else init();
   } else if (location.hash === "#/c/selfmeasure") {
     if (typeof SelfMeasureScreen !== "undefined") SelfMeasureScreen.mount(app);
+    else init();
+  } else if (location.hash === "#/feedback/my") {
+    if (typeof FeedbackModule !== "undefined") FeedbackModule.mountMyScreen(app);
     else init();
   } else {
     // Главный экран по роли

@@ -262,3 +262,86 @@ def call_ai(user_prompt: str, system_prompt: str | None = None,
                 pass
 
     return {"json": json_obj, "text": response_text, "tokens": tokens, "model": actual_model}
+
+
+_FILES_URL = "https://gigachat.devices.sberbank.ru/api/v1/files"
+_VISION_MODEL = "GigaChat-Pro"
+
+
+def parse_receipt_amount(image_b64: str) -> dict[str, Any]:
+    """Парсит фото чека через GigaChat Vision.
+    Возвращает {"amount": float|None, "raw": str, "error": bool}."""
+    import base64, io, re as _re
+    try:
+        token = _get_token()
+    except Exception as e:
+        return {"amount": None, "raw": "", "error": True, "msg": str(e)}
+
+    # Декодируем data URL
+    m = re.match(r"^data:image/(jpeg|jpg|png|webp);base64,(.+)$", image_b64.strip(), re.DOTALL)
+    if not m:
+        return {"amount": None, "raw": "", "error": True, "msg": "bad_image_format"}
+    ext = "jpg" if m.group(1) in ("jpeg", "jpg") else m.group(1)
+    mime = f"image/{m.group(1)}"
+    raw_bytes = base64.b64decode(m.group(2), validate=False)
+
+    # 1. Загружаем файл в GigaChat Files API
+    file_id: str | None = None
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            resp = client.post(
+                _FILES_URL,
+                headers={"Authorization": f"Bearer {token}"},
+                files={"file": (f"receipt.{ext}", io.BytesIO(raw_bytes), mime)},
+                data={"purpose": "general"},
+            )
+        if resp.status_code < 400:
+            file_id = resp.json().get("id")
+    except Exception as e:
+        return {"amount": None, "raw": "", "error": True, "msg": f"file_upload: {e}"}
+
+    if not file_id:
+        return {"amount": None, "raw": "", "error": True, "msg": "no_file_id"}
+
+    # 2. Спрашиваем итоговую сумму
+    payload = {
+        "model": _VISION_MODEL,
+        "temperature": 0.1,
+        "max_tokens": 256,
+        "messages": [{
+            "role": "user",
+            "content": [
+                {"type": "text",
+                 "text": "На этом фото кассовый чек. Найди итоговую сумму (ИТОГ, ИТОГО, СУММА, TOTAL). "
+                         "Ответь ТОЛЬКО числом в рублях без пробелов и без знака ₽ и без копеек, например: 1250. "
+                         "Если сумму найти не удалось — напиши 0."},
+                {"type": "image_url", "image_url": {"url": f"gigachat://files/{file_id}"}},
+            ],
+        }],
+    }
+    try:
+        with httpx.Client(timeout=45.0) as client:
+            resp = client.post(
+                _CHAT_URL,
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                content=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+            )
+    except Exception as e:
+        return {"amount": None, "raw": "", "error": True, "msg": f"vision_call: {e}"}
+
+    if resp.status_code >= 400:
+        return {"amount": None, "raw": resp.text[:200], "error": True, "msg": f"vision_http_{resp.status_code}"}
+
+    raw_text = ((resp.json().get("choices") or [{}])[0].get("message") or {}).get("content", "").strip()
+    # Извлекаем число из ответа
+    nums = re.findall(r"\d[\d\s]*(?:[.,]\d{1,2})?", raw_text)
+    amount: float | None = None
+    for n in nums:
+        try:
+            v = float(n.replace(" ", "").replace(",", "."))
+            if v > 0:
+                amount = v
+                break
+        except ValueError:
+            pass
+    return {"amount": amount, "raw": raw_text, "error": False}

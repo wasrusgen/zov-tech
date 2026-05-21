@@ -105,20 +105,44 @@ const MeScreen = (function () {
     container.appendChild(screen);
   }
 
+  const EQUIPMENT_ITEMS = [
+    { key: "tablet",       label: "Планшет с ПО для замеров",              icon: "📱" },
+    { key: "laser_tape",   label: "Лазерная рулетка (интеграция с ПО)",    icon: "📡" },
+    { key: "angle_meter",  label: "Угломер",                               icon: "📐" },
+    { key: "tape",         label: "Обычная рулетка",                       icon: "📏" },
+    { key: "laser_level",  label: "Лазерный уровень",                      icon: "🔴" },
+  ];
+
   function renderStaffMe(container, me) {
     const u = me.user || {};
     const caps = me.capabilities || {};
+    const eqList = me.equipment || [];
+    const eqOk = me.equipment_ok !== false;
+
     const chips = [
       caps.measurer && roleChip("замерщик", "blue"),
       caps.assembler && roleChip("сборщик", "green"),
     ].filter(Boolean).join("");
 
+    // Бейдж укомплектованности
+    const eqBadge = caps.measurer ? `
+      <div style="margin:0 16px 12px;padding:10px 14px;border-radius:10px;
+                  background:${eqOk ? "#27AE6015" : "#E74C3C15"};
+                  border:1px solid ${eqOk ? "#27AE60" : "#E74C3C"};">
+        <div style="font-size:13px;font-weight:700;color:${eqOk ? "#27AE60" : "#E74C3C"};">
+          ${eqOk ? "✅ Укомплектован — допуск к замерам открыт" : "⚠️ Не укомплектован — допуск ограничен"}
+        </div>
+        ${!eqOk ? `<div style="font-size:12px;color:var(--muted);margin-top:4px;">
+          Заполните список оборудования ниже
+        </div>` : ""}
+      </div>` : "";
+
     const screen = document.createElement("div");
     screen.className = "podbor-screen";
     screen.innerHTML = `
       ${avatarBlock(u.avatar_initial || "?", u.full_name || "Сотрудник", "")}
-
-      <div style="padding:4px 16px 12px;">${chips}</div>
+      <div style="padding:4px 16px 10px;">${chips}</div>
+      ${eqBadge}
 
       <div class="block" style="margin:0 16px;">
         <div class="block-head">Мои задачи</div>
@@ -128,14 +152,84 @@ const MeScreen = (function () {
           ${caps.assembler ? `<button class="btn-secondary" data-href="#/assembly">🔨 Мои сборки</button>` : ""}
         </div>
       </div>
+
+      ${caps.measurer ? `
+      <div class="block" style="margin:12px 16px 0;" id="equipment-block">
+        <div class="block-head">Оборудование</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">
+          Все 5 пунктов обязательны для допуска к замерам
+        </div>
+        <div id="eq-checklist"></div>
+        <button id="eq-save-btn" class="btn-primary"
+                style="width:100%;padding:12px;font-size:14px;margin-top:12px;">
+          Сохранить оборудование
+        </button>
+        <div id="eq-status" style="font-size:12px;text-align:center;margin-top:8px;color:var(--muted);"></div>
+      </div>` : ""}
     `;
+
     screen.querySelectorAll("[data-href]").forEach(btn => {
       btn.addEventListener("click", () => {
         haptic && haptic("impact");
         location.hash = btn.dataset.href;
       });
     });
+
     container.appendChild(screen);
+
+    // Чеклист оборудования
+    if (caps.measurer) {
+      const checklist = screen.querySelector("#eq-checklist");
+      EQUIPMENT_ITEMS.forEach(item => {
+        const checked = eqList.includes(item.key);
+        const row = document.createElement("label");
+        row.style.cssText = `display:flex;align-items:center;gap:10px;padding:10px 0;
+          border-bottom:1px solid var(--border);cursor:pointer;`;
+        row.innerHTML = `
+          <input type="checkbox" data-key="${item.key}" ${checked ? "checked" : ""}
+                 style="width:18px;height:18px;accent-color:var(--accent);flex-shrink:0;">
+          <span style="font-size:14px;">${item.icon}</span>
+          <span style="font-size:13px;color:var(--ink);">${escHtml(item.label)}</span>
+        `;
+        checklist.appendChild(row);
+      });
+
+      // Кнопка сохранить
+      const saveBtn = screen.querySelector("#eq-save-btn");
+      const statusEl = screen.querySelector("#eq-status");
+      saveBtn.addEventListener("click", async () => {
+        haptic && haptic("impact");
+        saveBtn.disabled = true;
+        saveBtn.textContent = "Сохраняем…";
+        const selected = Array.from(checklist.querySelectorAll("input[data-key]:checked"))
+          .map(cb => cb.dataset.key);
+        try {
+          const res = await _fetchWithTimeout(`${BACKEND_URL}/api/equipment_save`, {
+            initData: typeof Platform !== "undefined" ? Platform.initData : (window.tg?.initData || ""),
+            initDataUnsafe: typeof Platform !== "undefined" ? Platform.initDataUnsafe : null,
+            equipment: selected,
+          });
+          if (res.ok) {
+            statusEl.style.color = res.equipment_ok ? "#27AE60" : "#E74C3C";
+            statusEl.textContent = res.equipment_ok
+              ? "✅ Сохранено. Допуск открыт."
+              : "⚠️ Сохранено. Заполните все пункты для допуска.";
+            // Обновить бейдж
+            const badge = container.querySelector("#equipment-block")?.closest(".podbor-screen")?.querySelector("[style*='Укомплектован']") ||
+              container.querySelector("[style*='допуск']");
+          } else {
+            statusEl.style.color = "#E74C3C";
+            statusEl.textContent = "Ошибка: " + (res.error || "неизвестно");
+          }
+        } catch (e) {
+          statusEl.style.color = "#E74C3C";
+          statusEl.textContent = "Ошибка: " + e.message;
+        } finally {
+          saveBtn.disabled = false;
+          saveBtn.textContent = "Сохранить оборудование";
+        }
+      });
+    }
   }
 
   function renderClientMe(container, me) {

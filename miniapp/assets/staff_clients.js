@@ -386,11 +386,89 @@ const StaffClients = (function () {
             _openScheduleOverlay(m.id, "measurement", c.client_name, () => mount(container));
           });
         }
+
+        // Кнопка «💳 Выставить счёт» — только для замерщика (is_measurer)
+        if (data.is_measurer) {
+          const invoiceBtn = document.createElement("button");
+          invoiceBtn.className = "btn-secondary";
+          invoiceBtn.style.cssText = "width:100%;padding:10px;font-size:13px;margin-top:8px;";
+          invoiceBtn.textContent = "💳 Выставить счёт";
+          invoiceBtn.addEventListener("click", () => {
+            haptic && haptic("impact");
+            location.hash = `#/master/invoice/${m.id}`;
+          });
+          mCard.appendChild(invoiceBtn);
+        }
+
         screen.appendChild(mCard);
       });
     }
 
+    // Подбор техники — загружается для первого замера с podbor_lead_id
+    const measWithPodbor = c.measurements.find(m => m.podbor_lead_id);
+    const firstMeasId    = c.measurements[0]?.id;
+    const pobdorMeasId   = measWithPodbor?.id || firstMeasId;
+
+    if (pobdorMeasId) {
+      const pobdorSection = el(`
+        <div style="margin-top:16px;">
+          <div class="section-head"><span class="label">🛒 Подбор техники</span></div>
+          <div id="podbor-content" style="margin:4px 16px;">
+            <div style="font-size:12px;color:var(--muted);padding:8px 0;">Загружаем…</div>
+          </div>
+        </div>
+      `);
+      screen.appendChild(pobdorSection);
+
+      // Асинхронная загрузка подбора
+      _loadPodbor(pobdorMeasId, pobdorSection.querySelector("#podbor-content"));
+    }
+
     screen.appendChild(el(`<div style="height:32px;"></div>`));
+  }
+
+  async function _loadPodbor(measurementId, container) {
+    try {
+      const res = await _api("assembler_client_podbor", { measurement_id: measurementId });
+      if (!res.ok || !res.has_podbor) {
+        container.innerHTML = `<div style="font-size:12px;color:var(--muted);padding:8px 0;">Подбор техники не назначен</div>`;
+        return;
+      }
+      const items = res.items || [];
+      if (!items.length) {
+        container.innerHTML = `<div style="font-size:12px;color:var(--muted);padding:8px 0;">Варианты ещё не добавлены</div>`;
+        return;
+      }
+
+      const STATUS_LABEL = { draft: "Черновик", sent: "Отправлен", reviewed: "Просмотрен", done: "Выбор сделан" };
+      container.innerHTML = `
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">
+          Статус: <strong>${escHtml(STATUS_LABEL[res.proposal_status] || res.proposal_status || "—")}</strong>
+          · ${items.length} позиций
+        </div>
+      `;
+
+      items.forEach(item => {
+        const card = el(`
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;
+                      border-bottom:1px solid var(--border);">
+            ${item.image_url ? `<img src="${escHtml(item.image_url)}" alt=""
+              style="width:40px;height:40px;object-fit:cover;border-radius:6px;flex-shrink:0;border:1px solid var(--border);">` :
+              `<div style="width:40px;height:40px;background:var(--border);border-radius:6px;flex-shrink:0;"></div>`}
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">${escHtml(item.category)}</div>
+              <div style="font-size:13px;font-weight:500;color:var(--ink);margin-top:1px;">${escHtml(item.name)}</div>
+              ${item.price ? `<div style="font-size:12px;color:var(--accent);margin-top:1px;">${Number(item.price).toLocaleString("ru-RU")} ₽</div>` : ""}
+            </div>
+            ${item.voted ? `<div style="font-size:16px;">✅</div>` : ""}
+          </div>
+        `);
+        container.appendChild(card);
+      });
+
+    } catch (e) {
+      container.innerHTML = `<div style="font-size:12px;color:var(--muted);padding:8px 0;">Ошибка загрузки подбора</div>`;
+    }
   }
 
   /* ── Оверлей выбора даты/времени ───────────────────────────── */

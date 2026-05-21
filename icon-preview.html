@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Icon Preview — 10 Styles × 3 Roles</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #EFE9DF;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    padding: 32px 24px;
+    min-height: 100vh;
+  }
+  h1 {
+    text-align: center;
+    color: #6B4A2B;
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 32px;
+    letter-spacing: 0.5px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .card {
+    background: #FBF7F0;
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(107,74,43,0.10);
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .badge {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #6B4A2B;
+    color: #FBF7F0;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .style-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #6B4A2B;
+  }
+  .icons-row {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    align-items: flex-end;
+  }
+  .icon-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .icon-label {
+    font-size: 11px;
+    color: #8A6A4A;
+    font-weight: 500;
+    text-align: center;
+    letter-spacing: 0.3px;
+  }
+</style>
+</head>
+<body>
+<h1>Превью иконок — 10 стилей × 3 роли</h1>
+<div class="grid">
+
+<!-- ===== STYLE 1: Контур ===== -->
+<div class="card">
+  <div class="card-header">
+    <div class="badge">1</div>
+    <div class="style-name">Контур</div>
+  </div>
+  <div class="icons-row">
+    <!-- Manager: outline -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <!-- head ellipse -->
+        <ellipse cx="22" cy="13" rx="6" ry="7" fill="none" stroke="#6B4A2B" stroke-width="1.5"/>
+        <!-- shoulders arc -->
+        <path d="M8 38 Q8 28 16 26 Q19 25 22 25 Q25 25 28 26 Q36 28 36 38" fill="none" stroke="#6B4A2B" stroke-width="1.5"/>
+        <!-- collar V -->
+        <path d="M18 26 L22 31 L26 26" fill="none" stroke="#6B4A2B" stroke-width="1.5"/>
+        <!-- tie outline -->
+        <path d="M21 31 L20.5 36 L22 38 L23.5 36 L23 31 Z" fill="none" stroke="#6B4A2B" stroke-width="1.2"/>
+        <!-- lapel lines -->
+        <line x1="18" y1="26" x2="15" y2="30" stroke="#6B4A2B" stroke-width="1.2"/>
+        <line x1="26" y1="26" x2="29" y2="30" stroke="#6B4A2B" stroke-width="1.2"/>
+      </svg>
+      <div class="icon-label">Менеджер</div>
+    </div>
+    <!-- Client: house outline -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <!-- roof triangle -->
+        <polyline points="6,22 22,6 38,22" fill="none" stroke="#6B4A2B" stroke-width="1.5"/>
+        <!-- walls rect -->
+        <rect x="9" y="22" width="26" height="16" fill="none" stroke="#6B4A2B" stroke-width="1.5"/>
+        <!-- window left -->
+        <rect x="12" y="26" width="7" height="6" fill="none" stroke="#6B4A2B" stroke-width="1.2"/>
+        <!-- window cross -->
+        <line x1="15.5" y1="26" x2="15.5" y2="32" stroke="#6B4A2B" stroke-width="1"/>
+        <line x1="12" y1="29" x2="19" y2="29" stroke="#6B4A2B" stroke-width="1"/>
+        <!-- window right -->
+        <rect x="25" y="26" width="7" height="6" fill="none" stroke="#6B4A2B" stroke-width="1.2"/>
+        <line x1="28.5" y1="26" x2="28.5" y2="32" stroke="#6B4A2B" stroke-width="1"/>
+        <line x1="25" y1="29" x2="32" y2="29" stroke="#6B4A2B" stroke-width="1"/>
+        <!-- door arch -->
+        <path d="M19 38 L19 31 Q22 28 25 31 L25 38" fill="none" stroke="#6B4A2B" stroke-width="1.2"/>
+        <!-- knob -->
+        <circle cx="24" cy="34.5" r="0.8" fill="#6B4A2B"/>
+      </svg>
+      <div class="icon-label">Клиент</div>
+    </div>
+    <!-- Staff: construction worker outline -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <!-- helmet dome arc -->
+        <path d="M12 22 Q12 10 22 10 Q32 10 32 22" fill="none" stroke="#6B4A2B" stroke-width="1.5"/>
+        <!-- brim line -->
+        <line x1="9" y1="22" x2="35" y2="22" stroke="#6B4A2B" stroke-width="2"/>
+        <!-- head circle -->
+        <circle cx="22" cy="28" r="5.5" fill="none" stroke="#6B4A2B" stroke-width="1.5"/>
+        <!-- torso/jacket -->
+        <path d="M10 44 Q10 36 17 34 L22 33.5 L27 34 Q34 36 34 44" fill="none" stroke="#6B4A2B" stroke-width="1.5"/>
+        <!-- wrench L-shape -->
+        <line x1="30" y1="30" x2="38" y2="22" stroke="#6B4A2B" stroke-width="1.5"/>
+        <line x1="35" y1="22" x2="38" y2="25" stroke="#6B4A2B" stroke-width="1.5"/>
+        <circle cx="38" cy="22" r="2.5" fill="none" stroke="#6B4A2B" stroke-width="1.2"/>
+      </svg>
+      <div class="icon-label">Сотрудник</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== STYLE 2: Силуэт ===== -->
+<div class="card">
+  <div class="card-header">
+    <div class="badge">2</div>
+    <div class="style-name">Силуэт</div>
+  </div>
+  <div class="icons-row">
+    <!-- Manager silhouette -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <!-- head -->
+        <circle cx="22" cy="13" r="7" fill="#6B4A2B"/>
+        <!-- torso/suit path -->
+        <path d="M8 44 Q8 28 16 26 L18 25.5 L22 24 L26 25.5 L28 26 Q36 28 36 44 Z" fill="#6B4A2B"/>
+        <!-- collar V white -->
+        <path d="M18 26 L22 32 L26 26 L24 26 L22 30 L20 26 Z" fill="#FBF7F0"/>
+        <!-- tie white -->
+        <path d="M21 32 L20.5 37 L22 39 L23.5 37 L23 32 Z" fill="#FBF7F0"/>
+      </svg>
+      <div class="icon-label">Менеджер</div>
+    </div>
+    <!-- Client silhouette -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <!-- roof triangle filled -->
+        <polygon points="6,22 22,5 38,22" fill="#6B4A2B"/>
+        <!-- walls filled -->
+        <rect x="9" y="22" width="26" height="17" fill="#6B4A2B"/>
+        <!-- left window white -->
+        <rect x="12" y="26" width="7" height="6" fill="#FBF7F0"/>
+        <!-- right window white -->
+        <rect x="25" y="26" width="7" height="6" fill="#FBF7F0"/>
+        <!-- door white -->
+        <path d="M19 39 L19 31.5 Q22 28.5 25 31.5 L25 39 Z" fill="#FBF7F0"/>
+      </svg>
+      <div class="icon-label">Клиент</div>
+    </div>
+    <!-- Staff silhouette -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <!-- helmet + brim filled path -->
+        <path d="M9 22 L9 21 Q9 9 22 9 Q35 9 35 21 L35 22 Z" fill="#6B4A2B"/>
+        <!-- head circle -->
+        <circle cx="22" cy="28" r="5.5" fill="#6B4A2B"/>
+        <!-- torso -->
+        <path d="M10 44 Q10 36 17 34 L22 33.5 L27 34 Q34 36 34 44 Z" fill="#6B4A2B"/>
+        <!-- eyes white dots -->
+        <circle cx="20" cy="27.5" r="1" fill="#FBF7F0"/>
+        <circle cx="24" cy="27.5" r="1" fill="#FBF7F0"/>
+        <!-- wrench white -->
+        <path d="M29 31 L37 23 L35 21 L33 23 L31 21 L33 19 Q34 17 36 18 Q38 19 38 21 Q38 24 36 25 L32 29 Z" fill="#FBF7F0"/>
+      </svg>
+      <div class="icon-label">Сотрудник</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== STYLE 3: Мягкий ===== -->
+<div class="card">
+  <div class="card-header">
+    <div class="badge">3</div>
+    <div class="style-name">Мягкий</div>
+  </div>
+  <div class="icons-row">
+    <!-- Manager soft -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="22" cy="13" r="6.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M9 38 Q9 28 17 26.5 Q19.5 26 22 26 Q24.5 26 27 26.5 Q35 28 35 38" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- collar lines -->
+        <line x1="19" y1="26.5" x2="22" y2="31" stroke="#6B4A2B" stroke-width="2" stroke-linecap="round"/>
+        <line x1="25" y1="26.5" x2="22" y2="31" stroke="#6B4A2B" stroke-width="2" stroke-linecap="round"/>
+        <!-- tie filled polygon -->
+        <polygon points="21,31 20.5,37 22,39 23.5,37 23,31" fill="#6B4A2B" stroke="#6B4A2B" stroke-width="0.5" stroke-linejoin="round"/>
+      </svg>
+      <div class="icon-label">Менеджер</div>
+    </div>
+    <!-- Client soft -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6,22 L22,6 L38,22" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <rect x="9" y="21" width="26" height="18" rx="2" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="2.5" stroke-linejoin="round"/>
+        <!-- windows with glass blue -->
+        <rect x="12" y="25" width="7" height="6" rx="1.5" fill="#D6EFF5" stroke="#6B4A2B" stroke-width="1.5"/>
+        <rect x="25" y="25" width="7" height="6" rx="1.5" fill="#D6EFF5" stroke="#6B4A2B" stroke-width="1.5"/>
+        <!-- door arch warm sand -->
+        <path d="M19.5 39 L19.5 32 Q22 29 24.5 32 L24.5 39" fill="#EDE0C8" stroke="#6B4A2B" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <div class="icon-label">Клиент</div>
+    </div>
+    <!-- Staff soft -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <!-- dome arc -->
+        <path d="M12 22 Q12 11 22 11 Q32 11 32 22" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="2.5" stroke-linecap="round"/>
+        <!-- brim line thick -->
+        <line x1="9" y1="22" x2="35" y2="22" stroke="#6B4A2B" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="22" cy="28.5" r="5.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="2.5"/>
+        <path d="M11 44 Q11 36 17 34 L22 33.5 L27 34 Q33 36 33 44" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- wrench line + circle -->
+        <line x1="31" y1="31" x2="39" y2="23" stroke="#6B4A2B" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="39" cy="22" r="2.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="2"/>
+        <line x1="36.5" y1="22" x2="36.5" y2="25" stroke="#6B4A2B" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <div class="icon-label">Сотрудник</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== STYLE 4: Значок ===== -->
+<div class="card">
+  <div class="card-header">
+    <div class="badge">4</div>
+    <div class="style-name">Значок</div>
+  </div>
+  <div class="icons-row">
+    <!-- Manager badge -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="22" cy="22" r="21" fill="#6B4A2B"/>
+        <!-- white head -->
+        <circle cx="22" cy="15" r="5.5" fill="#FBF7F0"/>
+        <!-- white torso -->
+        <path d="M9 40 Q9 30 17 28 L22 27.5 L27 28 Q35 30 35 40 Z" fill="#FBF7F0"/>
+        <!-- dark collar/suit -->
+        <path d="M17 28 L22 34 L27 28 L25 28 L22 32 L19 28 Z" fill="#6B4A2B"/>
+        <!-- white tie -->
+        <polygon points="21,34 20.5,39 22,40.5 23.5,39 23,34" fill="#FBF7F0"/>
+      </svg>
+      <div class="icon-label">Менеджер</div>
+    </div>
+    <!-- Client badge -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="22" cy="22" r="21" fill="#6B4A2B"/>
+        <!-- white roof -->
+        <polygon points="8,22 22,8 36,22" fill="#FBF7F0"/>
+        <!-- white walls -->
+        <rect x="11" y="22" width="22" height="14" fill="#FBF7F0"/>
+        <!-- dark windows -->
+        <rect x="13" y="25" width="6" height="5" fill="#6B4A2B"/>
+        <rect x="25" y="25" width="6" height="5" fill="#6B4A2B"/>
+        <!-- dark door -->
+        <path d="M20 36 L20 30.5 Q22 28 24 30.5 L24 36 Z" fill="#6B4A2B"/>
+      </svg>
+      <div class="icon-label">Клиент</div>
+    </div>
+    <!-- Staff badge -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="22" cy="22" r="21" fill="#6B4A2B"/>
+        <!-- white helmet -->
+        <path d="M11 23 L11 22 Q11 12 22 12 Q33 12 33 22 L33 23 Z" fill="#FBF7F0"/>
+        <!-- brim stripe dark -->
+        <rect x="10" y="22" width="24" height="2" fill="#5A3D24"/>
+        <!-- white head -->
+        <circle cx="22" cy="29" r="5" fill="#FBF7F0"/>
+        <!-- white torso -->
+        <path d="M12 42 Q12 35 18 33.5 L22 33 L26 33.5 Q32 35 32 42 Z" fill="#FBF7F0"/>
+        <!-- dark eyes -->
+        <circle cx="20.5" cy="28.5" r="1" fill="#6B4A2B"/>
+        <circle cx="23.5" cy="28.5" r="1" fill="#6B4A2B"/>
+        <!-- wrench white -->
+        <line x1="31" y1="32" x2="38" y2="25" stroke="#FBF7F0" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="38.5" cy="24" r="2" fill="#FBF7F0"/>
+      </svg>
+      <div class="icon-label">Сотрудник</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== STYLE 5: Геометрия ===== -->
+<div class="card">
+  <div class="card-header">
+    <div class="badge">5</div>
+    <div class="style-name">Геометрия</div>
+  </div>
+  <div class="icons-row">
+    <!-- Manager geometric -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <!-- circle head -->
+        <circle cx="22" cy="11" r="6" fill="#6B4A2B"/>
+        <!-- trapezoid body -->
+        <polygon points="13,40 14,24 30,24 31,40" fill="#6B4A2B"/>
+        <!-- triangle tie -->
+        <polygon points="22,24 20,32 24,32" fill="#FBF7F0"/>
+        <!-- triangle tie bottom -->
+        <polygon points="20,32 24,32 22,38" fill="#FBF7F0"/>
+      </svg>
+      <div class="icon-label">Менеджер</div>
+    </div>
+    <!-- Client geometric -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <!-- triangle roof -->
+        <polygon points="7,22 22,5 37,22" fill="#6B4A2B"/>
+        <!-- rect walls -->
+        <rect x="10" y="22" width="24" height="17" fill="#C49A6C"/>
+        <!-- white square windows -->
+        <rect x="13" y="25" width="6" height="6" fill="#FBF7F0"/>
+        <rect x="25" y="25" width="6" height="6" fill="#FBF7F0"/>
+        <!-- white door rect -->
+        <rect x="19.5" y="31" width="5" height="8" fill="#FBF7F0"/>
+      </svg>
+      <div class="icon-label">Клиент</div>
+    </div>
+    <!-- Staff geometric -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <!-- semicircle helmet -->
+        <path d="M11 21 Q11 10 22 10 Q33 10 33 21 Z" fill="#6B4A2B"/>
+        <!-- brim rect -->
+        <rect x="10" y="21" width="24" height="3" fill="#5A3D24"/>
+        <!-- circle head -->
+        <circle cx="22" cy="30" r="5.5" fill="#C49A6C"/>
+        <!-- rect body -->
+        <rect x="14" y="35" width="16" height="9" fill="#C49A6C"/>
+        <!-- wrench dark -->
+        <rect x="31" y="24" width="3" height="10" fill="#6B4A2B" rx="1.5"/>
+        <rect x="31" y="24" width="8" height="3" fill="#6B4A2B" rx="1.5"/>
+      </svg>
+      <div class="icon-label">Сотрудник</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== STYLE 6: Дуотон ===== -->
+<div class="card">
+  <div class="card-header">
+    <div class="badge">6</div>
+    <div class="style-name">Дуотон</div>
+  </div>
+  <div class="icons-row">
+    <!-- Manager duotone -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <!-- head dark -->
+        <circle cx="22" cy="13" r="6.5" fill="#6B4A2B"/>
+        <!-- torso light -->
+        <path d="M9 44 Q9 28 17 26.5 L22 26 L27 26.5 Q35 28 35 44 Z" fill="#C49A6C"/>
+        <!-- collar dark -->
+        <path d="M17 26.5 L22 33 L27 26.5 L25 26.5 L22 31 L19 26.5 Z" fill="#6B4A2B"/>
+        <!-- tie white -->
+        <polygon points="21,33 20.5,38 22,40 23.5,38 23,33" fill="#FBF7F0"/>
+        <!-- lapels dark accent -->
+        <path d="M17 26.5 L14 31 L16 31 L22 33 L28 31 L30 31 L27 26.5 L25 26.5 L22 31 L19 26.5 Z" fill="#6B4A2B"/>
+      </svg>
+      <div class="icon-label">Менеджер</div>
+    </div>
+    <!-- Client duotone -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <!-- roof dark -->
+        <polygon points="6,22 22,5 38,22" fill="#6B4A2B"/>
+        <!-- walls light -->
+        <rect x="9" y="22" width="26" height="17" fill="#C49A6C"/>
+        <!-- windows white -->
+        <rect x="12" y="26" width="7" height="5" fill="#FBF7F0"/>
+        <rect x="25" y="26" width="7" height="5" fill="#FBF7F0"/>
+        <!-- door dark -->
+        <path d="M19.5 39 L19.5 31 Q22 28.5 24.5 31 L24.5 39 Z" fill="#6B4A2B"/>
+      </svg>
+      <div class="icon-label">Клиент</div>
+    </div>
+    <!-- Staff duotone -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <!-- helmet dark -->
+        <path d="M10 23 L10 22 Q10 10 22 10 Q34 10 34 22 L34 23 Z" fill="#6B4A2B"/>
+        <!-- brim dark -->
+        <rect x="9" y="22" width="26" height="2.5" fill="#5A3D24"/>
+        <!-- head+neck light -->
+        <circle cx="22" cy="29" r="5.5" fill="#C49A6C"/>
+        <!-- torso light -->
+        <path d="M11 44 Q11 36 17 34 L22 33.5 L27 34 Q33 36 33 44 Z" fill="#C49A6C"/>
+        <!-- face dots white -->
+        <circle cx="20.5" cy="28.5" r="1.2" fill="#FBF7F0"/>
+        <circle cx="23.5" cy="28.5" r="1.2" fill="#FBF7F0"/>
+        <!-- wrench dark -->
+        <line x1="30" y1="31" x2="38" y2="23" stroke="#6B4A2B" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="38" cy="22.5" r="2.5" fill="#6B4A2B"/>
+        <rect x="36" y="20" width="4" height="2" rx="1" fill="#C49A6C"/>
+      </svg>
+      <div class="icon-label">Сотрудник</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== STYLE 7: Уютный ===== -->
+<div class="card">
+  <div class="card-header">
+    <div class="badge">7</div>
+    <div class="style-name">Уютный</div>
+  </div>
+  <div class="icons-row">
+    <!-- Manager cozy -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <!-- head fill light -->
+        <circle cx="22" cy="13" r="6.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.8"/>
+        <!-- hair dark fill top -->
+        <path d="M15.5 11 Q16 7 22 7 Q28 7 28.5 11 Q26 9.5 22 9.5 Q18 9.5 15.5 11 Z" fill="#5A3D24"/>
+        <!-- torso with inner detail -->
+        <path d="M9 44 Q9 28 17 26.5 L22 26 L27 26.5 Q35 28 35 44" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.8"/>
+        <!-- lapel lines -->
+        <line x1="19" y1="26.5" x2="15" y2="32" stroke="#6B4A2B" stroke-width="1.5"/>
+        <line x1="25" y1="26.5" x2="29" y2="32" stroke="#6B4A2B" stroke-width="1.5"/>
+        <!-- collar V -->
+        <line x1="19" y1="26.5" x2="22" y2="31" stroke="#6B4A2B" stroke-width="1.5"/>
+        <line x1="25" y1="26.5" x2="22" y2="31" stroke="#6B4A2B" stroke-width="1.5"/>
+        <!-- tie polygon -->
+        <polygon points="21,31 20.5,37 22,39 23.5,37 23,31" fill="#6B4A2B"/>
+        <!-- pocket line -->
+        <line x1="14" y1="36" x2="18" y2="36" stroke="#6B4A2B" stroke-width="1.2"/>
+      </svg>
+      <div class="icon-label">Менеджер</div>
+    </div>
+    <!-- Client cozy -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <!-- roof -->
+        <path d="M6,22 L22,5 L38,22 Z" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.8" stroke-linejoin="round"/>
+        <!-- chimney rect -->
+        <rect x="26" y="9" width="4" height="8" fill="#6B4A2B"/>
+        <!-- walls -->
+        <rect x="9" y="21" width="26" height="18" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.8"/>
+        <!-- window left with glass blue + cross lines -->
+        <rect x="12" y="25" width="7" height="6" rx="1" fill="#D6EFF5" stroke="#6B4A2B" stroke-width="1.4"/>
+        <line x1="15.5" y1="25" x2="15.5" y2="31" stroke="#6B4A2B" stroke-width="0.9"/>
+        <line x1="12" y1="28" x2="19" y2="28" stroke="#6B4A2B" stroke-width="0.9"/>
+        <!-- window right -->
+        <rect x="25" y="25" width="7" height="6" rx="1" fill="#D6EFF5" stroke="#6B4A2B" stroke-width="1.4"/>
+        <line x1="28.5" y1="25" x2="28.5" y2="31" stroke="#6B4A2B" stroke-width="0.9"/>
+        <line x1="25" y1="28" x2="32" y2="28" stroke="#6B4A2B" stroke-width="0.9"/>
+        <!-- paneled door with warm sand + inner line -->
+        <path d="M19.5 39 L19.5 31 Q22 28 24.5 31 L24.5 39 Z" fill="#EDE0C8" stroke="#6B4A2B" stroke-width="1.4"/>
+        <line x1="22" y1="31" x2="22" y2="39" stroke="#6B4A2B" stroke-width="0.9"/>
+        <!-- knob -->
+        <circle cx="23.8" cy="35" r="0.9" fill="#6B4A2B"/>
+      </svg>
+      <div class="icon-label">Клиент</div>
+    </div>
+    <!-- Staff cozy -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <!-- dome -->
+        <path d="M13 22 Q13 11 22 11 Q31 11 31 22 Z" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.8"/>
+        <!-- brim rect fill dark walnut -->
+        <rect x="10" y="21" width="24" height="3" rx="1" fill="#5A3D24"/>
+        <!-- head circle -->
+        <circle cx="22" cy="28.5" r="5.5" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.8"/>
+        <!-- eyes dots -->
+        <circle cx="20" cy="28" r="1" fill="#6B4A2B"/>
+        <circle cx="24" cy="28" r="1" fill="#6B4A2B"/>
+        <!-- smile -->
+        <path d="M20 30.5 Q22 32 24 30.5" fill="none" stroke="#6B4A2B" stroke-width="1"/>
+        <!-- torso -->
+        <path d="M12 44 Q12 36 18 34 L22 33.5 L26 34 Q32 36 32 44" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.8" stroke-linecap="round"/>
+        <!-- wrench: handle + circle head -->
+        <line x1="31" y1="31" x2="38" y2="24" stroke="#6B4A2B" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="38.5" cy="23.5" r="2.8" fill="#FBF7F0" stroke="#6B4A2B" stroke-width="1.8"/>
+        <line x1="37" y1="22" x2="40" y2="25" stroke="#6B4A2B" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <div class="icon-label">Сотрудник</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== STYLE 8: Стик ===== -->
+<div class="card">
+  <div class="card-header">
+    <div class="badge">8</div>
+    <div class="style-name">Стик</div>
+  </div>
+  <div class="icons-row">
+    <!-- Manager stick -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <!-- head filled -->
+        <circle cx="22" cy="10" r="5" fill="#6B4A2B"/>
+        <!-- neck line -->
+        <line x1="22" y1="15" x2="22" y2="19" stroke="#6B4A2B" stroke-width="1.8" stroke-linecap="round"/>
+        <!-- shoulders line -->
+        <line x1="12" y1="22" x2="32" y2="22" stroke="#6B4A2B" stroke-width="1.8" stroke-linecap="round"/>
+        <!-- arms lines -->
+        <line x1="12" y1="22" x2="9" y2="30" stroke="#6B4A2B" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="32" y1="22" x2="35" y2="30" stroke="#6B4A2B" stroke-width="1.5" stroke-linecap="round"/>
+        <!-- torso line -->
+        <line x1="22" y1="19" x2="22" y2="32" stroke="#6B4A2B" stroke-width="1.8" stroke-linecap="round"/>
+        <!-- legs lines -->
+        <line x1="22" y1="32" x2="17" y2="42" stroke="#6B4A2B" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="22" y1="32" x2="27" y2="42" stroke="#6B4A2B" stroke-width="1.5" stroke-linecap="round"/>
+        <!-- tie dot -->
+        <circle cx="22" cy="24" r="1.5" fill="#6B4A2B"/>
+        <!-- tie line -->
+        <line x1="22" y1="24" x2="22" y2="30" stroke="#6B4A2B" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+      <div class="icon-label">Менеджер</div>
+    </div>
+    <!-- Client stick -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <!-- roof lines -->
+        <polyline points="6,22 22,6 38,22" fill="none" stroke="#6B4A2B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- walls rect outline -->
+        <rect x="9" y="22" width="26" height="16" fill="none" stroke="#6B4A2B" stroke-width="1.8" stroke-linejoin="round"/>
+        <!-- circle windows filled -->
+        <circle cx="15.5" cy="29" r="3.5" fill="#6B4A2B"/>
+        <circle cx="28.5" cy="29" r="3.5" fill="#6B4A2B"/>
+        <!-- rounded rect door -->
+        <rect x="19.5" y="31" width="5" height="7" rx="2.5" fill="#6B4A2B"/>
+      </svg>
+      <div class="icon-label">Клиент</div>
+    </div>
+    <!-- Staff stick -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <!-- dome arc line -->
+        <path d="M13 21 Q13 11 22 11 Q31 11 31 21" fill="none" stroke="#6B4A2B" stroke-width="2" stroke-linecap="round"/>
+        <!-- thick brim line -->
+        <line x1="10" y1="21" x2="34" y2="21" stroke="#6B4A2B" stroke-width="3" stroke-linecap="round"/>
+        <!-- filled circle head -->
+        <circle cx="22" cy="27" r="5" fill="#6B4A2B"/>
+        <!-- body lines -->
+        <line x1="22" y1="32" x2="22" y2="38" stroke="#6B4A2B" stroke-width="2" stroke-linecap="round"/>
+        <line x1="14" y1="34" x2="30" y2="34" stroke="#6B4A2B" stroke-width="1.8" stroke-linecap="round"/>
+        <line x1="22" y1="38" x2="17" y2="44" stroke="#6B4A2B" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="22" y1="38" x2="27" y2="44" stroke="#6B4A2B" stroke-width="1.5" stroke-linecap="round"/>
+        <!-- wrench arm with L -->
+        <line x1="30" y1="34" x2="38" y2="26" stroke="#6B4A2B" stroke-width="2" stroke-linecap="round"/>
+        <line x1="35" y1="26" x2="38" y2="29" stroke="#6B4A2B" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <div class="icon-label">Сотрудник</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== STYLE 9: Ретро ===== -->
+<div class="card">
+  <div class="card-header">
+    <div class="badge">9</div>
+    <div class="style-name">Ретро</div>
+  </div>
+  <div class="icons-row">
+    <!-- Manager retro -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <!-- ring frame -->
+        <circle cx="22" cy="22" r="20.5" stroke="#6B4A2B" stroke-width="1.5" fill="#FBF7F0"/>
+        <!-- head filled dark -->
+        <circle cx="22" cy="15" r="6" fill="#6B4A2B"/>
+        <!-- hair suggestion top lighter -->
+        <path d="M16.5 13 Q17 10 22 10 Q27 10 27.5 13 Q25 11.5 22 11.5 Q19 11.5 16.5 13 Z" fill="#5A3D24"/>
+        <!-- suit torso -->
+        <path d="M10 40 Q10 28 18 27 L22 26.5 L26 27 Q34 28 34 40 Z" fill="#6B4A2B"/>
+        <!-- lapels pale -->
+        <path d="M18 27 L22 33 L26 27 L24.5 27 L22 31 L19.5 27 Z" fill="#C49A6C"/>
+        <!-- tie accent -->
+        <polygon points="21.2,33 20.8,38 22,39.5 23.2,38 22.8,33" fill="#FBF7F0"/>
+      </svg>
+      <div class="icon-label">Менеджер</div>
+    </div>
+    <!-- Client retro -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="22" cy="22" r="20.5" stroke="#6B4A2B" stroke-width="1.5" fill="#FBF7F0"/>
+        <!-- roof dark -->
+        <polygon points="8,22 22,7 36,22" fill="#6B4A2B"/>
+        <!-- walls medium -->
+        <rect x="10" y="22" width="24" height="15" fill="#C49A6C"/>
+        <!-- windows filled dark -->
+        <rect x="13" y="25.5" width="6" height="5" fill="#6B4A2B"/>
+        <rect x="25" y="25.5" width="6" height="5" fill="#6B4A2B"/>
+        <!-- door arch pale -->
+        <path d="M19.5 37 L19.5 30.5 Q22 28 24.5 30.5 L24.5 37 Z" fill="#EDE0C8"/>
+      </svg>
+      <div class="icon-label">Клиент</div>
+    </div>
+    <!-- Staff retro -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="22" cy="22" r="20.5" stroke="#6B4A2B" stroke-width="1.5" fill="#FBF7F0"/>
+        <!-- helmet dark -->
+        <path d="M12 23 L12 21 Q12 11 22 11 Q32 11 32 21 L32 23 Z" fill="#6B4A2B"/>
+        <!-- brim dark line -->
+        <rect x="11" y="22" width="22" height="2.5" fill="#5A3D24"/>
+        <!-- head accent -->
+        <circle cx="22" cy="29" r="5" fill="#C49A6C"/>
+        <!-- torso -->
+        <path d="M12 42 Q12 35 18 33.5 L22 33 L26 33.5 Q32 35 32 42 Z" fill="#6B4A2B"/>
+        <!-- face eyes white -->
+        <circle cx="20.5" cy="28.5" r="1" fill="#FBF7F0"/>
+        <circle cx="23.5" cy="28.5" r="1" fill="#FBF7F0"/>
+        <!-- wrench small in hand -->
+        <line x1="30" y1="30" x2="36" y2="24" stroke="#6B4A2B" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M34 22 Q36 21 37 23 Q38 25 36 26 L34 24 Z" fill="#6B4A2B"/>
+      </svg>
+      <div class="icon-label">Сотрудник</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== STYLE 10: Маркер ===== -->
+<div class="card">
+  <div class="card-header">
+    <div class="badge">10</div>
+    <div class="style-name">Маркер</div>
+  </div>
+  <div class="icons-row">
+    <!-- Manager marker -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <!-- head circle thick -->
+        <circle cx="22" cy="13" r="6" fill="none" stroke="#6B4A2B" stroke-width="4.5" stroke-linecap="round"/>
+        <!-- shoulder arc thick -->
+        <path d="M9 38 Q9 27 17 25.5 Q19.5 25 22 25 Q24.5 25 27 25.5 Q35 27 35 38" fill="none" stroke="#6B4A2B" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- collar V brief thick -->
+        <path d="M19 25.5 L22 30 L25 25.5" fill="none" stroke="#6B4A2B" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="icon-label">Менеджер</div>
+    </div>
+    <!-- Client marker -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <!-- roof path thick -->
+        <polyline points="7,22 22,7 37,22" fill="none" stroke="#6B4A2B" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- walls rect thick -->
+        <rect x="10" y="22" width="24" height="15" fill="none" stroke="#6B4A2B" stroke-width="4" stroke-linejoin="round"/>
+        <!-- small window squares thick -->
+        <rect x="13" y="26" width="5" height="4" fill="none" stroke="#6B4A2B" stroke-width="3" stroke-linejoin="round"/>
+        <rect x="26" y="26" width="5" height="4" fill="none" stroke="#6B4A2B" stroke-width="3" stroke-linejoin="round"/>
+        <!-- door arch thick -->
+        <path d="M19.5 37 L19.5 31 Q22 28 24.5 31 L24.5 37" fill="none" stroke="#6B4A2B" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="icon-label">Клиент</div>
+    </div>
+    <!-- Staff marker -->
+    <div class="icon-wrap">
+      <svg viewBox="0 0 44 44" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+        <!-- dome arc thick -->
+        <path d="M13 22 Q13 11 22 11 Q31 11 31 22" fill="none" stroke="#6B4A2B" stroke-width="4.5" stroke-linecap="round"/>
+        <!-- brim thick line -->
+        <line x1="9" y1="22" x2="35" y2="22" stroke="#6B4A2B" stroke-width="5" stroke-linecap="round"/>
+        <!-- head circle thick -->
+        <circle cx="22" cy="28.5" r="5.5" fill="none" stroke="#6B4A2B" stroke-width="4.5" stroke-linecap="round"/>
+        <!-- torso arc thick -->
+        <path d="M12 43 Q12 35 18 33.5 L22 33 L26 33.5 Q32 35 32 43" fill="none" stroke="#6B4A2B" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- wrench L thick -->
+        <line x1="31" y1="32" x2="38" y2="25" stroke="#6B4A2B" stroke-width="4" stroke-linecap="round"/>
+        <line x1="35" y1="25" x2="38" y2="28" stroke="#6B4A2B" stroke-width="4" stroke-linecap="round"/>
+      </svg>
+      <div class="icon-label">Сотрудник</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- end grid -->
+</body>
+</html>
